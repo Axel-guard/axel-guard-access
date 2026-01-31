@@ -29,29 +29,37 @@ export const StatCard = ({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl p-5 text-primary-foreground shadow-card transition-transform hover:scale-[1.02]",
+        "group relative overflow-hidden rounded-2xl p-5 text-white shadow-glass transition-all duration-300 hover:scale-[1.02] hover:shadow-lg",
         variantStyles[variant]
       )}
     >
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
-      <div className="absolute -bottom-6 -right-6 h-32 w-32 rounded-full bg-white/5" />
+      {/* Glassmorphism overlay */}
+      <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
+      
+      {/* Decorative elements */}
+      <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-xl transition-all duration-500 group-hover:scale-150" />
+      <div className="absolute -bottom-8 -left-4 h-24 w-24 rounded-full bg-white/5 blur-lg" />
+      <div className="absolute right-4 top-4 h-16 w-16 rounded-full bg-white/10 blur-md" />
       
       <div className="relative z-10">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm font-medium opacity-90">{title}</span>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm font-medium text-white/90">{title}</span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm transition-transform group-hover:scale-110">
             <Icon className="h-5 w-5" />
           </div>
         </div>
         
-        <p className="text-2xl font-bold tracking-tight lg:text-3xl">{value}</p>
+        <p className="text-3xl font-bold tracking-tight">{value}</p>
         
         {trend && (
-          <p className={cn("mt-2 text-sm", trend.positive ? "text-white/90" : "text-white/70")}>
-            <span className={trend.positive ? "text-green-200" : "text-red-200"}>
+          <p className="mt-3 text-sm text-white/80">
+            <span className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+              trend.positive ? "bg-white/20 text-white" : "bg-black/10 text-white/90"
+            )}>
               {trend.positive ? "↑" : "↓"} {trend.value}
             </span>
-            {" "}vs last month
+            <span className="ml-2">vs last month</span>
           </p>
         )}
       </div>

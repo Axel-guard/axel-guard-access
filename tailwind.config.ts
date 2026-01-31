@@ -75,6 +75,10 @@ export default {
         'sm': 'var(--shadow-sm)',
         'md': 'var(--shadow-md)',
         'lg': 'var(--shadow-lg)',
+        'glass': 'var(--shadow-glass)',
+      },
+      backdropBlur: {
+        'glass': 'var(--glass-blur)',
       },
       borderRadius: {
         lg: "var(--radius)",

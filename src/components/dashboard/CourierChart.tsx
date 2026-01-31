@@ -2,13 +2,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useShipmentsSummary } from "@/hooks/useShipments";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Truck } from "lucide-react";
 
 export const CourierChart = () => {
   const { data: summary, isLoading } = useShipmentsSummary();
 
   if (isLoading) {
     return (
-      <Card className="shadow-card">
+      <Card className="border-white/20 bg-card/80 backdrop-blur-xl">
         <CardHeader className="pb-2">
           <Skeleton className="h-5 w-32" />
         </CardHeader>
@@ -20,54 +21,81 @@ export const CourierChart = () => {
   }
 
   const data = Object.entries(summary?.byCourier || {}).map(([name, stats]) => ({
-    name,
+    name: name.length > 12 ? name.slice(0, 12) + '...' : name,
     shipments: stats.count,
     cost: stats.cost,
   }));
 
   return (
-    <Card className="shadow-card">
+    <Card className="group border-white/20 bg-card/80 backdrop-blur-xl shadow-glass transition-all hover:shadow-lg">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold text-foreground">
-          Shipments by Courier
-        </CardTitle>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[image:var(--gradient-warning)] text-white">
+            <Truck className="h-4 w-4" />
+          </div>
+          <CardTitle className="text-base font-semibold text-foreground">
+            Shipments by Courier
+          </CardTitle>
+        </div>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+            <defs>
+              <linearGradient id="courierGradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="hsl(var(--warning))" />
+                <stop offset="100%" stopColor="hsl(15 90% 55%)" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              stroke="hsl(var(--border))" 
+              horizontal={true} 
+              vertical={false}
+              opacity={0.5}
+            />
+            <XAxis 
+              type="number" 
+              stroke="hsl(var(--muted-foreground))" 
+              fontSize={12}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis 
               dataKey="name" 
               type="category" 
               stroke="hsl(var(--muted-foreground))" 
-              fontSize={12} 
-              width={80}
+              fontSize={11}
+              fontWeight={500}
+              width={75}
+              axisLine={false}
+              tickLine={false}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
+                backgroundColor: "hsl(var(--popover))",
                 border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
+                borderRadius: "12px",
+                backdropFilter: "blur(20px)",
               }}
               formatter={(value: number, name: string) => [
                 name === 'cost' ? `₹${value.toLocaleString()}` : value,
                 name === 'cost' ? 'Cost' : 'Shipments'
               ]}
             />
-            <Bar dataKey="shipments" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="shipments" fill="url(#courierGradient)" radius={[0, 6, 6, 0]} maxBarSize={30} />
           </BarChart>
         </ResponsiveContainer>
-        <div className="mt-4 flex justify-center gap-6 text-sm">
+        <div className="mt-3 flex justify-center gap-8 border-t border-border/50 pt-3 text-sm">
           <div className="text-center">
-            <p className="text-2xl font-bold text-foreground">{summary?.totalShipments || 0}</p>
-            <p className="text-muted-foreground">Total Shipments</p>
+            <p className="text-xl font-bold text-foreground">{summary?.totalShipments || 0}</p>
+            <p className="text-xs text-muted-foreground">Total Shipments</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-xl font-bold text-warning">
               ₹{(summary?.totalShippingCost || 0).toLocaleString()}
             </p>
-            <p className="text-muted-foreground">Shipping Cost</p>
+            <p className="text-xs text-muted-foreground">Shipping Cost</p>
           </div>
         </div>
       </CardContent>
