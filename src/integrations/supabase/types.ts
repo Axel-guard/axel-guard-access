@@ -14,13 +14,262 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          company_name: string | null
+          complete_address: string | null
+          created_at: string | null
+          customer_code: string
+          customer_name: string
+          email: string | null
+          gst_number: string | null
+          id: string
+          mobile_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          complete_address?: string | null
+          created_at?: string | null
+          customer_code: string
+          customer_name: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          mobile_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          complete_address?: string | null
+          created_at?: string | null
+          customer_code?: string
+          customer_name?: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          mobile_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          alternate_mobile: string | null
+          company_name: string | null
+          complete_address: string | null
+          created_at: string | null
+          customer_code: string
+          customer_name: string
+          email: string | null
+          gst_number: string | null
+          id: string
+          location: string | null
+          mobile_number: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          alternate_mobile?: string | null
+          company_name?: string | null
+          complete_address?: string | null
+          created_at?: string | null
+          customer_code: string
+          customer_name: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          location?: string | null
+          mobile_number: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          alternate_mobile?: string | null
+          company_name?: string | null
+          complete_address?: string | null
+          created_at?: string | null
+          customer_code?: string
+          customer_name?: string
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          location?: string | null
+          mobile_number?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      payment_history: {
+        Row: {
+          account_received: string
+          amount: number
+          created_at: string | null
+          id: string
+          order_id: string
+          payment_date: string
+          payment_reference: string | null
+        }
+        Insert: {
+          account_received: string
+          amount: number
+          created_at?: string | null
+          id?: string
+          order_id: string
+          payment_date: string
+          payment_reference?: string | null
+        }
+        Update: {
+          account_received?: string
+          amount?: number
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          payment_date?: string
+          payment_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["order_id"]
+          },
+        ]
+      }
+      sale_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_id: string
+          product_name: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_id: string
+          product_name: string
+          quantity: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          product_name?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["order_id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          account_received: string | null
+          amount_received: number | null
+          balance_amount: number | null
+          company_name: string | null
+          courier_cost: number | null
+          created_at: string | null
+          customer_code: string
+          customer_contact: string | null
+          customer_name: string | null
+          employee_name: string
+          gst_amount: number | null
+          id: string
+          order_id: string
+          payment_reference: string | null
+          remarks: string | null
+          sale_date: string
+          sale_type: string
+          subtotal: number
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          account_received?: string | null
+          amount_received?: number | null
+          balance_amount?: number | null
+          company_name?: string | null
+          courier_cost?: number | null
+          created_at?: string | null
+          customer_code: string
+          customer_contact?: string | null
+          customer_name?: string | null
+          employee_name: string
+          gst_amount?: number | null
+          id?: string
+          order_id: string
+          payment_reference?: string | null
+          remarks?: string | null
+          sale_date: string
+          sale_type: string
+          subtotal: number
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          account_received?: string | null
+          amount_received?: number | null
+          balance_amount?: number | null
+          company_name?: string | null
+          courier_cost?: number | null
+          created_at?: string | null
+          customer_code?: string
+          customer_contact?: string | null
+          customer_name?: string | null
+          employee_name?: string
+          gst_amount?: number | null
+          id?: string
+          order_id?: string
+          payment_reference?: string | null
+          remarks?: string | null
+          sale_date?: string
+          sale_type?: string
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_order_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
