@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -17,16 +18,24 @@ interface DashboardSidebarProps {
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: ShoppingCart, label: "Sales" },
-  { icon: Users, label: "Leads" },
-  { icon: Package, label: "Inventory" },
-  { icon: Truck, label: "Dispatch" },
-  { icon: FileText, label: "Reports" },
-  { icon: Settings, label: "Settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: ShoppingCart, label: "Sales", path: "/sales" },
+  { icon: Users, label: "Leads", path: "/leads" },
+  { icon: Package, label: "Inventory", path: "/inventory" },
+  { icon: Truck, label: "Dispatch", path: "/dispatch" },
+  { icon: FileText, label: "Reports", path: "/reports" },
+  { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    onClose();
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -64,20 +73,24 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                item.active
-                  ? "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <button
+                key={item.label}
+                onClick={() => handleNavClick(item.path)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-md"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="border-t border-border p-4">
