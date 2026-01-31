@@ -1,13 +1,47 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const data = [
-  { name: "Paid", value: 53, color: "hsl(var(--success))" },
-  { name: "Partial", value: 27, color: "hsl(var(--warning))" },
-  { name: "Pending", value: 20, color: "hsl(var(--destructive))" },
-];
+import { useDashboardSummary } from "@/hooks/useSales";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const PaymentChart = () => {
+  const { data: summary, isLoading } = useDashboardSummary();
+
+  const total =
+    (summary?.paymentStatus?.paid || 0) +
+    (summary?.paymentStatus?.partial || 0) +
+    (summary?.paymentStatus?.pending || 0);
+
+  const data = [
+    {
+      name: "Paid",
+      value: total > 0 ? Math.round(((summary?.paymentStatus?.paid || 0) / total) * 100) : 33,
+      color: "hsl(var(--success))",
+    },
+    {
+      name: "Partial",
+      value: total > 0 ? Math.round(((summary?.paymentStatus?.partial || 0) / total) * 100) : 33,
+      color: "hsl(var(--warning))",
+    },
+    {
+      name: "Pending",
+      value: total > 0 ? Math.round(((summary?.paymentStatus?.pending || 0) / total) * 100) : 34,
+      color: "hsl(var(--destructive))",
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <Card className="shadow-card">
+        <CardHeader className="pb-2">
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-72 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="shadow-card">
       <CardHeader className="pb-2">

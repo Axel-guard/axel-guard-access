@@ -8,14 +8,36 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const data = [
-  { name: "Akash Parashar", sales: 316358 },
-  { name: "Smruti Nayak", sales: 185349 },
-  { name: "Mandeep Samal", sales: 183090 },
-];
+import { useDashboardSummary } from "@/hooks/useSales";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const SalesChart = () => {
+  const { data: summary, isLoading } = useDashboardSummary();
+
+  const chartData = summary?.employeeStats
+    ? Object.entries(summary.employeeStats).map(([name, stats]) => ({
+        name: name.split(" ")[0], // First name only
+        sales: stats.revenue,
+      }))
+    : [
+        { name: "Akash", sales: 0 },
+        { name: "Smruti", sales: 0 },
+        { name: "Mandeep", sales: 0 },
+      ];
+
+  if (isLoading) {
+    return (
+      <Card className="shadow-card">
+        <CardHeader className="pb-2">
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-72 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="shadow-card">
       <CardHeader className="pb-2">
@@ -26,7 +48,7 @@ export const SalesChart = () => {
       <CardContent>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ left: 10, right: 30 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 30 }}>
               <CartesianGrid
                 strokeDasharray="3 3"
                 horizontal={true}
@@ -42,7 +64,7 @@ export const SalesChart = () => {
               <YAxis
                 type="category"
                 dataKey="name"
-                width={100}
+                width={80}
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
