@@ -56,28 +56,24 @@ const Index = () => {
           value={String(summary?.totalSales || 0)}
           icon={ShoppingCart}
           variant="primary"
-          trend={{ value: "12%", positive: true }}
         />
         <StatCard
           title="Total Revenue"
           value={formatCurrency(summary?.totalRevenue || 0)}
           icon={DollarSign}
           variant="info"
-          trend={{ value: "8%", positive: true }}
         />
         <StatCard
           title="Received"
           value={formatCurrency(summary?.totalReceived || 0)}
           icon={CheckCircle}
           variant="success"
-          trend={{ value: "15%", positive: true }}
         />
         <StatCard
           title="Balance"
           value={formatCurrency(summary?.totalBalance || 0)}
           icon={Wallet}
           variant="warning"
-          trend={{ value: "3%", positive: false }}
         />
       </div>
 
