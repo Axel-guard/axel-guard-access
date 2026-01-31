@@ -74,6 +74,54 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory: {
+        Row: {
+          created_at: string | null
+          customer_city: string | null
+          customer_code: string | null
+          customer_name: string | null
+          dispatch_date: string | null
+          id: string
+          in_date: string | null
+          order_id: string | null
+          product_name: string
+          qc_result: string | null
+          serial_number: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_city?: string | null
+          customer_code?: string | null
+          customer_name?: string | null
+          dispatch_date?: string | null
+          id?: string
+          in_date?: string | null
+          order_id?: string | null
+          product_name: string
+          qc_result?: string | null
+          serial_number: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_city?: string | null
+          customer_code?: string | null
+          customer_name?: string | null
+          dispatch_date?: string | null
+          id?: string
+          in_date?: string | null
+          order_id?: string | null
+          product_name?: string
+          qc_result?: string | null
+          serial_number?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           alternate_mobile: string | null
@@ -159,6 +207,77 @@ export type Database = {
             referencedColumns: ["order_id"]
           },
         ]
+      }
+      product_pricing: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_code: string
+          qty_0_10: number | null
+          qty_10_50: number | null
+          qty_100_plus: number | null
+          qty_50_100: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_code: string
+          qty_0_10?: number | null
+          qty_10_50?: number | null
+          qty_100_plus?: number | null
+          qty_50_100?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_code?: string
+          qty_0_10?: number | null
+          qty_10_50?: number | null
+          qty_100_plus?: number | null
+          qty_50_100?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pricing_product_code_fkey"
+            columns: ["product_code"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_code"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          product_code: string
+          product_name: string
+          updated_at: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          product_code: string
+          product_name: string
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          product_code?: string
+          product_name?: string
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: []
       }
       sale_items: {
         Row: {
@@ -261,6 +380,42 @@ export type Database = {
           subtotal?: number
           total_amount?: number
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      shipments: {
+        Row: {
+          courier_partner: string | null
+          created_at: string | null
+          id: string
+          order_id: string | null
+          shipment_type: string
+          shipping_cost: number | null
+          shipping_mode: string | null
+          tracking_id: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          courier_partner?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          shipment_type?: string
+          shipping_cost?: number | null
+          shipping_mode?: string | null
+          tracking_id?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          courier_partner?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          shipment_type?: string
+          shipping_cost?: number | null
+          shipping_mode?: string | null
+          tracking_id?: string | null
+          weight_kg?: number | null
         }
         Relationships: []
       }
