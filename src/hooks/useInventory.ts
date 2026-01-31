@@ -1,0 +1,76 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface InventoryItem {
+  id: string;
+  serial_number: string;
+  product_name: string;
+  status: string;
+  qc_result: string;
+  in_date: string | null;
+  dispatch_date: string | null;
+  customer_code: string | null;
+  customer_name: string | null;
+  customer_city: string | null;
+  order_id: string | null;
+  created_at: string;
+}
+
+export const useInventory = () => {
+  return useQuery({
+    queryKey: ["inventory"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as InventoryItem[];
+    },
+  });
+};
+
+export const useInventorySummary = () => {
+  return useQuery({
+    queryKey: ["inventory-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("*");
+
+      if (error) throw error;
+      
+      const items = data as InventoryItem[];
+      
+      // Calculate summary stats
+      const totalItems = items.length;
+      const inStock = items.filter(i => i.status === 'In Stock').length;
+      const dispatched = items.filter(i => i.status === 'Dispatched').length;
+      const qcPending = items.filter(i => i.qc_result === 'Pending').length;
+      const qcPass = items.filter(i => i.qc_result === 'Pass').length;
+      const qcFail = items.filter(i => i.qc_result === 'Fail').length;
+
+      // Group by product
+      const byProduct = items.reduce((acc, item) => {
+        if (!acc[item.product_name]) {
+          acc[item.product_name] = { total: 0, inStock: 0, dispatched: 0 };
+        }
+        acc[item.product_name].total++;
+        if (item.status === 'In Stock') acc[item.product_name].inStock++;
+        if (item.status === 'Dispatched') acc[item.product_name].dispatched++;
+        return acc;
+      }, {} as Record<string, { total: number; inStock: number; dispatched: number }>);
+
+      return {
+        totalItems,
+        inStock,
+        dispatched,
+        qcPending,
+        qcPass,
+        qcFail,
+        byProduct,
+      };
+    },
+  });
+};

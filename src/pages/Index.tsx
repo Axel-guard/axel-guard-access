@@ -3,12 +3,18 @@ import { EmployeeCard } from "@/components/dashboard/EmployeeCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { PaymentChart } from "@/components/dashboard/PaymentChart";
 import { SalesTable } from "@/components/dashboard/SalesTable";
-import { ShoppingCart, DollarSign, CheckCircle, Wallet } from "lucide-react";
+import { InventoryStatusChart } from "@/components/dashboard/InventoryStatusChart";
+import { CourierChart } from "@/components/dashboard/CourierChart";
+import { ProductCategoryChart } from "@/components/dashboard/ProductCategoryChart";
+import { ShoppingCart, DollarSign, CheckCircle, Wallet, Package, Truck } from "lucide-react";
 import { useDashboardSummary } from "@/hooks/useSales";
+import { useInventorySummary } from "@/hooks/useInventory";
+import { useShipmentsSummary } from "@/hooks/useShipments";
 import { Skeleton } from "@/components/ui/skeleton";
-
 const Index = () => {
   const { data: summary, isLoading } = useDashboardSummary();
+  const { data: inventorySummary } = useInventorySummary();
+  const { data: shipmentsSummary } = useShipmentsSummary();
 
   const employeeColors: Record<string, "blue" | "emerald" | "amber"> = {
     "Akash Parashar": "blue",
@@ -50,7 +56,7 @@ const Index = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <StatCard
           title="Total Sales"
           value={String(summary?.totalSales || 0)}
@@ -74,6 +80,18 @@ const Index = () => {
           value={formatCurrency(summary?.totalBalance || 0)}
           icon={Wallet}
           variant="warning"
+        />
+        <StatCard
+          title="In Stock"
+          value={String(inventorySummary?.inStock || 0)}
+          icon={Package}
+          variant="info"
+        />
+        <StatCard
+          title="Shipments"
+          value={String(shipmentsSummary?.totalShipments || 0)}
+          icon={Truck}
+          variant="success"
         />
       </div>
 
@@ -124,10 +142,17 @@ const Index = () => {
         )}
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid - Row 1 */}
       <div className="grid gap-6 lg:grid-cols-2">
         <SalesChart />
         <PaymentChart />
+      </div>
+
+      {/* Charts Grid - Row 2: New charts */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <InventoryStatusChart />
+        <CourierChart />
+        <ProductCategoryChart />
       </div>
 
       {/* Sales Table */}
