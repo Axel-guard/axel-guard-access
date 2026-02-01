@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LeadsUploadDialog } from "@/components/leads/LeadsUploadDialog";
 
 const STATUSES = ["New", "Contacted", "Interested", "Not Interested", "Converted"];
 
@@ -82,9 +83,12 @@ const LeadsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Leads</h1>
-        <p className="text-muted-foreground">Manage your customer leads</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+          <p className="text-muted-foreground">Manage your customer leads</p>
+        </div>
+        <LeadsUploadDialog />
       </div>
 
       <Card className="shadow-card">

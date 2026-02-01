@@ -19,40 +19,24 @@ import {
   cleanValue,
 } from "@/lib/excelParser";
 
-// Column mappings for Inventory based on user's Excel format
-// Serial Number, Model Name, In Date, Dispatch Date, Customer Code, Customer Name, Customer City, Order ID, Status, QC fields etc.
+// Column mappings for Leads based on user's Excel format
+// Customer Code, Customer Name, Mobile, Alternate Mobile, Location, Company Name, GST Number, Email, Status, Created At
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-  serial_number: ["serial number", "serial_number", "serial", "sr no", "sr.no", "s.no", "sno", "serial no", "device serial", "imei", "device_id", "device id", "sl no", "sl.no", "slno"],
-  product_name: ["model name", "product_name", "product name", "product", "item name", "item", "device name", "device", "model", "device type", "description"],
-  status: ["status", "inventory status", "stock status", "availability", "state"],
-  qc_result: ["qc result", "qc_result", "qc", "quality check", "quality", "test result", "qc status", "quality status", "final status"],
-  in_date: ["in date", "in_date", "inward date", "received date", "entry date", "purchase date", "date added", "added date", "inward", "receipt date"],
-  dispatch_date: ["dispatch date", "dispatch_date", "shipped date", "ship date", "sent date", "outward date", "delivery date", "out date"],
-  customer_code: ["customer code", "customer_code", "cust code", "client code", "customer id", "client id", "cust_code"],
-  customer_name: ["customer name", "customer_name", "client name", "buyer name", "buyer", "consignee"],
-  customer_city: ["customer city", "customer_city", "city", "location", "place", "destination", "customer location", "ship to city"],
-  order_id: ["order id", "order_id", "order no", "order number", "sales order", "so number", "invoice", "invoice no"],
-  category: ["category", "product category", "type", "item category", "product type", "group", "item type"],
-  qc_date: ["qc date", "qc_date", "quality check date", "test date", "checked date", "inspection date"],
-  sd_connect: ["sd_connect", "sd connect", "sd card", "sd status", "memory card", "sd"],
-  all_channels: ["all_channels", "all channels", "channels", "channel test", "video channels"],
-  network_test: ["network_test", "network test", "network", "connectivity", "network status", "wifi test"],
-  gps_test: ["gps_test", "gps test", "gps", "gps status", "location test"],
-  sim_slot: ["sim_slot", "sim slot", "sim", "sim card", "sim status"],
-  online_test: ["online_test", "online test", "online", "online status", "cloud test"],
-  camera_quality: ["camera_quality", "camera quality", "camera", "video quality", "image quality"],
-  monitor_test: ["monitor_test", "monitor test", "monitor", "display test", "screen test"],
-  ip_address: ["ip_address", "ip address", "ip", "device ip", "network ip"],
-  checked_by: ["checked_by", "checked by", "inspector", "tested by", "quality inspector", "qc person", "operator"],
+  customer_code: ["customer code", "customer_code", "cust code", "code"],
+  customer_name: ["customer name", "customer_name", "name", "client name"],
+  mobile_number: ["mobile", "mobile number", "mobile_number", "phone", "contact", "phone number"],
+  alternate_mobile: ["alternate mobile", "alternate_mobile", "alt mobile", "alternate", "secondary mobile"],
+  location: ["location", "city", "place", "area"],
+  company_name: ["company name", "company_name", "company", "firm name", "business name"],
+  gst_number: ["gst number", "gst_number", "gst", "gstin", "gst no"],
+  email: ["email", "email id", "email address", "mail"],
+  status: ["status", "lead status"],
+  created_at: ["created at", "created_at", "date", "created date"],
 };
 
-const DATE_COLUMNS = ["in_date", "dispatch_date", "qc_date"];
+const DATE_COLUMNS = ["created_at"];
 
-interface InventoryUploadDialogProps {
-  onUploadComplete?: () => void;
-}
-
-export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialogProps) => {
+export const LeadsUploadDialog = () => {
   const [open, setOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
@@ -85,18 +69,21 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
 
       // Check for required columns
       const mappedColumns = Object.values(columnMap);
-      if (!mappedColumns.includes("serial_number")) {
-        throw new Error("Could not find Serial Number column. Please ensure your Excel has a column for serial numbers.");
+      if (!mappedColumns.includes("customer_code")) {
+        throw new Error("Could not find Customer Code column.");
       }
-      if (!mappedColumns.includes("product_name")) {
-        throw new Error("Could not find Product Name/Model Name column. Please ensure your Excel has a column for product names.");
+      if (!mappedColumns.includes("customer_name")) {
+        throw new Error("Could not find Customer Name column.");
+      }
+      if (!mappedColumns.includes("mobile_number")) {
+        throw new Error("Could not find Mobile column.");
       }
 
       setProgress({ current: 0, total: jsonData.length, status: "Processing records..." });
 
       // Transform data
       const transformedData: any[] = [];
-      const seenSerials = new Set<string>();
+      const seenCodes = new Set<string>();
 
       for (const row of jsonData) {
         const record = row as Record<string, any>;
@@ -106,24 +93,22 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
           transformed[schemaCol] = cleanValue(record[excelCol], schemaCol, DATE_COLUMNS);
         }
 
-        // Skip if no serial number
-        if (!transformed.serial_number) continue;
+        // Skip if no customer code
+        if (!transformed.customer_code) continue;
 
-        // Handle duplicates - keep last occurrence
-        const serialKey = String(transformed.serial_number).trim();
-        if (seenSerials.has(serialKey)) {
+        const codeKey = String(transformed.customer_code).trim();
+        if (seenCodes.has(codeKey)) {
           const existingIndex = transformedData.findIndex(
-            (t) => String(t.serial_number).trim() === serialKey
+            (t) => String(t.customer_code).trim() === codeKey
           );
           if (existingIndex >= 0) {
             transformedData.splice(existingIndex, 1);
           }
         }
-        seenSerials.add(serialKey);
+        seenCodes.add(codeKey);
 
         // Set defaults
-        transformed.status = transformed.status || "In Stock";
-        transformed.qc_result = transformed.qc_result || "Pending";
+        transformed.status = transformed.status || "New";
 
         transformedData.push(transformed);
       }
@@ -137,12 +122,12 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
       for (let i = 0; i < transformedData.length; i += batchSize) {
         const batch = transformedData.slice(i, i + batchSize);
 
-        const { error } = await supabase.from("inventory").upsert(
+        const { error } = await supabase.from("leads").upsert(
           batch.map((item) => ({
             ...item,
             updated_at: new Date().toISOString(),
           })),
-          { onConflict: "serial_number" }
+          { onConflict: "customer_code" }
         );
 
         if (error) {
@@ -158,29 +143,26 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
         });
       }
 
-      // Invalidate queries to refresh data
-      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      await queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["leads"] });
 
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} inventory records.`,
+        description: `Successfully imported ${transformedData.length} leads.`,
       });
 
       setOpen(false);
-      onUploadComplete?.();
     } catch (error: any) {
       console.error("Import error:", error);
       toast({
         title: "Import Failed",
-        description: error.message || "Failed to import inventory data",
+        description: error.message || "Failed to import leads data",
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
       setProgress({ current: 0, total: 0, status: "" });
     }
-  }, [queryClient, toast, onUploadComplete]);
+  }, [queryClient, toast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,7 +191,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Upload Inventory Excel
+            Upload Leads Excel
           </DialogTitle>
         </DialogHeader>
 
@@ -222,10 +204,10 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
                   className="hidden"
-                  id="excel-upload"
+                  id="leads-excel-upload"
                 />
                 <label
-                  htmlFor="excel-upload"
+                  htmlFor="leads-excel-upload"
                   className="cursor-pointer flex flex-col items-center gap-2"
                 >
                   <Upload className="h-10 w-10 text-muted-foreground" />
@@ -242,7 +224,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   Expected Columns
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Serial Number, Model Name, Status, QC Result, In Date, Dispatch Date, Customer Code, Customer Name, Customer City, Order ID
+                  Customer Code, Customer Name, Mobile, Alternate Mobile, Location, Company Name, GST Number, Email, Status
                 </p>
               </div>
 
@@ -252,7 +234,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   Required Columns
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  <strong>Serial Number</strong> and <strong>Model Name</strong>
+                  <strong>Customer Code</strong>, <strong>Customer Name</strong>, <strong>Mobile</strong>
                 </p>
               </div>
             </>
