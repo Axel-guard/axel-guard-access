@@ -20,13 +20,28 @@ export const useInventory = () => {
   return useQuery({
     queryKey: ["inventory"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Fetch all records without the default 1000 limit
+      const allData: InventoryItem[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (error) throw error;
-      return data as InventoryItem[];
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        
+        allData.push(...(data as InventoryItem[]));
+        
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      
+      return allData;
     },
   });
 };
@@ -35,13 +50,25 @@ export const useInventorySummary = () => {
   return useQuery({
     queryKey: ["inventory-summary"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory")
-        .select("*");
-
-      if (error) throw error;
+      // Fetch all records without the default 1000 limit
+      const items: InventoryItem[] = [];
+      let from = 0;
+      const pageSize = 1000;
       
-      const items = data as InventoryItem[];
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory")
+          .select("*")
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        
+        items.push(...(data as InventoryItem[]));
+        
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
       
       // Calculate summary stats
       const totalItems = items.length;
