@@ -15,19 +15,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 
 // Semantic column mapping - maps various column name variations to our schema
+// Order matters - more specific matches should come first
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-  serial_number: ["serial_number", "serial", "sr no", "sr.no", "s.no", "sno", "serial no", "device serial", "imei", "device_id", "device id", "sl no", "sl.no", "slno"],
-  product_name: ["product_name", "product", "item", "item name", "device", "device name", "product name", "model", "model name", "description"],
+  serial_number: ["serial number", "serial_number", "serial", "sr no", "sr.no", "s.no", "sno", "serial no", "device serial", "imei", "device_id", "device id", "sl no", "sl.no", "slno"],
+  product_name: ["model name", "product_name", "product name", "product", "item name", "item", "device name", "device", "model", "description"],
   status: ["status", "inventory status", "stock status", "availability", "state"],
-  qc_result: ["qc_result", "qc result", "qc", "quality check", "quality", "test result", "qc status", "quality status"],
-  in_date: ["in_date", "in date", "inward date", "received date", "entry date", "purchase date", "date added", "added date", "inward", "receipt date"],
-  dispatch_date: ["dispatch_date", "dispatch date", "shipped date", "ship date", "sent date", "outward date", "delivery date", "out date"],
-  customer_code: ["customer_code", "customer code", "cust code", "client code", "customer id", "client id", "cust_code"],
-  customer_name: ["customer_name", "customer name", "customer", "client", "client name", "buyer", "buyer name", "consignee"],
-  customer_city: ["customer_city", "customer city", "city", "location", "place", "destination", "customer location", "ship to city"],
-  order_id: ["order_id", "order id", "order no", "order number", "sales order", "so number", "invoice", "invoice no"],
+  qc_result: ["qc result", "qc_result", "qc", "quality check", "quality", "test result", "qc status", "quality status"],
+  in_date: ["in date", "in_date", "inward date", "received date", "entry date", "purchase date", "date added", "added date", "inward", "receipt date"],
+  dispatch_date: ["dispatch date", "dispatch_date", "shipped date", "ship date", "sent date", "outward date", "delivery date", "out date"],
+  customer_code: ["customer code", "customer_code", "cust code", "client code", "customer id", "client id", "cust_code"],
+  customer_name: ["customer name", "customer_name", "client name", "buyer name", "buyer", "consignee"],
+  customer_city: ["customer city", "customer_city", "city", "location", "place", "destination", "customer location", "ship to city"],
+  order_id: ["order id", "order_id", "order no", "order number", "sales order", "so number", "invoice", "invoice no"],
   category: ["category", "product category", "type", "item category", "product type", "group", "item type"],
-  qc_date: ["qc_date", "qc date", "quality check date", "test date", "checked date", "inspection date"],
+  qc_date: ["qc date", "qc_date", "quality check date", "test date", "checked date", "inspection date"],
   sd_connect: ["sd_connect", "sd connect", "sd card", "sd status", "memory card"],
   all_channels: ["all_channels", "all channels", "channels", "channel test", "video channels"],
   network_test: ["network_test", "network test", "network", "connectivity", "network status", "wifi test"],
@@ -42,20 +43,32 @@ const COLUMN_MAPPINGS: Record<string, string[]> = {
 
 // Helper to normalize column names for matching
 const normalizeColumnName = (name: string): string => {
-  return name.toLowerCase().trim().replace(/[_\\-\\.]/g, " ").replace(/\s+/g, " ");
+  return name.toLowerCase().trim().replace(/[_\-\.]/g, " ").replace(/\s+/g, " ");
 };
 
 // Find the best matching schema column for an Excel column
+// Uses strict exact matching first, then partial matching
 const findMatchingColumn = (excelColumn: string): string | null => {
   const normalized = normalizeColumnName(excelColumn);
   
+  // First pass: exact match only
   for (const [schemaColumn, variations] of Object.entries(COLUMN_MAPPINGS)) {
     for (const variation of variations) {
-      if (normalized === variation || normalized.includes(variation) || variation.includes(normalized)) {
+      if (normalized === variation) {
         return schemaColumn;
       }
     }
   }
+  
+  // Second pass: starts with or ends with match
+  for (const [schemaColumn, variations] of Object.entries(COLUMN_MAPPINGS)) {
+    for (const variation of variations) {
+      if (normalized.startsWith(variation) || normalized.endsWith(variation)) {
+        return schemaColumn;
+      }
+    }
+  }
+  
   return null;
 };
 
