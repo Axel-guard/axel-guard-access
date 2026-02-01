@@ -99,14 +99,41 @@ export const PaymentHistoryUploadDialog = () => {
         transformedData.push(transformed);
       }
 
-      setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
+      setProgress({ current: 0, total: transformedData.length, status: "Validating order IDs..." });
+
+      // Get all unique order_ids from the upload
+      const orderIds = [...new Set(transformedData.map((d) => d.order_id))];
+
+      // Fetch existing order_ids from sales table
+      const { data: existingSales, error: salesError } = await supabase
+        .from("sales")
+        .select("order_id")
+        .in("order_id", orderIds);
+
+      if (salesError) {
+        throw new Error(`Failed to validate order IDs: ${salesError.message}`);
+      }
+
+      const existingOrderIds = new Set((existingSales || []).map((s) => s.order_id));
+
+      // Filter out payments for non-existent orders
+      const validPayments = transformedData.filter((p) => existingOrderIds.has(p.order_id));
+      const skippedCount = transformedData.length - validPayments.length;
+
+      if (validPayments.length === 0) {
+        throw new Error(
+          `None of the ${transformedData.length} order IDs in the file exist in the sales table. Please ensure you're uploading payments for existing orders.`
+        );
+      }
+
+      setProgress({ current: 0, total: validPayments.length, status: "Uploading to database..." });
 
       // Upload in batches
       const batchSize = 100;
       let uploaded = 0;
 
-      for (let i = 0; i < transformedData.length; i += batchSize) {
-        const batch = transformedData.slice(i, i + batchSize);
+      for (let i = 0; i < validPayments.length; i += batchSize) {
+        const batch = validPayments.slice(i, i + batchSize);
 
         const { error } = await supabase.from("payment_history").insert(batch);
 
@@ -118,17 +145,19 @@ export const PaymentHistoryUploadDialog = () => {
         uploaded += batch.length;
         setProgress({
           current: uploaded,
-          total: transformedData.length,
-          status: `Uploaded ${uploaded} of ${transformedData.length} records...`,
+          total: validPayments.length,
+          status: `Uploaded ${uploaded} of ${validPayments.length} records...`,
         });
       }
+
+      const skippedMessage = skippedCount > 0 ? ` (${skippedCount} skipped - order IDs not found)` : "";
 
       await queryClient.invalidateQueries({ queryKey: ["payment-history"] });
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
 
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} payment records.`,
+        description: `Successfully imported ${validPayments.length} payment records${skippedMessage}.`,
       });
 
       setOpen(false);
