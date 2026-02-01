@@ -56,7 +56,7 @@ export const useSales = () => {
         .from("sales")
         .select("*")
         .gte("sale_date", startOfMonth.toISOString())
-        .order("sale_date", { ascending: false });
+        .order("sale_date", { ascending: true });
 
       if (error) throw error;
       return data as Sale[];
@@ -77,7 +77,7 @@ export const useSalesWithItems = () => {
         .from("sales")
         .select("*")
         .gte("sale_date", startOfMonth.toISOString())
-        .order("sale_date", { ascending: false });
+        .order("sale_date", { ascending: true });
 
       if (salesError) throw salesError;
 
