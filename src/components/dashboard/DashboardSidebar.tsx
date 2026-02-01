@@ -135,7 +135,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r border-border bg-card transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0",
+          "fixed left-0 top-0 z-50 flex h-full w-64 shrink-0 flex-col border-r border-border bg-card transition-transform duration-300 lg:relative lg:z-auto lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
