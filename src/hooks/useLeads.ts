@@ -18,35 +18,36 @@ export interface Lead {
   updated_at?: string;
 }
 
-// Fetch all leads with pagination to bypass 1000 row limit
+// Fetch all leads (pagination to bypass 1000-row API response limit)
 export const useLeads = () => {
   return useQuery({
-    queryKey: ["leads"],
+    // Extra segment ensures the new queryFn runs after HMR,
+    // while still being invalidated by queryKey: ["leads"].
+    queryKey: ["leads", "all"],
     queryFn: async () => {
-      const allLeads: Lead[] = [];
       const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
+      const all: Lead[] = [];
 
-      while (hasMore) {
+      for (let page = 0; ; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
         const { data, error } = await supabase
           .from("leads")
           .select("*")
           .order("created_at", { ascending: true })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .order("id", { ascending: true })
+          .range(from, to);
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-          allLeads.push(...(data as Lead[]));
-          hasMore = data.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
-        }
+        const rows = (data ?? []) as Lead[];
+        all.push(...rows);
+
+        if (rows.length < pageSize) break;
       }
 
-      return allLeads;
+      return all;
     },
   });
 };
@@ -57,7 +58,11 @@ export const useCreateLead = () => {
 
   return useMutation({
     mutationFn: async (lead: Omit<Lead, "id" | "created_at" | "updated_at">) => {
-      const { data, error } = await supabase.from("leads").insert(lead).select().single();
+      const { data, error } = await supabase
+        .from("leads")
+        .insert(lead)
+        .select()
+        .single();
       if (error) throw error;
       return data;
     },
