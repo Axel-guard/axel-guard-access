@@ -6,13 +6,25 @@ export interface InventoryItem {
   serial_number: string;
   product_name: string;
   status: string;
-  qc_result: string;
+  qc_result: string | null;
   in_date: string | null;
   dispatch_date: string | null;
   customer_code: string | null;
   customer_name: string | null;
   customer_city: string | null;
   order_id: string | null;
+  category: string | null;
+  qc_date: string | null;
+  sd_connect: string | null;
+  all_channels: string | null;
+  network_test: string | null;
+  gps_test: string | null;
+  sim_slot: string | null;
+  online_test: string | null;
+  camera_quality: string | null;
+  monitor_test: string | null;
+  ip_address: string | null;
+  checked_by: string | null;
   created_at: string;
 }
 

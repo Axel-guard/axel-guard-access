@@ -9,7 +9,7 @@ interface StatCardProps {
     value: string;
     positive: boolean;
   };
-  variant?: "primary" | "success" | "warning" | "info";
+  variant?: "primary" | "success" | "warning" | "info" | "danger";
 }
 
 const variantStyles = {
@@ -17,6 +17,7 @@ const variantStyles = {
   success: "bg-[image:var(--gradient-success)]",
   warning: "bg-[image:var(--gradient-warning)]",
   info: "bg-[image:var(--gradient-info)]",
+  danger: "bg-gradient-to-br from-red-500 to-rose-600",
 };
 
 export const StatCard = ({
