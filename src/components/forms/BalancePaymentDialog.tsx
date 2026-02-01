@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import { Search } from "lucide-react";
 interface BalancePaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  orderId?: string;
 }
 
 const ACCOUNTS = ["IDFC4828", "IDFC7455", "Canara", "Cash"];
@@ -28,11 +29,12 @@ const ACCOUNTS = ["IDFC4828", "IDFC7455", "Canara", "Cash"];
 export const BalancePaymentDialog = ({
   open,
   onOpenChange,
+  orderId: initialOrderId,
 }: BalancePaymentDialogProps) => {
   const { data: sales = [] } = useSales();
   const updatePayment = useUpdateBalancePayment();
 
-  const [orderId, setOrderId] = useState("");
+  const [orderId, setOrderId] = useState(initialOrderId || "");
   const [selectedSale, setSelectedSale] = useState<typeof sales[0] | null>(null);
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -40,6 +42,20 @@ export const BalancePaymentDialog = ({
   const [amount, setAmount] = useState(0);
   const [accountReceived, setAccountReceived] = useState("Cash");
   const [paymentReference, setPaymentReference] = useState("");
+
+  // Auto-search when initialOrderId is provided
+  useEffect(() => {
+    if (initialOrderId && sales.length > 0) {
+      const sale = sales.find(
+        (s) => s.order_id.toLowerCase() === initialOrderId.toLowerCase()
+      );
+      if (sale) {
+        setOrderId(initialOrderId);
+        setSelectedSale(sale);
+        setAmount(Number(sale.balance_amount));
+      }
+    }
+  }, [initialOrderId, sales]);
 
   const handleSearch = () => {
     const sale = sales.find(
