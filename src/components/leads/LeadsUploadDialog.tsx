@@ -84,7 +84,6 @@ export const LeadsUploadDialog = () => {
       // Transform data
       const transformedData: any[] = [];
       const seenCodes = new Set<string>();
-      let skippedRows = 0;
 
       for (const row of jsonData) {
         const record = row as Record<string, any>;
@@ -94,23 +93,28 @@ export const LeadsUploadDialog = () => {
           transformed[schemaCol] = cleanValue(record[excelCol], schemaCol, DATE_COLUMNS);
         }
 
-        // Skip rows with missing required fields
-        if (!transformed.customer_code || !transformed.customer_name || !transformed.mobile_number) {
-          skippedRows++;
-          continue;
+        // Generate placeholder values for missing required fields
+        const rowIndex = transformedData.length + 1;
+        
+        if (!transformed.customer_code || String(transformed.customer_code).trim() === "") {
+          transformed.customer_code = `LEAD-${Date.now()}-${rowIndex}`;
+        } else {
+          transformed.customer_code = String(transformed.customer_code).trim();
+        }
+        
+        if (!transformed.customer_name || String(transformed.customer_name).trim() === "") {
+          transformed.customer_name = "Unknown";
+        } else {
+          transformed.customer_name = String(transformed.customer_name).trim();
+        }
+        
+        if (!transformed.mobile_number || String(transformed.mobile_number).trim() === "") {
+          transformed.mobile_number = "N/A";
+        } else {
+          transformed.mobile_number = String(transformed.mobile_number).trim();
         }
 
-        const codeKey = String(transformed.customer_code).trim();
-        
-        // Ensure required fields are not empty strings
-        transformed.customer_code = codeKey;
-        transformed.customer_name = String(transformed.customer_name).trim();
-        transformed.mobile_number = String(transformed.mobile_number).trim();
-        
-        if (!transformed.customer_name || !transformed.mobile_number) {
-          skippedRows++;
-          continue;
-        }
+        const codeKey = transformed.customer_code;
 
         if (seenCodes.has(codeKey)) {
           const existingIndex = transformedData.findIndex(
@@ -129,7 +133,7 @@ export const LeadsUploadDialog = () => {
       }
 
       if (transformedData.length === 0) {
-        throw new Error(`No valid records found. ${skippedRows} rows were skipped due to missing required fields (Customer Code, Customer Name, Mobile).`);
+        throw new Error("No data found in the Excel file to import.");
       }
 
       setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
@@ -164,10 +168,9 @@ export const LeadsUploadDialog = () => {
 
       await queryClient.invalidateQueries({ queryKey: ["leads"] });
 
-      const skippedMessage = skippedRows > 0 ? ` (${skippedRows} rows skipped due to missing data)` : "";
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} leads.${skippedMessage}`,
+        description: `Successfully imported ${transformedData.length} leads.`,
       });
 
       setOpen(false);
