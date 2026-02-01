@@ -76,47 +76,83 @@ export type Database = {
       }
       inventory: {
         Row: {
+          all_channels: string | null
+          camera_quality: string | null
+          category: string | null
+          checked_by: string | null
           created_at: string | null
           customer_city: string | null
           customer_code: string | null
           customer_name: string | null
           dispatch_date: string | null
+          gps_test: string | null
           id: string
           in_date: string | null
+          ip_address: string | null
+          monitor_test: string | null
+          network_test: string | null
+          online_test: string | null
           order_id: string | null
           product_name: string
+          qc_date: string | null
           qc_result: string | null
+          sd_connect: string | null
           serial_number: string
+          sim_slot: string | null
           status: string
           updated_at: string | null
         }
         Insert: {
+          all_channels?: string | null
+          camera_quality?: string | null
+          category?: string | null
+          checked_by?: string | null
           created_at?: string | null
           customer_city?: string | null
           customer_code?: string | null
           customer_name?: string | null
           dispatch_date?: string | null
+          gps_test?: string | null
           id?: string
           in_date?: string | null
+          ip_address?: string | null
+          monitor_test?: string | null
+          network_test?: string | null
+          online_test?: string | null
           order_id?: string | null
           product_name: string
+          qc_date?: string | null
           qc_result?: string | null
+          sd_connect?: string | null
           serial_number: string
+          sim_slot?: string | null
           status?: string
           updated_at?: string | null
         }
         Update: {
+          all_channels?: string | null
+          camera_quality?: string | null
+          category?: string | null
+          checked_by?: string | null
           created_at?: string | null
           customer_city?: string | null
           customer_code?: string | null
           customer_name?: string | null
           dispatch_date?: string | null
+          gps_test?: string | null
           id?: string
           in_date?: string | null
+          ip_address?: string | null
+          monitor_test?: string | null
+          network_test?: string | null
+          online_test?: string | null
           order_id?: string | null
           product_name?: string
+          qc_date?: string | null
           qc_result?: string | null
+          sd_connect?: string | null
           serial_number?: string
+          sim_slot?: string | null
           status?: string
           updated_at?: string | null
         }
