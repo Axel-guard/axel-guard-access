@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Eye, Edit, Trash2 } from "lucide-react";
+import { PaymentHistoryUploadDialog } from "@/components/sales/PaymentHistoryUploadDialog";
 
 const SalesPage = () => {
   const { data: sales, isLoading } = useSalesWithItems();
@@ -56,9 +57,12 @@ const SalesPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Sales</h1>
-        <p className="text-muted-foreground">All sales for current month</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Sales</h1>
+          <p className="text-muted-foreground">All sales for current month</p>
+        </div>
+        <PaymentHistoryUploadDialog />
       </div>
 
       <Card className="shadow-card">

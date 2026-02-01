@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package, Search, Box, CheckCircle, Truck, AlertTriangle } from "lucide-react";
+import { Package, Search, Box, Truck, AlertTriangle } from "lucide-react";
 import { useInventory, useInventorySummary } from "@/hooks/useInventory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { InventoryUploadDialog } from "@/components/inventory/InventoryUploadDialog";
+import { QCReportUploadDialog } from "@/components/inventory/QCReportUploadDialog";
 import { InventoryEditDialog } from "@/components/inventory/InventoryEditDialog";
 import { InventoryExport } from "@/components/inventory/InventoryExport";
 import { InventoryFilters } from "@/components/inventory/InventoryFilters";
@@ -104,8 +105,9 @@ const InventoryPage = () => {
             Serial number tracking for all devices
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <InventoryUploadDialog />
+          <QCReportUploadDialog />
           {filteredInventory.length > 0 && (
             <InventoryExport data={filteredInventory} />
           )}

@@ -17,42 +17,22 @@ import {
   isValidExcelFile,
   findMatchingColumn,
   cleanValue,
+  parseNumber,
 } from "@/lib/excelParser";
 
-// Column mappings for Inventory based on user's Excel format
-// Serial Number, Model Name, In Date, Dispatch Date, Customer Code, Customer Name, Customer City, Order ID, Status, QC fields etc.
+// Column mappings for Products/Pricing based on user's Excel format
+// Product Code, Product Name, Category, 0-10 Qty, 10-50 Qty, 50-100 Qty, 100+ Qty
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-  serial_number: ["serial number", "serial_number", "serial", "sr no", "sr.no", "s.no", "sno", "serial no", "device serial", "imei", "device_id", "device id", "sl no", "sl.no", "slno"],
-  product_name: ["model name", "product_name", "product name", "product", "item name", "item", "device name", "device", "model", "device type", "description"],
-  status: ["status", "inventory status", "stock status", "availability", "state"],
-  qc_result: ["qc result", "qc_result", "qc", "quality check", "quality", "test result", "qc status", "quality status", "final status"],
-  in_date: ["in date", "in_date", "inward date", "received date", "entry date", "purchase date", "date added", "added date", "inward", "receipt date"],
-  dispatch_date: ["dispatch date", "dispatch_date", "shipped date", "ship date", "sent date", "outward date", "delivery date", "out date"],
-  customer_code: ["customer code", "customer_code", "cust code", "client code", "customer id", "client id", "cust_code"],
-  customer_name: ["customer name", "customer_name", "client name", "buyer name", "buyer", "consignee"],
-  customer_city: ["customer city", "customer_city", "city", "location", "place", "destination", "customer location", "ship to city"],
-  order_id: ["order id", "order_id", "order no", "order number", "sales order", "so number", "invoice", "invoice no"],
-  category: ["category", "product category", "type", "item category", "product type", "group", "item type"],
-  qc_date: ["qc date", "qc_date", "quality check date", "test date", "checked date", "inspection date"],
-  sd_connect: ["sd_connect", "sd connect", "sd card", "sd status", "memory card", "sd"],
-  all_channels: ["all_channels", "all channels", "channels", "channel test", "video channels"],
-  network_test: ["network_test", "network test", "network", "connectivity", "network status", "wifi test"],
-  gps_test: ["gps_test", "gps test", "gps", "gps status", "location test"],
-  sim_slot: ["sim_slot", "sim slot", "sim", "sim card", "sim status"],
-  online_test: ["online_test", "online test", "online", "online status", "cloud test"],
-  camera_quality: ["camera_quality", "camera quality", "camera", "video quality", "image quality"],
-  monitor_test: ["monitor_test", "monitor test", "monitor", "display test", "screen test"],
-  ip_address: ["ip_address", "ip address", "ip", "device ip", "network ip"],
-  checked_by: ["checked_by", "checked by", "inspector", "tested by", "quality inspector", "qc person", "operator"],
+  product_code: ["product code", "product_code", "code", "item code", "sku"],
+  product_name: ["product name", "product_name", "name", "item name", "description", "product"],
+  category: ["category", "type", "product category", "group"],
+  qty_0_10: ["0-10 qty", "0 10 qty", "qty 0 10", "0-10", "qty0-10"],
+  qty_10_50: ["10-50 qty", "10 50 qty", "qty 10 50", "10-50", "qty10-50"],
+  qty_50_100: ["50-100 qty", "50 100 qty", "qty 50 100", "50-100", "qty50-100"],
+  qty_100_plus: ["100+ qty", "100 qty", "qty 100", "100+", "qty100+", "100 plus"],
 };
 
-const DATE_COLUMNS = ["in_date", "dispatch_date", "qc_date"];
-
-interface InventoryUploadDialogProps {
-  onUploadComplete?: () => void;
-}
-
-export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialogProps) => {
+export const ProductsUploadDialog = () => {
   const [open, setOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
@@ -85,102 +65,122 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
 
       // Check for required columns
       const mappedColumns = Object.values(columnMap);
-      if (!mappedColumns.includes("serial_number")) {
-        throw new Error("Could not find Serial Number column. Please ensure your Excel has a column for serial numbers.");
+      if (!mappedColumns.includes("product_code")) {
+        throw new Error("Could not find Product Code column.");
       }
       if (!mappedColumns.includes("product_name")) {
-        throw new Error("Could not find Product Name/Model Name column. Please ensure your Excel has a column for product names.");
+        throw new Error("Could not find Product Name column.");
       }
 
       setProgress({ current: 0, total: jsonData.length, status: "Processing records..." });
 
-      // Transform data
-      const transformedData: any[] = [];
-      const seenSerials = new Set<string>();
+      // Transform data - separate products and pricing
+      const productsData: any[] = [];
+      const pricingData: any[] = [];
+      const seenCodes = new Set<string>();
 
       for (const row of jsonData) {
         const record = row as Record<string, any>;
-        const transformed: Record<string, any> = {};
+        const product: Record<string, any> = {};
+        const pricing: Record<string, any> = {};
 
         for (const [excelCol, schemaCol] of Object.entries(columnMap)) {
-          transformed[schemaCol] = cleanValue(record[excelCol], schemaCol, DATE_COLUMNS);
-        }
-
-        // Skip if no serial number
-        if (!transformed.serial_number) continue;
-
-        // Handle duplicates - keep last occurrence
-        const serialKey = String(transformed.serial_number).trim();
-        if (seenSerials.has(serialKey)) {
-          const existingIndex = transformedData.findIndex(
-            (t) => String(t.serial_number).trim() === serialKey
-          );
-          if (existingIndex >= 0) {
-            transformedData.splice(existingIndex, 1);
+          if (["product_code", "product_name", "category"].includes(schemaCol)) {
+            product[schemaCol] = cleanValue(record[excelCol], schemaCol);
+          } else if (schemaCol.startsWith("qty_")) {
+            pricing[schemaCol] = parseNumber(record[excelCol]);
           }
         }
-        seenSerials.add(serialKey);
+
+        // Skip if no product code
+        if (!product.product_code) continue;
+
+        const codeKey = String(product.product_code).trim();
+        if (seenCodes.has(codeKey)) continue;
+        seenCodes.add(codeKey);
 
         // Set defaults
-        transformed.status = transformed.status || "In Stock";
-        transformed.qc_result = transformed.qc_result || "Pending";
+        product.category = product.category || "General";
+        pricing.product_code = product.product_code;
 
-        transformedData.push(transformed);
+        productsData.push(product);
+        pricingData.push(pricing);
       }
 
-      setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
+      setProgress({ current: 0, total: productsData.length, status: "Uploading products..." });
 
-      // Upload in batches
+      // Upload products
       const batchSize = 100;
       let uploaded = 0;
 
-      for (let i = 0; i < transformedData.length; i += batchSize) {
-        const batch = transformedData.slice(i, i + batchSize);
+      for (let i = 0; i < productsData.length; i += batchSize) {
+        const batch = productsData.slice(i, i + batchSize);
 
-        const { error } = await supabase.from("inventory").upsert(
+        const { error } = await supabase.from("products").upsert(
           batch.map((item) => ({
             ...item,
             updated_at: new Date().toISOString(),
           })),
-          { onConflict: "serial_number" }
+          { onConflict: "product_code" }
         );
 
         if (error) {
-          console.error("Batch upload error:", error);
-          throw new Error(`Failed to upload batch: ${error.message}`);
+          console.error("Products batch upload error:", error);
+          throw new Error(`Failed to upload products: ${error.message}`);
         }
 
         uploaded += batch.length;
         setProgress({
           current: uploaded,
-          total: transformedData.length,
-          status: `Uploaded ${uploaded} of ${transformedData.length} records...`,
+          total: productsData.length,
+          status: `Uploaded ${uploaded} of ${productsData.length} products...`,
         });
       }
 
-      // Invalidate queries to refresh data
-      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      await queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+      // Upload pricing
+      setProgress({ current: 0, total: pricingData.length, status: "Uploading pricing..." });
+      uploaded = 0;
+
+      for (let i = 0; i < pricingData.length; i += batchSize) {
+        const batch = pricingData.slice(i, i + batchSize);
+
+        const { error } = await supabase.from("product_pricing").upsert(
+          batch.map((item) => ({
+            ...item,
+            updated_at: new Date().toISOString(),
+          })),
+          { onConflict: "product_code" }
+        );
+
+        if (error) {
+          console.error("Pricing batch upload error:", error);
+          // Don't throw, pricing is optional
+        }
+
+        uploaded += batch.length;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+      await queryClient.invalidateQueries({ queryKey: ["product-pricing"] });
 
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} inventory records.`,
+        description: `Successfully imported ${productsData.length} products with pricing.`,
       });
 
       setOpen(false);
-      onUploadComplete?.();
     } catch (error: any) {
       console.error("Import error:", error);
       toast({
         title: "Import Failed",
-        description: error.message || "Failed to import inventory data",
+        description: error.message || "Failed to import products data",
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
       setProgress({ current: 0, total: 0, status: "" });
     }
-  }, [queryClient, toast, onUploadComplete]);
+  }, [queryClient, toast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,7 +209,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Upload Inventory Excel
+            Upload Products & Pricing Excel
           </DialogTitle>
         </DialogHeader>
 
@@ -222,10 +222,10 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
                   className="hidden"
-                  id="excel-upload"
+                  id="products-excel-upload"
                 />
                 <label
-                  htmlFor="excel-upload"
+                  htmlFor="products-excel-upload"
                   className="cursor-pointer flex flex-col items-center gap-2"
                 >
                   <Upload className="h-10 w-10 text-muted-foreground" />
@@ -242,7 +242,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   Expected Columns
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Serial Number, Model Name, Status, QC Result, In Date, Dispatch Date, Customer Code, Customer Name, Customer City, Order ID
+                  Product Code, Product Name, Category, 0-10 Qty, 10-50 Qty, 50-100 Qty, 100+ Qty
                 </p>
               </div>
 
@@ -252,7 +252,7 @@ export const InventoryUploadDialog = ({ onUploadComplete }: InventoryUploadDialo
                   Required Columns
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  <strong>Serial Number</strong> and <strong>Model Name</strong>
+                  <strong>Product Code</strong>, <strong>Product Name</strong>
                 </p>
               </div>
             </>
