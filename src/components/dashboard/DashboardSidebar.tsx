@@ -65,7 +65,7 @@ const navItems: NavItem[] = [
     label: "Sale",
     children: [
       { icon: ShoppingCart, label: "Current Month Sale", path: "/sales" },
-      { icon: CreditCard, label: "Balance Payment", path: "/sales?tab=balance" },
+      { icon: CreditCard, label: "Balance Payment", path: "/balance-payments" },
       { icon: Database, label: "Sale Database", path: "/sales?tab=database" },
       { icon: FileCheck, label: "Quotations", path: "/sales?tab=quotations" },
       { icon: RefreshCw, label: "Renewal", path: "/sales?tab=renewal" },
