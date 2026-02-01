@@ -11,14 +11,18 @@ export const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="fixed inset-0 flex w-full bg-background overflow-hidden">
+      {/* Fixed Sidebar */}
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex flex-1 flex-col min-w-0">
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col min-w-0 h-full">
+        {/* Fixed Header */}
         <DashboardHeader onMenuToggle={toggleSidebar} />
         
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
-          <div className="mx-auto max-w-7xl">
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
+          <div className="mx-auto max-w-7xl p-4 lg:p-6">
             <Outlet />
           </div>
         </main>

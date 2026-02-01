@@ -23,7 +23,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-xl lg:px-6">
+      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-xl lg:px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
