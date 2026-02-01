@@ -18,18 +18,35 @@ export interface Lead {
   updated_at?: string;
 }
 
-// Fetch all leads
+// Fetch all leads with pagination to bypass 1000 row limit
 export const useLeads = () => {
   return useQuery({
     queryKey: ["leads"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: true });
+      const allLeads: Lead[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data as Lead[];
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("leads")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allLeads.push(...(data as Lead[]));
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allLeads;
     },
   });
 };
