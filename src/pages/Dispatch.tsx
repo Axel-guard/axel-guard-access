@@ -1,67 +1,91 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Truck, Search, Filter, Package, DollarSign } from "lucide-react";
-import { useShipments, useShipmentsSummary } from "@/hooks/useShipments";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Truck, 
+  Search, 
+  Package, 
+  FileSpreadsheet, 
+  Plus, 
+  X,
+  Eye,
+  Trash2
+} from "lucide-react";
+import { useShipments } from "@/hooks/useShipments";
+import { useSales } from "@/hooks/useSales";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
+import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const DispatchPage = () => {
-  const { data: shipments, isLoading } = useShipments();
-  const { data: summary } = useShipmentsSummary();
-  const [searchTerm, setSearchTerm] = useState("");
+  const { data: shipments, isLoading: shipmentsLoading } = useShipments();
+  const { data: sales, isLoading: salesLoading } = useSales();
+  
+  const [activeTab, setActiveTab] = useState("orders");
+  const [orderIdSearch, setOrderIdSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [trackingSearch, setTrackingSearch] = useState("");
 
-  const filteredShipments = shipments?.filter(
-    (item) =>
-      (item.order_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.tracking_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (item.courier_partner?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  );
+  // Calculate dispatch order stats
+  const dispatchStats = useMemo(() => {
+    if (!sales) return { completed: 0, pending: 0 };
+    
+    // For now, assume orders with shipments are completed
+    const orderIdsWithShipments = new Set(shipments?.map(s => s.order_id) || []);
+    const completed = sales.filter(s => orderIdsWithShipments.has(s.order_id)).length;
+    const pending = sales.length - completed;
+    
+    return { completed, pending };
+  }, [sales, shipments]);
 
-  const getModeBadge = (mode: string | null) => {
-    const styles: Record<string, string> = {
-      Air: "bg-info/10 text-info border-info/20",
-      Surface: "bg-warning/10 text-warning border-warning/20",
-    };
-    return (
-      <Badge variant="outline" className={styles[mode || ""] || ""}>
-        {mode || "Unknown"}
-      </Badge>
-    );
+  // Filter dispatch orders (sales data)
+  const filteredOrders = useMemo(() => {
+    if (!sales) return [];
+    
+    return sales.filter(sale => {
+      const matchesOrderId = orderIdSearch === "" || 
+        sale.order_id.toLowerCase().includes(orderIdSearch.toLowerCase());
+      const matchesCustomer = customerSearch === "" || 
+        (sale.customer_name?.toLowerCase() || "").includes(customerSearch.toLowerCase()) ||
+        (sale.customer_contact?.toLowerCase() || "").includes(customerSearch.toLowerCase());
+      
+      return matchesOrderId && matchesCustomer;
+    });
+  }, [sales, orderIdSearch, customerSearch]);
+
+  // Filter tracking details (shipments data)
+  const filteredShipments = useMemo(() => {
+    if (!shipments) return [];
+    
+    return shipments.filter(shipment => {
+      const search = trackingSearch.toLowerCase();
+      return trackingSearch === "" ||
+        (shipment.order_id?.toLowerCase() || "").includes(search) ||
+        (shipment.courier_partner?.toLowerCase() || "").includes(search) ||
+        (shipment.tracking_id?.toLowerCase() || "").includes(search);
+    });
+  }, [shipments, trackingSearch]);
+
+  const handleClearOrderSearch = () => {
+    setOrderIdSearch("");
+    setCustomerSearch("");
   };
 
-  const getTypeBadge = (type: string) => {
-    const styles: Record<string, string> = {
-      Sale: "bg-success/10 text-success border-success/20",
-      Replacement: "bg-primary/10 text-primary border-primary/20",
-    };
-    return (
-      <Badge variant="outline" className={styles[type] || ""}>
-        {type}
-      </Badge>
-    );
-  };
+  const isLoading = shipmentsLoading || salesLoading;
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
+        <Skeleton className="h-12 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
@@ -69,125 +93,156 @@ const DispatchPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dispatch & Tracking</h1>
-        <p className="text-muted-foreground">
-          Manage shipments and track deliveries
-        </p>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dispatch Management</h1>
+          <p className="text-muted-foreground">
+            {dispatchStats.completed} Orders Completed | {dispatchStats.pending} Orders Pending Dispatch
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+            <FileSpreadsheet className="h-4 w-4" />
+            Export Excel
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="gap-2 bg-success text-white hover:bg-success/90">
+                <Plus className="h-4 w-4" />
+                Create
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>New Shipment</DropdownMenuItem>
+              <DropdownMenuItem>Bulk Dispatch</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          title="Total Shipments"
-          value={String(summary?.totalShipments || 0)}
-          icon={Truck}
-          variant="primary"
-        />
-        <StatCard
-          title="Total Weight"
-          value={`${(summary?.totalWeight || 0).toFixed(1)} Kg`}
-          icon={Package}
-          variant="info"
-        />
-        <StatCard
-          title="Shipping Cost"
-          value={`₹${(summary?.totalShippingCost || 0).toLocaleString()}`}
-          icon={DollarSign}
-          variant="warning"
-        />
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger 
+            value="orders" 
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Package className="h-4 w-4" />
+            Dispatch Orders
+          </TabsTrigger>
+          <TabsTrigger 
+            value="tracking"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Truck className="h-4 w-4" />
+            Tracking Details
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Shipments Table */}
-      <Card className="shadow-card">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-base font-semibold">
-              Shipment Records ({filteredShipments?.length || 0})
-            </CardTitle>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {/* Dispatch Orders Tab */}
+        <TabsContent value="orders" className="space-y-4">
+          {/* Search Bar */}
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <Input
-                  placeholder="Search order, tracking ID, courier..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-64"
+                  placeholder="Search by Order ID..."
+                  value={orderIdSearch}
+                  onChange={(e) => setOrderIdSearch(e.target.value)}
+                  className="flex-1"
                 />
+                <Input
+                  placeholder="Search by Customer Name/Mobile..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <div className="flex gap-2">
+                  <Button className="gap-2 bg-primary hover:bg-primary/90">
+                    <Search className="h-4 w-4" />
+                    Search
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={handleClearOrderSearch}
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                </div>
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
+            </CardContent>
+          </Card>
+
+          {/* Dispatch Orders Table */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Truck className="h-5 w-5" />
+                Dispatch Orders
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <DispatchOrdersTable 
+                orders={filteredOrders} 
+                shipments={shipments || []}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tracking Details Tab */}
+        <TabsContent value="tracking" className="space-y-4">
+          {/* Tracking Records Report Header */}
+          <div className="bg-gradient-to-r from-primary to-primary/80 rounded-lg p-6 text-primary-foreground">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  Tracking Records Report
+                </h2>
+                <p className="text-white/80 text-sm mt-1">
+                  All tracking records with invoice pricing
+                </p>
+              </div>
+              <Button variant="secondary" className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                Download Excel
               </Button>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-xs font-semibold uppercase">
-                    Order ID
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase">
-                    Type
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase">
-                    Courier
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase">
-                    Mode
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase">
-                    Tracking ID
-                  </TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase">
-                    Weight
-                  </TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase">
-                    Cost
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredShipments?.map((item) => (
-                  <TableRow key={item.id} className="border-border">
-                    <TableCell className="font-semibold text-primary">
-                      #{item.order_id || "N/A"}
-                    </TableCell>
-                    <TableCell>{getTypeBadge(item.shipment_type)}</TableCell>
-                    <TableCell className="font-medium">
-                      {item.courier_partner || "-"}
-                    </TableCell>
-                    <TableCell>{getModeBadge(item.shipping_mode)}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {item.tracking_id || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.weight_kg ? `${item.weight_kg} Kg` : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {item.shipping_cost
-                        ? `₹${Number(item.shipping_cost).toLocaleString()}`
-                        : "-"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {(!filteredShipments || filteredShipments.length === 0) && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="py-8 text-center text-muted-foreground"
-                    >
-                      No shipments found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+
+          {/* Search and Filter */}
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by Order ID, Courier, Tracking ID..."
+                    value={trackingSearch}
+                    onChange={(e) => setTrackingSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Button variant="outline" className="gap-2">
+                  <Package className="h-4 w-4" />
+                  All Months
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tracking Details Table */}
+          <Card className="shadow-card">
+            <CardContent className="px-0 py-0">
+              <TrackingDetailsTable shipments={filteredShipments} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
