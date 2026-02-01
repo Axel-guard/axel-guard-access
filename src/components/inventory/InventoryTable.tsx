@@ -18,7 +18,7 @@ interface InventoryTableProps {
   onEdit: (item: InventoryItem) => void;
 }
 
-type SortField = "serial_number" | "product_name" | "status" | "qc_result" | "in_date" | "dispatch_date" | "customer_name";
+type SortField = "serial_number" | "product_name" | "status" | "qc_result" | "in_date" | "dispatch_date" | "customer_code" | "customer_name" | "customer_city" | "order_id";
 type SortDirection = "asc" | "desc";
 
 export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
@@ -120,7 +120,7 @@ export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
               onClick={() => handleSort("product_name")}
             >
               <div className="flex items-center">
-                Product
+                Model Name
                 <SortIcon field="product_name" />
               </div>
             </TableHead>
@@ -153,20 +153,47 @@ export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
             </TableHead>
             <TableHead
               className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort("customer_name")}
-            >
-              <div className="flex items-center">
-                Customer
-                <SortIcon field="customer_name" />
-              </div>
-            </TableHead>
-            <TableHead
-              className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort("dispatch_date")}
             >
               <div className="flex items-center">
                 Dispatch Date
                 <SortIcon field="dispatch_date" />
+              </div>
+            </TableHead>
+            <TableHead
+              className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("customer_code")}
+            >
+              <div className="flex items-center">
+                Customer Code
+                <SortIcon field="customer_code" />
+              </div>
+            </TableHead>
+            <TableHead
+              className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("customer_name")}
+            >
+              <div className="flex items-center">
+                Customer Name
+                <SortIcon field="customer_name" />
+              </div>
+            </TableHead>
+            <TableHead
+              className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("customer_city")}
+            >
+              <div className="flex items-center">
+                Customer City
+                <SortIcon field="customer_city" />
+              </div>
+            </TableHead>
+            <TableHead
+              className="text-xs font-semibold uppercase cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("order_id")}
+            >
+              <div className="flex items-center">
+                Order ID
+                <SortIcon field="order_id" />
               </div>
             </TableHead>
             <TableHead className="text-xs font-semibold uppercase w-16">
@@ -188,22 +215,20 @@ export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
               <TableCell className="text-muted-foreground">
                 {formatDate(item.in_date)}
               </TableCell>
-              <TableCell>
-                {item.customer_name ? (
-                  <div>
-                    <p className="font-medium">{item.customer_name}</p>
-                    {item.customer_city && (
-                      <p className="text-xs text-muted-foreground">
-                        {item.customer_city}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
               <TableCell className="text-muted-foreground">
                 {formatDate(item.dispatch_date)}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {item.customer_code || "-"}
+              </TableCell>
+              <TableCell>
+                {item.customer_name || "-"}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {item.customer_city || "-"}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {item.order_id || "-"}
               </TableCell>
               <TableCell>
                 <Button
@@ -219,7 +244,7 @@ export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
           ))}
           {sortedData.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+              <TableCell colSpan={11} className="py-8 text-center text-muted-foreground">
                 No inventory items found
               </TableCell>
             </TableRow>
