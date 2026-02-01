@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import SalesPage from "./pages/Sales";
 import LeadsPage from "./pages/Leads";
 import InventoryPage from "./pages/Inventory";
+import QualityCheckPage from "./pages/QualityCheck";
 import DispatchPage from "./pages/Dispatch";
 import ReportsPage from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="sales" element={<SalesPage />} />
             <Route path="leads" element={<LeadsPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="quality-check" element={<QualityCheckPage />} />
             <Route path="dispatch" element={<DispatchPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />

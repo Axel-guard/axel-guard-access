@@ -77,7 +77,7 @@ const navItems: NavItem[] = [
     children: [
       { icon: Package, label: "Inventory Stock", path: "/inventory" },
       { icon: Truck, label: "Dispatch", path: "/dispatch" },
-      { icon: ClipboardCheck, label: "Quality Check", path: "/inventory?tab=qc" },
+      { icon: ClipboardCheck, label: "Quality Check", path: "/quality-check" },
       { icon: FileText, label: "Reports", path: "/reports?tab=inventory" },
     ],
   },
