@@ -84,6 +84,7 @@ export const LeadsUploadDialog = () => {
       // Transform data
       const transformedData: any[] = [];
       const seenCodes = new Set<string>();
+      let skippedRows = 0;
 
       for (const row of jsonData) {
         const record = row as Record<string, any>;
@@ -93,10 +94,24 @@ export const LeadsUploadDialog = () => {
           transformed[schemaCol] = cleanValue(record[excelCol], schemaCol, DATE_COLUMNS);
         }
 
-        // Skip if no customer code
-        if (!transformed.customer_code) continue;
+        // Skip rows with missing required fields
+        if (!transformed.customer_code || !transformed.customer_name || !transformed.mobile_number) {
+          skippedRows++;
+          continue;
+        }
 
         const codeKey = String(transformed.customer_code).trim();
+        
+        // Ensure required fields are not empty strings
+        transformed.customer_code = codeKey;
+        transformed.customer_name = String(transformed.customer_name).trim();
+        transformed.mobile_number = String(transformed.mobile_number).trim();
+        
+        if (!transformed.customer_name || !transformed.mobile_number) {
+          skippedRows++;
+          continue;
+        }
+
         if (seenCodes.has(codeKey)) {
           const existingIndex = transformedData.findIndex(
             (t) => String(t.customer_code).trim() === codeKey
@@ -111,6 +126,10 @@ export const LeadsUploadDialog = () => {
         transformed.status = transformed.status || "New";
 
         transformedData.push(transformed);
+      }
+
+      if (transformedData.length === 0) {
+        throw new Error(`No valid records found. ${skippedRows} rows were skipped due to missing required fields (Customer Code, Customer Name, Mobile).`);
       }
 
       setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
@@ -145,9 +164,10 @@ export const LeadsUploadDialog = () => {
 
       await queryClient.invalidateQueries({ queryKey: ["leads"] });
 
+      const skippedMessage = skippedRows > 0 ? ` (${skippedRows} rows skipped due to missing data)` : "";
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} leads.`,
+        description: `Successfully imported ${transformedData.length} leads.${skippedMessage}`,
       });
 
       setOpen(false);
