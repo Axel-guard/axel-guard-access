@@ -1,19 +1,11 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, ArrowUp, ArrowDown, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle, Download, Save, Tag } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,20 +20,19 @@ import {
   findMatchingColumn,
   cleanValue,
 } from "@/lib/excelParser";
-import { PricingSlider } from "@/components/pricing/PricingSlider";
+import { cn } from "@/lib/utils";
 
-interface ProductPricing {
+interface ProductWithPricing {
   id: string;
   product_code: string;
-  qty_0_10: number | null;
-  qty_10_50: number | null;
-  qty_50_100: number | null;
-  qty_100_plus: number | null;
-  created_at: string | null;
-  updated_at: string | null;
-  product?: {
-    product_name: string;
-    category: string;
+  product_name: string;
+  category: string;
+  pricing?: {
+    id: string;
+    qty_0_10: number | null;
+    qty_10_50: number | null;
+    qty_50_100: number | null;
+    qty_100_plus: number | null;
   };
 }
 
@@ -54,63 +45,170 @@ const COLUMN_MAPPINGS: Record<string, string[]> = {
   qty_100_plus: ["100+", "qty 100+", "qty_100_plus", "100 plus", "above 100"],
 };
 
-const usePricing = () => {
+const useProductsWithPricing = () => {
   return useQuery({
-    queryKey: ["pricing"],
+    queryKey: ["products-with-pricing"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_pricing")
-        .select(`
-          *,
-          product:products!product_pricing_product_code_fkey(product_name, category)
-        `)
+      // Fetch all products
+      const { data: products, error: prodError } = await supabase
+        .from("products")
+        .select("id, product_code, product_name, category")
+        .order("category", { ascending: true })
         .order("product_code", { ascending: true });
 
-      if (error) throw error;
-      return data as ProductPricing[];
+      if (prodError) throw prodError;
+
+      // Fetch all pricing
+      const { data: pricing, error: priceError } = await supabase
+        .from("product_pricing")
+        .select("*");
+
+      if (priceError) throw priceError;
+
+      // Merge products with their pricing
+      const pricingMap = new Map(pricing?.map(p => [p.product_code, p]));
+      
+      return (products || []).map(prod => ({
+        ...prod,
+        pricing: pricingMap.get(prod.product_code) || null,
+      })) as ProductWithPricing[];
     },
   });
 };
 
 const PricingPage = () => {
-  const { data: pricing, isLoading } = usePricing();
+  const { data: products, isLoading } = useProductsWithPricing();
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<"product_code" | "qty_0_10">("product_code");
-  const [sortDesc, setSortDesc] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("All Products");
+  const [editedPrices, setEditedPrices] = useState<Record<string, Record<string, number>>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const filteredPricing = pricing
-    ?.filter(
-      (item) =>
-        item.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.product?.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.product?.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      let valA: any, valB: any;
-      if (sortField === "product_code") {
-        valA = a.product_code.toLowerCase();
-        valB = b.product_code.toLowerCase();
-      } else {
-        valA = a[sortField] ?? 0;
-        valB = b[sortField] ?? 0;
-      }
-      if (valA < valB) return sortDesc ? 1 : -1;
-      if (valA > valB) return sortDesc ? -1 : 1;
-      return 0;
-    });
+  // Get unique categories
+  const categories = useMemo(() => {
+    if (!products) return ["All Products"];
+    const cats = [...new Set(products.map(p => p.category))].sort();
+    return ["All Products", ...cats];
+  }, [products]);
 
-  const handleSort = (field: "product_code" | "qty_0_10") => {
-    if (sortField === field) {
-      setSortDesc(!sortDesc);
-    } else {
-      setSortField(field);
-      setSortDesc(false);
+  // Filter products by category and search
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter(p => {
+      const matchesCategory = selectedCategory === "All Products" || p.category === selectedCategory;
+      const matchesSearch = 
+        p.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, selectedCategory, searchTerm]);
+
+  // Group products by category
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, ProductWithPricing[]> = {};
+    filteredProducts.forEach(p => {
+      if (!groups[p.category]) groups[p.category] = [];
+      groups[p.category].push(p);
+    });
+    return groups;
+  }, [filteredProducts]);
+
+  const handlePriceChange = (productCode: string, field: string, value: string) => {
+    const numValue = value === "" ? 0 : parseFloat(value) || 0;
+    setEditedPrices(prev => ({
+      ...prev,
+      [productCode]: {
+        ...prev[productCode],
+        [field]: numValue,
+      },
+    }));
+  };
+
+  const getDisplayPrice = (product: ProductWithPricing, field: string) => {
+    if (editedPrices[product.product_code]?.[field] !== undefined) {
+      return editedPrices[product.product_code][field];
     }
+    return product.pricing?.[field as keyof typeof product.pricing] ?? 0;
+  };
+
+  const saveAllPricing = async () => {
+    setIsSaving(true);
+    try {
+      const updates: any[] = [];
+      
+      for (const [productCode, prices] of Object.entries(editedPrices)) {
+        updates.push({
+          product_code: productCode,
+          qty_0_10: prices.qty_0_10 ?? 0,
+          qty_10_50: prices.qty_10_50 ?? 0,
+          qty_50_100: prices.qty_50_100 ?? 0,
+          qty_100_plus: prices.qty_100_plus ?? 0,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      if (updates.length > 0) {
+        const { error } = await supabase
+          .from("product_pricing")
+          .upsert(updates, { onConflict: "product_code" });
+
+        if (error) throw error;
+      }
+
+      setEditedPrices({});
+      await queryClient.invalidateQueries({ queryKey: ["products-with-pricing"] });
+      
+      toast({
+        title: "Success",
+        description: `Saved ${updates.length} pricing updates.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save pricing",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const downloadExcel = () => {
+    if (!products) return;
+    
+    // Create CSV content
+    const headers = ["Product Code", "Product Name", "Category", "0-10 QTY", "10-50 QTY", "50-100 QTY", "100+ QTY"];
+    const rows = products.map(p => [
+      p.product_code,
+      p.product_name,
+      p.category,
+      p.pricing?.qty_0_10 ?? 0,
+      p.pricing?.qty_10_50 ?? 0,
+      p.pricing?.qty_50_100 ?? 0,
+      p.pricing?.qty_100_plus ?? 0,
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pricing_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Download Started",
+      description: "Pricing data exported successfully.",
+    });
   };
 
   const processExcelFile = async (file: File) => {
@@ -153,7 +251,7 @@ const PricingPage = () => {
         for (const [excelCol, schemaCol] of Object.entries(columnMap)) {
           const value = record[excelCol];
           if (["qty_0_10", "qty_10_50", "qty_50_100", "qty_100_plus"].includes(schemaCol)) {
-            transformed[schemaCol] = value ? parseFloat(String(value).replace(/[^\d.-]/g, '')) || null : null;
+            transformed[schemaCol] = value ? parseFloat(String(value).replace(/[^\d.-]/g, '')) || 0 : 0;
           } else {
             transformed[schemaCol] = cleanValue(value, schemaCol, []);
           }
@@ -211,7 +309,7 @@ const PricingPage = () => {
         });
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["pricing"] });
+      await queryClient.invalidateQueries({ queryKey: ["products-with-pricing"] });
 
       toast({
         title: "Import Successful",
@@ -247,38 +345,81 @@ const PricingPage = () => {
     }
   };
 
-  const formatPrice = (price: number | null) => {
-    if (price === null || price === undefined) return "-";
-    return `₹${price.toLocaleString("en-IN")}`;
-  };
+  const hasChanges = Object.keys(editedPrices).length > 0;
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-12 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Fixed Slider at Top */}
-      <div className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm -mx-6 -mt-6 px-6 pt-4 pb-2 mb-4">
-        <PricingSlider />
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Tag className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Product Pricing Management</h1>
+            <p className="text-sm text-muted-foreground">Set quantity-based pricing for all products</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={downloadExcel}>
+            <Download className="h-4 w-4" />
+            Download Excel
+          </Button>
+          <Button 
+            className="gap-2 bg-green-600 hover:bg-green-700" 
+            onClick={saveAllPricing}
+            disabled={!hasChanges || isSaving}
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save All Pricing
+          </Button>
+        </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 space-y-6 overflow-auto">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Product Pricing Table</h1>
-            <p className="text-muted-foreground">Manage product pricing tiers</p>
-          </div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by Product Name, Code, or Category..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 bg-card"
+        />
+      </div>
+
+      {/* Category Tabs */}
+      <div className="flex flex-wrap gap-2">
+        {categories.map((cat) => (
+          <Button
+            key={cat}
+            variant={selectedCategory === cat ? "default" : "outline"}
+            size="sm"
+            className={cn(
+              "gap-1.5",
+              selectedCategory === cat && "bg-green-600 hover:bg-green-700"
+            )}
+            onClick={() => setSelectedCategory(cat)}
+          >
+            <Tag className="h-3 w-3" />
+            {cat}
+          </Button>
+        ))}
+        
+        {/* Upload Excel Button in tabs area */}
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Upload className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="gap-1.5 ml-auto">
+              <Upload className="h-3 w-3" />
               Upload Excel
             </Button>
           </DialogTrigger>
@@ -315,7 +456,7 @@ const PricingPage = () => {
 
                   <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                     <h4 className="font-medium text-sm flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-success" />
+                      <CheckCircle className="h-4 w-4 text-green-600" />
                       Expected Columns
                     </h4>
                     <p className="text-xs text-muted-foreground">
@@ -325,8 +466,8 @@ const PricingPage = () => {
 
                   <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                     <h4 className="font-medium text-sm flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-warning" />
-                      Required Columns
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                      Required
                     </h4>
                     <p className="text-xs text-muted-foreground">
                       <strong>Product Code</strong> (must match existing products)
@@ -361,82 +502,117 @@ const PricingPage = () => {
         </Dialog>
       </div>
 
-      <Card className="shadow-card">
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Pricing Tiers</CardTitle>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search pricing..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 gap-1 -ml-3 font-medium"
-                      onClick={() => handleSort("product_code")}
-                    >
+      {/* Products grouped by category */}
+      <div className="space-y-6">
+        {Object.entries(groupedProducts).map(([category, prods]) => (
+          <div key={category} className="rounded-lg overflow-hidden border border-border">
+            {/* Category Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-3 flex items-center gap-2">
+              <Tag className="h-4 w-4 text-white" />
+              <span className="font-semibold text-white">
+                {category} ({prods.length})
+              </span>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">
                       Product Code
-                      {sortField === "product_code" && (
-                        sortDesc ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 gap-1 font-medium"
-                      onClick={() => handleSort("qty_0_10")}
-                    >
-                      0-10 Qty
-                      {sortField === "qty_0_10" && (
-                        sortDesc ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">10-50 Qty</TableHead>
-                  <TableHead className="text-right">50-100 Qty</TableHead>
-                  <TableHead className="text-right">100+ Qty</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPricing?.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.product_code}</TableCell>
-                    <TableCell>{item.product?.product_name || "-"}</TableCell>
-                    <TableCell>{item.product?.category || "-"}</TableCell>
-                    <TableCell className="text-right">{formatPrice(item.qty_0_10)}</TableCell>
-                    <TableCell className="text-right">{formatPrice(item.qty_10_50)}</TableCell>
-                    <TableCell className="text-right">{formatPrice(item.qty_50_100)}</TableCell>
-                    <TableCell className="text-right">{formatPrice(item.qty_100_plus)}</TableCell>
-                  </TableRow>
-                ))}
-                {(!filteredPricing || filteredPricing.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No pricing records found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Product Name
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">
+                      0-10 QTY<br /><span className="text-[10px] normal-case">(₹)</span>
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">
+                      10-50 QTY<br /><span className="text-[10px] normal-case">(₹)</span>
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">
+                      50-100 QTY<br /><span className="text-[10px] normal-case">(₹)</span>
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">
+                      100+ QTY<br /><span className="text-[10px] normal-case">(₹)</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-card divide-y divide-border">
+                  {prods.map((product) => (
+                    <tr key={product.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-primary">
+                        {product.product_code}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-primary hover:underline cursor-pointer">
+                        {product.product_name}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <Input
+                          type="number"
+                          value={getDisplayPrice(product, "qty_0_10")}
+                          onChange={(e) => handlePriceChange(product.product_code, "qty_0_10", e.target.value)}
+                          className="w-24 mx-auto text-center h-8 text-sm"
+                          min={0}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <Input
+                          type="number"
+                          value={getDisplayPrice(product, "qty_10_50")}
+                          onChange={(e) => handlePriceChange(product.product_code, "qty_10_50", e.target.value)}
+                          className="w-24 mx-auto text-center h-8 text-sm"
+                          min={0}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <Input
+                          type="number"
+                          value={getDisplayPrice(product, "qty_50_100")}
+                          onChange={(e) => handlePriceChange(product.product_code, "qty_50_100", e.target.value)}
+                          className="w-24 mx-auto text-center h-8 text-sm"
+                          min={0}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <Input
+                          type="number"
+                          value={getDisplayPrice(product, "qty_100_plus")}
+                          onChange={(e) => handlePriceChange(product.product_code, "qty_100_plus", e.target.value)}
+                          className="w-24 mx-auto text-center h-8 text-sm"
+                          min={0}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+
+        {Object.keys(groupedProducts).length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            No products found matching your search.
+          </div>
+        )}
       </div>
+
+      {/* Floating Save Button when changes exist */}
+      {hasChanges && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Button
+            size="lg"
+            className="gap-2 bg-green-600 hover:bg-green-700 shadow-lg"
+            onClick={saveAllPricing}
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            Save {Object.keys(editedPrices).length} Changes
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
