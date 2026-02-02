@@ -11,13 +11,15 @@ import {
   Plus, 
   X,
   Eye,
-  Trash2
+  Trash2,
+  Calculator
 } from "lucide-react";
 import { useShipments } from "@/hooks/useShipments";
 import { useSales } from "@/hooks/useSales";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
 import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
+import { CourierCalculator } from "@/components/dispatch/CourierCalculator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,6 +140,13 @@ const DispatchPage = () => {
             <Truck className="h-4 w-4" />
             Tracking Details
           </TabsTrigger>
+          <TabsTrigger 
+            value="calculator"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Calculator className="h-4 w-4" />
+            Courier Calculator
+          </TabsTrigger>
         </TabsList>
 
         {/* Dispatch Orders Tab */}
@@ -241,6 +250,11 @@ const DispatchPage = () => {
               <TrackingDetailsTable shipments={filteredShipments} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Courier Calculator Tab */}
+        <TabsContent value="calculator" className="space-y-4">
+          <CourierCalculator />
         </TabsContent>
       </Tabs>
     </div>
