@@ -28,6 +28,7 @@ import {
   findMatchingColumn,
   cleanValue,
 } from "@/lib/excelParser";
+import { PricingSlider } from "@/components/pricing/PricingSlider";
 
 interface ProductPricing {
   id: string;
@@ -428,6 +429,9 @@ const PricingPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pricing Plans Slider */}
+      <PricingSlider />
     </div>
   );
 };
