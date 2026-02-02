@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale } from "@/hooks/useSales";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface NewSaleDialogProps {
   open: boolean;
@@ -164,6 +166,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     customerName: "",
     companyName: "",
     customerContact: "",
+    location: "",
     saleDate: new Date().toISOString().split("T")[0],
     employeeName: "",
     saleType: "",
@@ -177,6 +180,59 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const [products, setProducts] = useState<ProductItem[]>([
     { category: "", product_name: "", quantity: 0, unit_price: 0 },
   ]);
+
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [customerNotFound, setCustomerNotFound] = useState(false);
+
+  // Customer auto-fill from Leads Database
+  const lookupCustomer = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setCustomerNotFound(false);
+      return;
+    }
+
+    setIsLookingUp(true);
+    setCustomerNotFound(false);
+
+    try {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("customer_name, mobile_number, company_name, location")
+        .eq("customer_code", code.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData((prev) => ({
+          ...prev,
+          customerName: data.customer_name || prev.customerName,
+          customerContact: data.mobile_number || prev.customerContact,
+          companyName: data.company_name || prev.companyName,
+          location: data.location || prev.location,
+        }));
+        setCustomerNotFound(false);
+      } else {
+        setCustomerNotFound(true);
+      }
+    } catch (err) {
+      console.error("Error looking up customer:", err);
+      toast.error("Failed to lookup customer");
+    } finally {
+      setIsLookingUp(false);
+    }
+  }, []);
+
+  // Debounced customer code lookup
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.customerCode.trim()) {
+        lookupCustomer(formData.customerCode);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.customerCode, lookupCustomer]);
 
   const addProduct = () => {
     if (products.length < 10) {
@@ -200,10 +256,14 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     setProducts(updated);
   };
 
+  // Calculations with Courier GST
   const subtotal = products.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
+  const courierGST = formData.courierCost * 0.18; // 18% GST on courier cost
+  const finalCourierCost = formData.courierCost + courierGST;
   const isWithGST = formData.saleType === "With GST (18%)";
-  const gstAmount = isWithGST ? (subtotal + formData.courierCost) * 0.18 : 0;
-  const totalAmount = subtotal + formData.courierCost + gstAmount;
+  const productGST = isWithGST ? subtotal * 0.18 : 0;
+  const totalGST = productGST + courierGST;
+  const totalAmount = subtotal + finalCourierCost + productGST;
   const balanceAmount = totalAmount - formData.amountReceived;
 
   const generateOrderId = () => {
@@ -236,7 +296,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
         payment_reference: formData.paymentReference,
         remarks: formData.remarks,
         subtotal,
-        gst_amount: gstAmount,
+        gst_amount: totalGST,
         total_amount: totalAmount,
         balance_amount: balanceAmount,
       },
@@ -260,6 +320,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       customerName: "",
       companyName: "",
       customerContact: "",
+      location: "",
       saleDate: new Date().toISOString().split("T")[0],
       employeeName: "",
       saleType: "",
@@ -270,6 +331,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       remarks: "",
     });
     setProducts([{ category: "", product_name: "", quantity: 0, unit_price: 0 }]);
+    setCustomerNotFound(false);
   };
 
   const AutoFillHint = () => (
@@ -288,15 +350,24 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="customerCode">Customer Code *</Label>
-              <Input
-                id="customerCode"
-                value={formData.customerCode}
-                onChange={(e) =>
-                  setFormData({ ...formData, customerCode: e.target.value })
-                }
-                placeholder="Enter customer code"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="customerCode"
+                  value={formData.customerCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, customerCode: e.target.value })
+                  }
+                  placeholder="Enter customer code"
+                  required
+                  className={customerNotFound ? "border-destructive" : ""}
+                />
+                {isLookingUp && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              {customerNotFound && (
+                <p className="text-xs text-destructive">Customer not found in database</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="customerName">
@@ -326,7 +397,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </div>
           </div>
 
-          {/* Row 2: Company Name, Date of Sale, Employee Name */}
+          {/* Row 2: Company Name, Location, Date of Sale */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="companyName">
@@ -337,6 +408,19 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 value={formData.companyName}
                 onChange={(e) =>
                   setFormData({ ...formData, companyName: e.target.value })
+                }
+                placeholder="Will be auto-filled or enter manually"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">
+                Location <AutoFillHint />
+              </Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
                 }
                 placeholder="Will be auto-filled or enter manually"
               />
@@ -353,6 +437,10 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 required
               />
             </div>
+          </div>
+
+          {/* Row 3: Employee Name, Sale Type, Courier Cost */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="employeeName">Employee Name *</Label>
               <Select
@@ -373,10 +461,6 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          {/* Row 3: Sale Type, Courier Cost, Amount Received */}
-          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="saleType">Sale Type *</Label>
               <Select
@@ -398,36 +482,45 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="courierCost">Courier Cost</Label>
+              <Label htmlFor="courierCost">
+                Courier Cost
+                {formData.courierCost > 0 && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    (+18% GST: ₹{courierGST.toFixed(2)})
+                  </span>
+                )}
+              </Label>
               <Input
                 id="courierCost"
                 type="number"
                 min="0"
-                value={formData.courierCost}
+                value={formData.courierCost || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, courierCost: Number(e.target.value) })
+                  setFormData({ ...formData, courierCost: Number(e.target.value) || 0 })
                 }
+                placeholder="0"
               />
             </div>
+          </div>
+
+          {/* Row 4: Amount Received, In Account Received, Payment Reference */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="amountReceived">Amount Received</Label>
               <Input
                 id="amountReceived"
                 type="number"
                 min="0"
-                value={formData.amountReceived}
+                value={formData.amountReceived || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    amountReceived: Number(e.target.value),
+                    amountReceived: Number(e.target.value) || 0,
                   })
                 }
+                placeholder="0"
               />
             </div>
-          </div>
-
-          {/* Row 4: In Account Received, Payment Reference Number, Remarks */}
-          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="accountReceived">In Account Received</Label>
               <Select
@@ -459,16 +552,18 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 placeholder="Enter reference number"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="remarks">Remarks</Label>
-              <Textarea
-                id="remarks"
-                value={formData.remarks}
-                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                placeholder="Add any additional notes"
-                rows={3}
-              />
-            </div>
+          </div>
+
+          {/* Row 5: Remarks */}
+          <div className="space-y-2">
+            <Label htmlFor="remarks">Remarks</Label>
+            <Textarea
+              id="remarks"
+              value={formData.remarks}
+              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+              placeholder="Add any additional notes"
+              rows={2}
+            />
           </div>
 
           {/* Product Details Section */}
@@ -575,24 +670,40 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           {/* Totals Section */}
           <div className="rounded-lg bg-secondary/50 p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="text-muted-foreground">Subtotal (Products):</span>
               <span className="font-medium">₹{subtotal.toFixed(2)}</span>
             </div>
+            {isWithGST && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Product GST (18%):</span>
+                <span className="font-medium">₹{productGST.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Courier Cost:</span>
               <span className="font-medium">₹{formData.courierCost.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">GST (18%):</span>
-              <span className="font-medium">₹{gstAmount.toFixed(2)}</span>
+            {formData.courierCost > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Courier GST (18%):</span>
+                <span className="font-medium">₹{courierGST.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm border-t border-border pt-2">
+              <span className="text-muted-foreground">Total GST:</span>
+              <span className="font-medium">₹{totalGST.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-base font-semibold border-t border-primary pt-2">
               <span className="text-primary">Total Amount:</span>
               <span className="text-primary">₹{totalAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Amount Received:</span>
+              <span className="font-medium">₹{formData.amountReceived.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Balance:</span>
-              <span className={balanceAmount > 0 ? "text-destructive font-medium" : "text-green-600 font-medium"}>
+              <span className={balanceAmount > 0 ? "text-destructive font-medium" : "text-success font-medium"}>
                 ₹{balanceAmount.toFixed(2)}
               </span>
             </div>
