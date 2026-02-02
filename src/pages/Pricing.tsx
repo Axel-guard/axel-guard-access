@@ -262,12 +262,19 @@ const PricingPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pricing</h1>
-          <p className="text-muted-foreground">Manage product pricing tiers</p>
-        </div>
+    <div className="flex flex-col h-full">
+      {/* Fixed Slider at Top */}
+      <div className="flex-shrink-0 border-b border-border bg-card/50 backdrop-blur-sm -mx-6 -mt-6 px-6 pt-4 pb-2 mb-4">
+        <PricingSlider />
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 space-y-6 overflow-auto">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Product Pricing Table</h1>
+            <p className="text-muted-foreground">Manage product pricing tiers</p>
+          </div>
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -429,9 +436,7 @@ const PricingPage = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Pricing Plans Slider */}
-      <PricingSlider />
+      </div>
     </div>
   );
 };
