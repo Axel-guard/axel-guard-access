@@ -81,7 +81,7 @@ const navItems: NavItem[] = [
       { icon: FileText, label: "Reports", path: "/reports?tab=inventory" },
     ],
   },
-  { icon: Tag, label: "Pricing", path: "/settings?tab=pricing" },
+  { icon: Tag, label: "Pricing", path: "/pricing" },
   {
     icon: Database,
     label: "Database",

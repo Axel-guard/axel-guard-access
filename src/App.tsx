@@ -13,6 +13,7 @@ import DispatchPage from "./pages/Dispatch";
 import ReportsPage from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 import BalancePaymentsPage from "./pages/BalancePayments";
+import PricingPage from "./pages/Pricing";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="quality-check" element={<QualityCheckPage />} />
             <Route path="dispatch" element={<DispatchPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="pricing" element={<PricingPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
