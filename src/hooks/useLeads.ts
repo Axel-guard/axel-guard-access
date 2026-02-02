@@ -19,11 +19,10 @@ export interface Lead {
 }
 
 // Fetch all leads (pagination to bypass 1000-row API response limit)
-export const useLeads = () => {
+// Sorted by customer_code as numeric value (ascending by default)
+export const useLeads = (sortDescending: boolean = false) => {
   return useQuery({
-    // Extra segment ensures the new queryFn runs after HMR,
-    // while still being invalidated by queryKey: ["leads"].
-    queryKey: ["leads", "all"],
+    queryKey: ["leads", "all", sortDescending ? "desc" : "asc"],
     queryFn: async () => {
       const pageSize = 1000;
       const all: Lead[] = [];
@@ -35,8 +34,6 @@ export const useLeads = () => {
         const { data, error } = await supabase
           .from("leads")
           .select("*")
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
           .range(from, to);
 
         if (error) throw error;
@@ -46,6 +43,13 @@ export const useLeads = () => {
 
         if (rows.length < pageSize) break;
       }
+
+      // Sort by customer_code as numeric value
+      all.sort((a, b) => {
+        const numA = parseInt(a.customer_code.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.customer_code.replace(/\D/g, '')) || 0;
+        return sortDescending ? numB - numA : numA - numB;
+      });
 
       return all;
     },

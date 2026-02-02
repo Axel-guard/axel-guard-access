@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Edit, Trash2, Search, Phone, Mail } from "lucide-react";
+import { MoreVertical, Eye, Edit, Trash2, Search, Phone, Mail, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -33,7 +33,8 @@ import { LeadsUploadDialog } from "@/components/leads/LeadsUploadDialog";
 const STATUSES = ["New", "Contacted", "Interested", "Not Interested", "Converted"];
 
 const LeadsPage = () => {
-  const { data: leads, isLoading } = useLeads();
+  const [sortDescending, setSortDescending] = useState(false);
+  const { data: leads, isLoading } = useLeads(sortDescending);
   const deleteLead = useDeleteLead();
   const updateLead = useUpdateLead();
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,7 +110,21 @@ const LeadsPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 -ml-3 font-medium"
+                      onClick={() => setSortDescending(!sortDescending)}
+                    >
+                      Customer ID
+                      {sortDescending ? (
+                        <ArrowDown className="h-4 w-4" />
+                      ) : (
+                        <ArrowUp className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Location</TableHead>
