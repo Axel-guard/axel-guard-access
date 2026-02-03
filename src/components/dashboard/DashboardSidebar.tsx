@@ -56,7 +56,6 @@ const navItems: NavItem[] = [
     label: "Search",
     children: [
       { icon: Users, label: "Customer Details", path: "/leads" },
-      { icon: Search, label: "Order Details by Order ID", path: "/sales" },
       { icon: Calculator, label: "Courier Charges Calculator", path: "/dispatch" },
     ],
   },
@@ -66,7 +65,6 @@ const navItems: NavItem[] = [
     children: [
       { icon: ShoppingCart, label: "Current Month Sale", path: "/current-month-sales" },
       { icon: CreditCard, label: "Balance Payment", path: "/balance-payments" },
-      { icon: Database, label: "Sale Database", path: "/sales" },
       { icon: FileCheck, label: "Quotations", path: "/sales?tab=quotations" },
       { icon: RefreshCw, label: "Renewal", path: "/sales?tab=renewal" },
     ],
