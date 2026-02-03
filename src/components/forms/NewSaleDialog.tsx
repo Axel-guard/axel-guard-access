@@ -278,18 +278,21 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     setProducts(updated);
   };
 
-  // Calculations with Courier GST
+  // Calculations - GST only applied when Sale Type is "With GST (18%)"
   const subtotal = products.reduce((sum, p) => {
     const qty = parseFloat(p.quantity) || 0;
     const price = parseFloat(p.unit_price) || 0;
     return sum + qty * price;
   }, 0);
-  const courierGST = formData.courierCost * 0.18; // 18% GST on courier cost
-  const finalCourierCost = formData.courierCost + courierGST;
   const isWithGST = formData.saleType === "With GST (18%)";
+  
+  // Courier GST only applies when Sale Type is "With GST"
+  const courierGST = isWithGST ? formData.courierCost * 0.18 : 0;
   const productGST = isWithGST ? subtotal * 0.18 : 0;
   const totalGST = productGST + courierGST;
-  const totalAmount = subtotal + finalCourierCost + productGST;
+  
+  // Total = Subtotal + Courier Cost + GST (if applicable)
+  const totalAmount = subtotal + formData.courierCost + totalGST;
   const balanceAmount = totalAmount - formData.amountReceived;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -720,26 +723,30 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
               <span className="text-muted-foreground">Subtotal (Products):</span>
               <span className="font-medium">₹{subtotal.toFixed(2)}</span>
             </div>
-            {isWithGST && (
+            {isWithGST && productGST > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Product GST (18%):</span>
                 <span className="font-medium">₹{productGST.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Courier Cost:</span>
-              <span className="font-medium">₹{formData.courierCost.toFixed(2)}</span>
-            </div>
             {formData.courierCost > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Courier Cost:</span>
+                <span className="font-medium">₹{formData.courierCost.toFixed(2)}</span>
+              </div>
+            )}
+            {isWithGST && formData.courierCost > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Courier GST (18%):</span>
                 <span className="font-medium">₹{courierGST.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm border-t border-border pt-2">
-              <span className="text-muted-foreground">Total GST:</span>
-              <span className="font-medium">₹{totalGST.toFixed(2)}</span>
-            </div>
+            {isWithGST && totalGST > 0 && (
+              <div className="flex justify-between text-sm border-t border-border pt-2">
+                <span className="text-muted-foreground">Total GST:</span>
+                <span className="font-medium">₹{totalGST.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-semibold border-t border-primary pt-2">
               <span className="text-primary">Total Amount:</span>
               <span className="text-primary">₹{totalAmount.toFixed(2)}</span>
