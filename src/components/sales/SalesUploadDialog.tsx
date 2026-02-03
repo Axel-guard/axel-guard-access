@@ -18,18 +18,19 @@ import {
   findMatchingColumn,
   cleanValue,
   parseNumber,
+  normalizeColumnName,
 } from "@/lib/excelParser";
 
-// Exact column mappings for Sales based on user's Excel format
+// Expanded column mappings for flexible matching
 const COLUMN_MAPPINGS: Record<string, string[]> = {
-  order_id: ["order id", "order_id", "order no", "order number", "orderid"],
-  sale_date: ["sale date", "sale_date", "saledate", "date"],
-  customer_code: ["customer code", "customer_code", "customercode", "cust code", "custcode"],
-  customer_name: ["customer name", "customer_name", "customername", "name"],
-  customer_contact: ["mobile", "mobile number", "phone", "contact", "mobile_number"],
-  location: ["location", "city", "address", "area"],
-  total_amount: ["total amount", "total_amount", "totalamount", "total"],
-  final_amount: ["final amount", "final_amount", "finalamount", "final", "net amount"],
+  order_id: ["order id", "order_id", "order no", "order number", "orderid", "order", "id", "sr no", "s no", "sno", "srno"],
+  sale_date: ["sale date", "sale_date", "saledate", "date", "order date", "invoice date"],
+  customer_code: ["customer code", "customer_code", "customercode", "cust code", "custcode", "cust id", "customer id"],
+  customer_name: ["customer name", "customer_name", "customername", "name", "cust name", "custname", "party name", "party"],
+  customer_contact: ["mobile", "mobile number", "phone", "contact", "mobile_number", "phone number", "cell", "mob", "contact no"],
+  location: ["location", "city", "address", "area", "state", "place", "delivery location"],
+  total_amount: ["total amount", "total_amount", "totalamount", "total", "amount", "grand total", "net amount", "invoice amount", "bill amount"],
+  final_amount: ["final amount", "final_amount", "finalamount", "final", "net amount", "payable", "receivable"],
 };
 
 const DATE_COLUMNS = ["sale_date"];
@@ -38,7 +39,7 @@ export const SalesUploadDialog = () => {
   const [open, setOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,6 +60,8 @@ export const SalesUploadDialog = () => {
       const excelColumns = Object.keys(jsonData[0] as object);
       const columnMap: Record<string, string> = {};
 
+      console.log("Excel columns found:", excelColumns);
+
       for (const excelCol of excelColumns) {
         const schemaCol = findMatchingColumn(excelCol, COLUMN_MAPPINGS);
         if (schemaCol) {
@@ -66,101 +69,132 @@ export const SalesUploadDialog = () => {
         }
       }
 
-      // Check for required columns
+      console.log("Column mapping:", columnMap);
+
+      // Check for required columns - order_id is the only required field
       const mappedColumns = Object.values(columnMap);
       if (!mappedColumns.includes("order_id")) {
-        throw new Error("Could not find 'Order ID' column. Please ensure your Excel has this column.");
+        // Try to find any column that might be order_id
+        const possibleOrderCols = excelColumns.filter(col => {
+          const normalized = normalizeColumnName(col);
+          return normalized.includes("order") || normalized.includes("id") || normalized.includes("no") || normalized.includes("sr");
+        });
+        
+        if (possibleOrderCols.length > 0) {
+          columnMap[possibleOrderCols[0]] = "order_id";
+          console.log("Auto-mapped first ID-like column:", possibleOrderCols[0]);
+        } else {
+          throw new Error("Could not find 'Order ID' column. Please ensure your Excel has an Order ID, Order No, or similar column.");
+        }
       }
-
-      console.log("Column mapping:", columnMap);
 
       setProgress({ current: 0, total: jsonData.length, status: "Processing records..." });
 
-      // Transform ALL data - allow duplicates
+      // Transform ALL data - allow duplicates, skip invalid rows
       const transformedData: any[] = [];
+      const skippedRows: { row: number; reason: string }[] = [];
 
       for (let i = 0; i < jsonData.length; i++) {
-        const record = jsonData[i] as Record<string, any>;
-        const transformed: Record<string, any> = {};
+        try {
+          const record = jsonData[i] as Record<string, any>;
+          const transformed: Record<string, any> = {};
 
-        for (const [excelCol, schemaCol] of Object.entries(columnMap)) {
-          if (schemaCol === "total_amount" || schemaCol === "final_amount") {
-            transformed[schemaCol] = parseNumber(record[excelCol]) || 0;
-          } else {
-            transformed[schemaCol] = cleanValue(record[excelCol], schemaCol, DATE_COLUMNS);
+          // Extract values using column mapping
+          for (const [excelCol, schemaCol] of Object.entries(columnMap)) {
+            const rawValue = record[excelCol];
+            if (schemaCol === "total_amount" || schemaCol === "final_amount") {
+              transformed[schemaCol] = parseNumber(rawValue) || 0;
+            } else {
+              transformed[schemaCol] = cleanValue(rawValue, schemaCol, DATE_COLUMNS);
+            }
           }
+
+          // Skip if no order_id (only required field)
+          if (!transformed.order_id && transformed.order_id !== 0) {
+            skippedRows.push({ row: i + 2, reason: "Missing Order ID" });
+            continue;
+          }
+
+          // Normalize order_id: trim spaces, ensure string (accept numeric or text)
+          const normalizedOrderId = String(transformed.order_id).trim();
+          if (!normalizedOrderId) {
+            skippedRows.push({ row: i + 2, reason: "Empty Order ID" });
+            continue;
+          }
+          transformed.order_id = normalizedOrderId;
+
+          // Map final_amount to total_amount if total_amount is missing
+          if (!transformed.total_amount && transformed.final_amount) {
+            transformed.total_amount = transformed.final_amount;
+          }
+
+          // Set required defaults
+          transformed.customer_code = transformed.customer_code || `CUST-${Date.now()}-${i}`;
+          transformed.employee_name = transformed.employee_name || "Imported";
+          transformed.sale_type = "Without";
+          transformed.subtotal = transformed.total_amount || 0;
+          transformed.gst_amount = 0;
+          transformed.courier_cost = 0;
+          transformed.amount_received = 0;
+          transformed.balance_amount = transformed.total_amount || 0;
+          transformed.sale_date = transformed.sale_date || new Date().toISOString().split("T")[0];
+
+          // Store location in remarks if present
+          if (transformed.location) {
+            transformed.remarks = `Location: ${transformed.location}`;
+          }
+
+          // Remove non-schema fields
+          delete transformed.final_amount;
+          delete transformed.location;
+
+          transformedData.push(transformed);
+        } catch (rowError: any) {
+          console.error(`Error processing row ${i + 2}:`, rowError);
+          skippedRows.push({ row: i + 2, reason: rowError.message || "Processing error" });
         }
-
-        // Skip if no order_id
-        if (!transformed.order_id) continue;
-
-        // Normalize order_id: trim spaces, ensure string (accept numeric or text)
-        const normalizedOrderId = String(transformed.order_id).trim();
-        transformed.order_id = normalizedOrderId;
-
-        // Map final_amount to total_amount if total_amount is missing
-        if (!transformed.total_amount && transformed.final_amount) {
-          transformed.total_amount = transformed.final_amount;
-        }
-
-        // Set required defaults
-        transformed.customer_code = transformed.customer_code || `CUST-${i + 1}`;
-        transformed.employee_name = transformed.employee_name || "Imported";
-        transformed.sale_type = "Without";
-        transformed.subtotal = transformed.total_amount || 0;
-        transformed.gst_amount = 0;
-        transformed.courier_cost = 0;
-        transformed.amount_received = 0;
-        transformed.balance_amount = transformed.total_amount || 0;
-        transformed.sale_date = transformed.sale_date || new Date().toISOString().split("T")[0];
-
-        // Store location in remarks if present
-        if (transformed.location) {
-          transformed.remarks = `Location: ${transformed.location}`;
-        }
-
-        // Remove non-schema fields
-        delete transformed.final_amount;
-        delete transformed.location;
-
-        transformedData.push(transformed);
       }
 
       if (transformedData.length === 0) {
-        throw new Error("No valid records found. Please ensure your Excel has Order ID column with data.");
+        throw new Error(`No valid records found. ${skippedRows.length} rows skipped. Please ensure your Excel has Order ID column with data.`);
       }
-
-      setProgress({ current: 0, total: transformedData.length, status: "Checking existing records..." });
 
       setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
 
-      // Upload ALL records in batches - always INSERT, no update logic
-      const batchSize = 100;
+      // Upload records one by one to avoid batch failures
       let uploaded = 0;
       let successCount = 0;
       let errorCount = 0;
+      const failedRecords: { orderId: string; reason: string }[] = [];
 
-      for (let i = 0; i < transformedData.length; i += batchSize) {
-        const batch = transformedData.slice(i, i + batchSize);
+      for (let i = 0; i < transformedData.length; i++) {
+        const record = transformedData[i];
 
-        // Always insert all records
-        const { error: insertError } = await supabase
-          .from("sales")
-          .insert(batch);
+        try {
+          const { error: insertError } = await supabase
+            .from("sales")
+            .insert(record);
 
-        if (insertError) {
-          console.error("Insert error:", insertError);
-          errorCount += batch.length;
-        } else {
-          successCount += batch.length;
+          if (insertError) {
+            console.error("Insert error for", record.order_id, ":", insertError);
+            errorCount++;
+            failedRecords.push({ orderId: record.order_id, reason: insertError.message });
+          } else {
+            successCount++;
+          }
+        } catch (err: any) {
+          errorCount++;
+          failedRecords.push({ orderId: record.order_id, reason: err.message || "Unknown error" });
         }
 
-        uploaded += batch.length;
-        setProgress({
-          current: uploaded,
-          total: transformedData.length,
-          status: `Processed ${uploaded} of ${transformedData.length} records...`,
-        });
+        uploaded++;
+        if (uploaded % 50 === 0 || uploaded === transformedData.length) {
+          setProgress({
+            current: uploaded,
+            total: transformedData.length,
+            status: `Processed ${uploaded} of ${transformedData.length} records...`,
+          });
+        }
       }
 
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
@@ -169,17 +203,23 @@ export const SalesUploadDialog = () => {
 
       // Build result message
       let description = `Successfully imported ${successCount} records.`;
+      if (skippedRows.length > 0) {
+        description += ` ${skippedRows.length} rows skipped (no Order ID).`;
+      }
       if (errorCount > 0) {
-        description += ` ${errorCount} records failed.`;
+        description += ` ${errorCount} failed.`;
+        console.log("Failed records:", failedRecords.slice(0, 10));
       }
 
       toast({
-        title: "Import Complete",
+        title: successCount > 0 ? "Import Complete" : "Import Failed",
         description,
-        variant: errorCount > 0 ? "destructive" : "default",
+        variant: successCount === 0 ? "destructive" : errorCount > 0 ? "destructive" : "default",
       });
 
-      setOpen(false);
+      if (successCount > 0) {
+        setOpen(false);
+      }
     } catch (error: any) {
       console.error("Import error:", error);
       toast({
@@ -250,20 +290,20 @@ export const SalesUploadDialog = () => {
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-success" />
-                  Expected Columns
+                  Flexible Import
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Order ID, Sale Date, Customer Code, Customer Name, Mobile, Location, Total Amount, Final Amount
+                  Auto-detects columns: Order ID (required), Sale Date, Customer Name, Mobile, Location, Total Amount
                 </p>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-primary" />
-                  Full Import
+                  Data Cleaning
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  All rows will be imported. Duplicate Order IDs are allowed.
+                  Auto removes ₹ symbols, commas. Accepts multiple date formats. Invalid rows are skipped.
                 </p>
               </div>
             </>
