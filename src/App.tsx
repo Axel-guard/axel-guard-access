@@ -15,6 +15,7 @@ import ReportsPage from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 import BalancePaymentsPage from "./pages/BalancePayments";
 import PricingPage from "./pages/Pricing";
+import ProductsDatabase from "./pages/ProductsDatabase";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="dispatch" element={<DispatchPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
+            <Route path="products" element={<ProductsDatabase />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
