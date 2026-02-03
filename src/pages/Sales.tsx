@@ -21,9 +21,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
+import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 
 // Fetch all sales without date filter (sorted by Order ID descending)
 const useAllSales = () => {
@@ -47,30 +48,42 @@ const SalesPage = () => {
   const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [balanceSale, setBalanceSale] = useState<any | null>(null);
 
+  // Fixed payment status logic: based on amount_received vs total_amount
   const getStatusBadge = (sale: any) => {
-    const balance = Number(sale.balance_amount) || 0;
-    const received = Number(sale.amount_received) || 0;
+    const totalAmount = Number(sale.total_amount) || 0;
+    const amountReceived = Number(sale.amount_received) || 0;
 
-    if (balance === 0 && received > 0) {
+    // Paid: Amount Received >= Final Amount
+    if (amountReceived >= totalAmount && totalAmount > 0) {
       return (
         <Badge className="bg-success/10 text-success border-success/20">
           Paid
         </Badge>
       );
     }
-    if (received > 0) {
+    // Pending: Amount Received = 0
+    if (amountReceived === 0) {
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20">
-          Partial
+        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+          Pending
         </Badge>
       );
     }
+    // Partial: Amount Received < Final Amount
     return (
-      <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-        Pending
+      <Badge className="bg-warning/10 text-warning border-warning/20">
+        Partial
       </Badge>
     );
+  };
+
+  // Calculate balance (never negative)
+  const getBalance = (sale: any) => {
+    const totalAmount = Number(sale.total_amount) || 0;
+    const amountReceived = Number(sale.amount_received) || 0;
+    return Math.max(0, totalAmount - amountReceived);
   };
 
   // Filter and sort sales
@@ -174,6 +187,7 @@ const SalesPage = () => {
                   <TableHead>Sale Type</TableHead>
                   <TableHead className="text-right">Total Amount</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -204,8 +218,9 @@ const SalesPage = () => {
                       ₹{Number(sale.total_amount).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right font-medium text-destructive">
-                      ₹{Number(sale.balance_amount || 0).toLocaleString()}
+                      ₹{getBalance(sale).toLocaleString()}
                     </TableCell>
+                    <TableCell>{getStatusBadge(sale)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -218,6 +233,15 @@ const SalesPage = () => {
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBalanceSale(sale);
+                            }}
+                          >
+                            <Wallet className="mr-2 h-4 w-4" />
+                            View Balance
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -225,7 +249,7 @@ const SalesPage = () => {
                 ))}
                 {(!filteredSales || filteredSales.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No sales found. Upload an Excel file to import sales data.
                     </TableCell>
                   </TableRow>
@@ -240,6 +264,12 @@ const SalesPage = () => {
         sale={selectedSale}
         open={!!selectedSale}
         onOpenChange={(open) => !open && setSelectedSale(null)}
+      />
+
+      <BalanceDetailsDialog
+        sale={balanceSale}
+        open={!!balanceSale}
+        onOpenChange={(open) => !open && setBalanceSale(null)}
       />
     </div>
   );
