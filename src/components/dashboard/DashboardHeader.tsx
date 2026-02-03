@@ -1,5 +1,19 @@
 import { useState } from "react";
-import { Menu, Plus, FileText, LogOut, Bell, Search, Sparkles } from "lucide-react";
+import { 
+  Menu, 
+  Plus, 
+  FileText, 
+  LogOut, 
+  Bell, 
+  Search, 
+  Sparkles,
+  ShoppingCart,
+  UserPlus,
+  Wallet,
+  FileEdit,
+  Package,
+  Truck
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,15 +25,87 @@ import { Input } from "@/components/ui/input";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardHeaderProps {
   onMenuToggle: () => void;
 }
 
+const menuItems = [
+  {
+    label: "New Sale",
+    icon: ShoppingCart,
+    color: "text-success",
+    bgColor: "bg-success/10",
+    action: "newSale",
+  },
+  {
+    label: "New Lead",
+    icon: UserPlus,
+    color: "text-info",
+    bgColor: "bg-info/10",
+    action: "newLead",
+  },
+  {
+    label: "Balance Payment",
+    icon: Wallet,
+    color: "text-warning",
+    bgColor: "bg-warning/10",
+    action: "balancePayment",
+  },
+  {
+    label: "Make Quotation",
+    icon: FileEdit,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    action: "quotation",
+  },
+  {
+    label: "Add Inventory",
+    icon: Package,
+    color: "text-accent-foreground",
+    bgColor: "bg-accent/50",
+    action: "inventory",
+  },
+  {
+    label: "New Dispatch",
+    icon: Truck,
+    color: "text-destructive",
+    bgColor: "bg-destructive/10",
+    action: "dispatch",
+  },
+];
+
 export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
+  const navigate = useNavigate();
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [balancePaymentOpen, setBalancePaymentOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const handleMenuClick = (action: string) => {
+    setDropdownOpen(false);
+    switch (action) {
+      case "newSale":
+        setNewSaleOpen(true);
+        break;
+      case "newLead":
+        setNewLeadOpen(true);
+        break;
+      case "balancePayment":
+        setBalancePaymentOpen(true);
+        break;
+      case "quotation":
+        // Navigate to quotation or open dialog
+        break;
+      case "inventory":
+        navigate("/inventory");
+        break;
+      case "dispatch":
+        navigate("/dispatch");
+        break;
+    }
+  };
 
   return (
     <>
@@ -53,23 +139,30 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
         </div>
 
         <div className="flex items-center gap-2">
-          <DropdownMenu>
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button className="gap-2 rounded-xl bg-primary shadow-lg hover:bg-primary/90 transition-all">
+              <Button className="gap-2 rounded-xl bg-primary shadow-lg hover:bg-primary/90 transition-all hover-scale">
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add New</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl border-border bg-card">
-              <DropdownMenuItem onClick={() => setNewSaleOpen(true)} className="rounded-lg">
-                New Sale
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setNewLeadOpen(true)} className="rounded-lg">
-                New Lead
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setBalancePaymentOpen(true)} className="rounded-lg">
-                Balance Payment
-              </DropdownMenuItem>
+            <DropdownMenuContent 
+              align="end" 
+              className="w-56 p-2 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-xl animate-scale-in"
+              sideOffset={8}
+            >
+              {menuItems.map((item) => (
+                <DropdownMenuItem 
+                  key={item.action}
+                  onClick={() => handleMenuClick(item.action)} 
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-muted focus:bg-muted group"
+                >
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.bgColor} transition-transform duration-200 group-hover:scale-110`}>
+                    <item.icon className={`h-5 w-5 ${item.color}`} />
+                  </div>
+                  <span className="font-medium text-foreground">{item.label}</span>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
