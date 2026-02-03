@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface Shipment {
   id: string;
@@ -12,6 +13,9 @@ export interface Shipment {
   shipping_cost: number | null;
   created_at: string;
 }
+
+export type ShipmentInsert = Omit<Shipment, "id" | "created_at">;
+export type ShipmentUpdate = Partial<ShipmentInsert>;
 
 export const useShipments = () => {
   return useQuery({
@@ -72,6 +76,83 @@ export const useShipmentsSummary = () => {
         byCourier,
         byMode,
       };
+    },
+  });
+};
+
+// Create shipment
+export const useCreateShipment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (shipment: ShipmentInsert) => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .insert(shipment)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
+      toast.success("Tracking details saved successfully!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to save: ${error.message}`);
+    },
+  });
+};
+
+// Update shipment
+export const useUpdateShipment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: ShipmentUpdate }) => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
+      toast.success("Tracking details updated successfully!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to update: ${error.message}`);
+    },
+  });
+};
+
+// Delete shipment
+export const useDeleteShipment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("shipments")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
+      toast.success("Tracking record deleted successfully!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 };

@@ -10,15 +10,14 @@ import {
   FileSpreadsheet, 
   Plus, 
   X,
-  Eye,
-  Trash2,
   Calculator
 } from "lucide-react";
-import { useShipments } from "@/hooks/useShipments";
+import { useShipments, Shipment } from "@/hooks/useShipments";
 import { useSales } from "@/hooks/useSales";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
 import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
+import { TrackingDetailsDialog } from "@/components/dispatch/TrackingDetailsDialog";
 import { CourierCalculator } from "@/components/dispatch/CourierCalculator";
 import {
   DropdownMenu,
@@ -26,8 +25,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
 
 const DispatchPage = () => {
+  const queryClient = useQueryClient();
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
   const { data: sales, isLoading: salesLoading } = useSales();
   
@@ -35,6 +36,8 @@ const DispatchPage = () => {
   const [orderIdSearch, setOrderIdSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [trackingSearch, setTrackingSearch] = useState("");
+  const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
+  const [editShipment, setEditShipment] = useState<Shipment | null>(null);
 
   // Calculate dispatch order stats
   const dispatchStats = useMemo(() => {
@@ -81,6 +84,21 @@ const DispatchPage = () => {
     setCustomerSearch("");
   };
 
+  const handleTrackingSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["shipments"] });
+    setEditShipment(null);
+  };
+
+  const handleEditShipment = (shipment: Shipment) => {
+    setEditShipment(shipment);
+    setTrackingDialogOpen(true);
+  };
+
+  const handleOpenTrackingDialog = () => {
+    setEditShipment(null);
+    setTrackingDialogOpen(true);
+  };
+
   const isLoading = shipmentsLoading || salesLoading;
 
   if (isLoading) {
@@ -116,7 +134,10 @@ const DispatchPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>New Shipment</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenTrackingDialog}>
+                <Truck className="h-4 w-4 mr-2" />
+                Add Tracking Details
+              </DropdownMenuItem>
               <DropdownMenuItem>Bulk Dispatch</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -216,10 +237,20 @@ const DispatchPage = () => {
                   All tracking records with invoice pricing
                 </p>
               </div>
-              <Button variant="secondary" className="gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Download Excel
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="secondary" 
+                  className="gap-2"
+                  onClick={handleOpenTrackingDialog}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Tracking
+                </Button>
+                <Button variant="secondary" className="gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Download Excel
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -247,7 +278,10 @@ const DispatchPage = () => {
           {/* Tracking Details Table */}
           <Card className="shadow-card">
             <CardContent className="px-0 py-0">
-              <TrackingDetailsTable shipments={filteredShipments} />
+              <TrackingDetailsTable 
+                shipments={filteredShipments} 
+                onEdit={handleEditShipment}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -257,8 +291,17 @@ const DispatchPage = () => {
           <CourierCalculator />
         </TabsContent>
       </Tabs>
+
+      {/* Tracking Details Dialog */}
+      <TrackingDetailsDialog
+        open={trackingDialogOpen}
+        onOpenChange={setTrackingDialogOpen}
+        onSuccess={handleTrackingSuccess}
+        editData={editShipment}
+      />
     </div>
   );
 };
 
 export default DispatchPage;
+
