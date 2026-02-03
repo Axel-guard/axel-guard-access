@@ -56,6 +56,37 @@ export const useLeads = (sortDescending: boolean = false) => {
   });
 };
 
+// Get next customer code (last code + 1)
+export const useNextCustomerCode = () => {
+  return useQuery({
+    queryKey: ["leads", "nextCode"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("customer_code")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return "1001"; // Starting code if no leads exist
+      }
+
+      // Find the highest numeric code
+      let maxCode = 1000;
+      for (const lead of data) {
+        const numericCode = parseInt(lead.customer_code.replace(/\D/g, '')) || 0;
+        if (numericCode > maxCode) {
+          maxCode = numericCode;
+        }
+      }
+
+      return String(maxCode + 1);
+    },
+  });
+};
+
 // Create new lead
 export const useCreateLead = () => {
   const queryClient = useQueryClient();
