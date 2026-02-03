@@ -14,6 +14,7 @@ import { Eye, Truck } from "lucide-react";
 import { format } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { CreateDispatchDialog } from "./CreateDispatchDialog";
+import { ViewDispatchDialog } from "./ViewDispatchDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Shipment {
@@ -35,12 +36,15 @@ interface DispatchOrdersTableProps {
 
 export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTableProps) => {
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Sale | null>(null);
   const [orderItems, setOrderItems] = useState<SaleItem[]>([]);
 
   // Calculate dispatch status for each order
   const getOrderDispatchInfo = (orderId: string) => {
-    const orderShipments = shipments.filter(s => s.order_id === orderId);
+    const orderShipments = shipments.filter(
+      s => s.order_id === orderId || s.order_id === orderId.replace("ORD", "")
+    );
     const dispatched = orderShipments.length;
     // For now, assume total items from sale items or default to dispatched count
     const totalItems = dispatched || 1;
@@ -72,6 +76,11 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
     setSelectedOrder(order);
     setOrderItems(items || []);
     setDispatchDialogOpen(true);
+  };
+
+  const handleViewClick = (order: Sale) => {
+    setSelectedOrder(order);
+    setViewDialogOpen(true);
   };
 
   if (orders.length === 0) {
@@ -148,7 +157,12 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
                           Dispatch
                         </Button>
                       ) : (
-                        <Button size="sm" variant="outline" className="gap-1 text-primary border-primary hover:bg-primary hover:text-white">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
+                          onClick={() => handleViewClick(order)}
+                        >
                           <Eye className="h-3 w-3" />
                           View
                         </Button>
@@ -168,6 +182,13 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
         onOpenChange={setDispatchDialogOpen}
         order={selectedOrder}
         orderItems={orderItems}
+      />
+
+      <ViewDispatchDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        order={selectedOrder}
+        shipments={shipments}
       />
     </>
   );
