@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Loader2, Hash } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
@@ -366,7 +366,6 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-bold">Add New Sale</DialogTitle>
             <div className="flex items-center gap-2">
-              <Hash className="h-4 w-4 text-primary" />
               <span className="text-sm text-muted-foreground">Order ID:</span>
               {isGeneratingOrderId ? (
                 <span className="inline-flex items-center gap-1 rounded-lg bg-muted px-3 py-1 text-sm font-medium">
