@@ -59,10 +59,13 @@ export const TrackingDetailsDialog = ({
 }: TrackingDetailsDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderLookupStatus, setOrderLookupStatus] = useState<"idle" | "loading" | "found" | "not_found">("idle");
+  const [isAutoFilled, setIsAutoFilled] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{
     customer_name?: string;
     customer_code?: string;
     total_amount?: number;
+    courier_cost?: number;
+    total_weight?: number;
   } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -88,6 +91,7 @@ export const TrackingDetailsDialog = ({
           weight_kg: editData.weight_kg?.toString() || "",
           shipping_cost: editData.shipping_cost?.toString() || "",
         });
+        setIsAutoFilled(false);
         if (editData.order_id) {
           lookupOrder(editData.order_id);
         }
@@ -103,40 +107,90 @@ export const TrackingDetailsDialog = ({
         });
         setOrderLookupStatus("idle");
         setOrderDetails(null);
+        setIsAutoFilled(false);
       }
     }
   }, [open, editData]);
 
-  // Lookup order from sales
+  // Lookup order from sales with weight calculation
   const lookupOrder = useCallback(async (orderId: string) => {
     if (!orderId || orderId.length < 3) {
       setOrderLookupStatus("idle");
       setOrderDetails(null);
+      setIsAutoFilled(false);
       return;
     }
 
     setOrderLookupStatus("loading");
     
     try {
-      const { data, error } = await supabase
+      // Fetch sale details
+      const { data: saleData, error: saleError } = await supabase
         .from("sales")
-        .select("customer_name, customer_code, total_amount")
+        .select("customer_name, customer_code, total_amount, courier_cost")
         .eq("order_id", orderId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (saleError) throw saleError;
 
-      if (data) {
-        setOrderDetails(data);
+      if (saleData) {
+        // Fetch sale items to calculate weight
+        const { data: saleItems, error: itemsError } = await supabase
+          .from("sale_items")
+          .select("product_name, quantity")
+          .eq("order_id", orderId);
+
+        if (itemsError) throw itemsError;
+
+        // Fetch product weights
+        let totalWeight = 0;
+        if (saleItems && saleItems.length > 0) {
+          const productNames = saleItems.map(item => item.product_name);
+          const { data: products, error: productsError } = await supabase
+            .from("products")
+            .select("product_name, weight_kg")
+            .in("product_name", productNames);
+
+          if (!productsError && products) {
+            // Calculate total weight
+            saleItems.forEach(item => {
+              const product = products.find(p => p.product_name === item.product_name);
+              if (product && product.weight_kg) {
+                totalWeight += Number(product.weight_kg) * Number(item.quantity);
+              }
+            });
+          }
+        }
+
+        const courierCost = Number(saleData.courier_cost) || 0;
+
+        setOrderDetails({
+          ...saleData,
+          courier_cost: courierCost,
+          total_weight: totalWeight,
+        });
         setOrderLookupStatus("found");
+
+        // Auto-fill weight and shipping cost
+        setFormData(prev => ({
+          ...prev,
+          weight_kg: totalWeight > 0 ? totalWeight.toFixed(2) : prev.weight_kg,
+          shipping_cost: courierCost > 0 ? courierCost.toString() : prev.shipping_cost,
+        }));
+        
+        if (totalWeight > 0 || courierCost > 0) {
+          setIsAutoFilled(true);
+        }
       } else {
         setOrderDetails(null);
         setOrderLookupStatus("not_found");
+        setIsAutoFilled(false);
       }
     } catch (error) {
       console.error("Order lookup error:", error);
       setOrderLookupStatus("not_found");
       setOrderDetails(null);
+      setIsAutoFilled(false);
     }
   }, []);
 
@@ -285,14 +339,27 @@ export const TrackingDetailsDialog = ({
             
             {/* Order Details Display */}
             {orderLookupStatus === "found" && orderDetails && (
-              <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-sm">
-                <p className="font-medium text-success">Order Found!</p>
+              <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-sm space-y-1">
+                <p className="font-medium text-success flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Order Found - Data Auto-Filled!
+                </p>
                 <p className="text-muted-foreground">
                   Customer: {orderDetails.customer_name || orderDetails.customer_code}
                 </p>
                 <p className="text-muted-foreground">
                   Amount: ₹{orderDetails.total_amount?.toLocaleString()}
                 </p>
+                {(orderDetails.total_weight || 0) > 0 && (
+                  <p className="text-muted-foreground">
+                    Weight: {orderDetails.total_weight?.toFixed(2)} Kg
+                  </p>
+                )}
+                {(orderDetails.courier_cost || 0) > 0 && (
+                  <p className="text-muted-foreground">
+                    Courier Cost: ₹{orderDetails.courier_cost?.toLocaleString()}
+                  </p>
+                )}
               </div>
             )}
             {orderLookupStatus === "not_found" && formData.order_id && (
@@ -352,33 +419,75 @@ export const TrackingDetailsDialog = ({
             />
           </div>
 
-          {/* Weight and Price - Optional */}
+          {/* Weight and Price - Auto-filled from Order */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="weight">Weight (Kg)</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.weight_kg}
-                onChange={(e) => setFormData(prev => ({ ...prev, weight_kg: e.target.value }))}
-                placeholder="0.00"
-              />
+              <Label htmlFor="weight" className="flex items-center gap-2">
+                Weight (Kg)
+                {isAutoFilled && formData.weight_kg && (
+                  <span className="text-xs text-success flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Auto-filled
+                  </span>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.weight_kg}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, weight_kg: e.target.value }));
+                    if (isAutoFilled) setIsAutoFilled(false);
+                  }}
+                  placeholder="0.00"
+                  className={isAutoFilled && formData.weight_kg ? "bg-success/5 border-success/30" : ""}
+                />
+                {isAutoFilled && formData.weight_kg && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />
+                )}
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price">Shipping Cost (₹)</Label>
-              <Input
-                id="price"
-                type="number"
-                step="1"
-                min="0"
-                value={formData.shipping_cost}
-                onChange={(e) => setFormData(prev => ({ ...prev, shipping_cost: e.target.value }))}
-                placeholder="0"
-              />
+              <Label htmlFor="price" className="flex items-center gap-2">
+                Shipping Cost (₹)
+                {isAutoFilled && formData.shipping_cost && (
+                  <span className="text-xs text-success flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Auto-filled
+                  </span>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="price"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.shipping_cost}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, shipping_cost: e.target.value }));
+                    if (isAutoFilled) setIsAutoFilled(false);
+                  }}
+                  placeholder="0"
+                  className={isAutoFilled && formData.shipping_cost ? "bg-success/5 border-success/30" : ""}
+                />
+                {isAutoFilled && formData.shipping_cost && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Auto-fill info message */}
+          {isAutoFilled && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/50 p-2 rounded-lg">
+              <Info className="h-3 w-3" />
+              Weight and cost auto-filled from Order ID. You can edit if needed.
+            </p>
+          )}
 
           {/* Submit Button */}
           <Button
