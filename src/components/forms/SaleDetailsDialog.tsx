@@ -82,7 +82,7 @@ export const SaleDetailsDialog = ({
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-xl font-bold">
-            Order #{sale.order_id}
+            Order {sale.order_id}
             {getStatusBadge()}
           </DialogTitle>
         </DialogHeader>
