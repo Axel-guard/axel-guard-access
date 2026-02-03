@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,11 +38,13 @@ export const SalesUploadDialog = () => {
   const [open, setOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const processExcelFile = useCallback(async (file: File) => {
     setIsProcessing(true);
+    setDuplicateWarning(null);
     setProgress({ current: 0, total: 0, status: "Reading file..." });
 
     try {
@@ -75,8 +77,10 @@ export const SalesUploadDialog = () => {
 
       setProgress({ current: 0, total: jsonData.length, status: "Processing records..." });
 
-      // Transform data
+      // Transform data and detect duplicates within file
       const transformedData: any[] = [];
+      const seenOrderIds = new Set<string>();
+      const duplicatesInFile: string[] = [];
 
       for (let i = 0; i < jsonData.length; i++) {
         const record = jsonData[i] as Record<string, any>;
@@ -92,6 +96,17 @@ export const SalesUploadDialog = () => {
 
         // Skip if no order_id
         if (!transformed.order_id) continue;
+
+        // Normalize order_id: trim spaces, ensure string
+        const normalizedOrderId = String(transformed.order_id).trim();
+        transformed.order_id = normalizedOrderId;
+
+        // Check for duplicates within the file itself
+        if (seenOrderIds.has(normalizedOrderId)) {
+          duplicatesInFile.push(normalizedOrderId);
+          continue; // Skip duplicate rows within file, keep first occurrence
+        }
+        seenOrderIds.add(normalizedOrderId);
 
         // Map final_amount to total_amount if total_amount is missing
         if (!transformed.total_amount && transformed.final_amount) {
@@ -125,29 +140,77 @@ export const SalesUploadDialog = () => {
         throw new Error("No valid records found. Please ensure your Excel has Order ID column with data.");
       }
 
+      // Show warning for duplicates in file
+      if (duplicatesInFile.length > 0) {
+        const uniqueDuplicates = [...new Set(duplicatesInFile)];
+        setDuplicateWarning(
+          `Found ${duplicatesInFile.length} duplicate Order IDs in file (${uniqueDuplicates.slice(0, 5).join(", ")}${uniqueDuplicates.length > 5 ? "..." : ""}). Keeping first occurrence only.`
+        );
+      }
+
+      setProgress({ current: 0, total: transformedData.length, status: "Checking existing records..." });
+
+      // Fetch existing order IDs to check for updates vs inserts
+      const orderIds = transformedData.map(d => d.order_id);
+      const { data: existingRecords } = await supabase
+        .from("sales")
+        .select("order_id")
+        .in("order_id", orderIds);
+
+      const existingOrderIds = new Set((existingRecords || []).map(r => r.order_id));
+      const updatesCount = transformedData.filter(d => existingOrderIds.has(d.order_id)).length;
+      const insertsCount = transformedData.length - updatesCount;
+
       setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
 
-      // Upload in batches using upsert to handle duplicates
+      // Upload in batches - insert new, update existing
       const batchSize = 100;
       let uploaded = 0;
+      let successCount = 0;
+      let errorCount = 0;
 
       for (let i = 0; i < transformedData.length; i += batchSize) {
         const batch = transformedData.slice(i, i + batchSize);
 
-        const { error } = await supabase
-          .from("sales")
-          .upsert(batch, { onConflict: "order_id" });
+        // Separate into updates and inserts
+        const toInsert = batch.filter(d => !existingOrderIds.has(d.order_id));
+        const toUpdate = batch.filter(d => existingOrderIds.has(d.order_id));
 
-        if (error) {
-          console.error("Batch upload error:", error);
-          throw new Error(`Failed to upload batch: ${error.message}`);
+        // Insert new records
+        if (toInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from("sales")
+            .insert(toInsert);
+
+          if (insertError) {
+            console.error("Insert error:", insertError);
+            errorCount += toInsert.length;
+          } else {
+            successCount += toInsert.length;
+          }
+        }
+
+        // Update existing records one by one to avoid conflicts
+        for (const record of toUpdate) {
+          const { order_id, ...updateData } = record;
+          const { error: updateError } = await supabase
+            .from("sales")
+            .update(updateData)
+            .eq("order_id", order_id);
+
+          if (updateError) {
+            console.error("Update error for", order_id, ":", updateError);
+            errorCount++;
+          } else {
+            successCount++;
+          }
         }
 
         uploaded += batch.length;
         setProgress({
           current: uploaded,
           total: transformedData.length,
-          status: `Uploaded ${uploaded} of ${transformedData.length} records...`,
+          status: `Processed ${uploaded} of ${transformedData.length} records...`,
         });
       }
 
@@ -155,9 +218,19 @@ export const SalesUploadDialog = () => {
       await queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       await queryClient.invalidateQueries({ queryKey: ["all-sales"] });
 
+      // Build result message
+      let description = `Successfully processed ${successCount} records.`;
+      if (updatesCount > 0) {
+        description += ` (${insertsCount} new, ${updatesCount} updated)`;
+      }
+      if (errorCount > 0) {
+        description += ` ${errorCount} records failed.`;
+      }
+
       toast({
-        title: "Import Successful",
-        description: `Successfully imported ${transformedData.length} sales records.`,
+        title: "Import Complete",
+        description,
+        variant: errorCount > 0 ? "destructive" : "default",
       });
 
       setOpen(false);
@@ -190,7 +263,10 @@ export const SalesUploadDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => {
+      setOpen(value);
+      if (!value) setDuplicateWarning(null);
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Upload className="h-4 w-4" />
@@ -241,10 +317,10 @@ export const SalesUploadDialog = () => {
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-warning" />
-                  Required Column
+                  Smart Import
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  <strong>Order ID</strong> is required. Other columns are optional.
+                  Duplicate Order IDs will update existing records. New IDs will be inserted.
                 </p>
               </div>
             </>
@@ -267,6 +343,12 @@ export const SalesUploadDialog = () => {
                     className="bg-primary h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(progress.current / progress.total) * 100}%` }}
                   />
+                </div>
+              )}
+              {duplicateWarning && (
+                <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <p className="text-xs text-warning">{duplicateWarning}</p>
                 </div>
               )}
             </div>
