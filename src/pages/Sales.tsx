@@ -32,7 +32,7 @@ import { MoreVertical, Eye, Search, ArrowUpDown } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 
-// Fetch all sales without date filter for full database view
+// Fetch all sales without date filter for full database view (sorted by Order ID descending)
 const useAllSales = () => {
   return useQuery({
     queryKey: ["all-sales"],
@@ -40,7 +40,7 @@ const useAllSales = () => {
       const { data, error } = await supabase
         .from("sales")
         .select("*")
-        .order("sale_date", { ascending: false });
+        .order("order_id", { ascending: false });
 
       if (error) throw error;
       return data;
@@ -51,7 +51,7 @@ const useAllSales = () => {
 const SalesPage = () => {
   const { data: sales, isLoading } = useAllSales();
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<"sale_date" | "order_id">("sale_date");
+  const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
 
@@ -92,13 +92,16 @@ const SalesPage = () => {
       );
     })
     .sort((a, b) => {
-      const aVal = sortField === "sale_date" ? new Date(a.sale_date).getTime() : a.order_id;
-      const bVal = sortField === "sale_date" ? new Date(b.sale_date).getTime() : b.order_id;
-      
-      if (sortOrder === "asc") {
-        return aVal > bVal ? 1 : -1;
+      if (sortField === "sale_date") {
+        const aVal = new Date(a.sale_date).getTime();
+        const bVal = new Date(b.sale_date).getTime();
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+      } else {
+        // Sort order_id as numeric
+        const aVal = parseInt(a.order_id) || 0;
+        const bVal = parseInt(b.order_id) || 0;
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
       }
-      return aVal < bVal ? 1 : -1;
     });
 
   const toggleSort = (field: "sale_date" | "order_id") => {
