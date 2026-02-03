@@ -19,7 +19,17 @@ export const useEmployees = () => {
         .order("name");
 
       if (error) throw error;
-      return data as Employee[];
+      
+      // Remove duplicates by name - keep only the first occurrence of each name
+      const uniqueEmployees = (data as Employee[]).reduce((acc, emp) => {
+        const existingIndex = acc.findIndex(e => e.name.toLowerCase() === emp.name.toLowerCase());
+        if (existingIndex === -1) {
+          acc.push(emp);
+        }
+        return acc;
+      }, [] as Employee[]);
+      
+      return uniqueEmployees;
     },
   });
 };

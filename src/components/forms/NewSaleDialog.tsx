@@ -30,8 +30,8 @@ interface NewSaleDialogProps {
 interface ProductItem {
   category: string;
   product_name: string;
-  quantity: number;
-  unit_price: number;
+  quantity: string;
+  unit_price: string;
 }
 
 const CATEGORIES = [
@@ -182,7 +182,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   });
 
   const [products, setProducts] = useState<ProductItem[]>([
-    { category: "", product_name: "", quantity: 0, unit_price: 0 },
+    { category: "", product_name: "", quantity: "", unit_price: "" },
   ]);
 
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -258,7 +258,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
 
   const addProduct = () => {
     if (products.length < 10) {
-      setProducts([...products, { category: "", product_name: "", quantity: 0, unit_price: 0 }]);
+      setProducts([...products, { category: "", product_name: "", quantity: "", unit_price: "" }]);
     }
   };
 
@@ -279,7 +279,11 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   };
 
   // Calculations with Courier GST
-  const subtotal = products.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
+  const subtotal = products.reduce((sum, p) => {
+    const qty = parseFloat(p.quantity) || 0;
+    const price = parseFloat(p.unit_price) || 0;
+    return sum + qty * price;
+  }, 0);
   const courierGST = formData.courierCost * 0.18; // 18% GST on courier cost
   const finalCourierCost = formData.courierCost + courierGST;
   const isWithGST = formData.saleType === "With GST (18%)";
@@ -325,8 +329,8 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
         .map((p) => ({
           order_id: orderId,
           product_name: p.product_name,
-          quantity: p.quantity,
-          unit_price: p.unit_price,
+          quantity: parseFloat(p.quantity) || 0,
+          unit_price: parseFloat(p.unit_price) || 0,
         })),
     });
 
@@ -351,7 +355,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       paymentReference: "",
       remarks: "",
     });
-    setProducts([{ category: "", product_name: "", quantity: 0, unit_price: 0 }]);
+    setProducts([{ category: "", product_name: "", quantity: "", unit_price: "" }]);
     setCustomerNotFound(false);
   };
 
@@ -660,8 +664,9 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                   min="0"
                   value={product.quantity}
                   onChange={(e) =>
-                    updateProduct(index, "quantity", Number(e.target.value))
+                    updateProduct(index, "quantity", e.target.value)
                   }
+                  placeholder="Enter qty"
                 />
                 
                 <Input
@@ -669,14 +674,20 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                   min="0"
                   value={product.unit_price}
                   onChange={(e) =>
-                    updateProduct(index, "unit_price", Number(e.target.value))
+                    updateProduct(index, "unit_price", e.target.value)
                   }
+                  placeholder="Enter price"
                 />
                 
                 <Input
                   readOnly
-                  value={product.quantity * product.unit_price}
+                  value={
+                    product.quantity && product.unit_price
+                      ? (parseFloat(product.quantity) || 0) * (parseFloat(product.unit_price) || 0)
+                      : ""
+                  }
                   className="bg-muted"
+                  placeholder="Total"
                 />
                 
                 <Button
