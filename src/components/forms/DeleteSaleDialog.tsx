@@ -38,7 +38,7 @@ export const DeleteSaleDialog = ({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Sale</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete order <strong>#{orderId}</strong>
+            Are you sure you want to delete order <strong>{orderId}</strong>
             {customerName && (
               <>
                 {" "}

@@ -104,7 +104,7 @@ export const SalesTable = () => {
                   const status = getStatus(sale);
                   return (
                     <TableRow key={sale.order_id} className="border-white/10 transition-colors hover:bg-white/5">
-                      <TableCell className="font-semibold text-primary">#{sale.order_id}</TableCell>
+                      <TableCell className="font-semibold text-primary">{sale.order_id}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {format(new Date(sale.sale_date), "d/M/yyyy")}
                       </TableCell>
