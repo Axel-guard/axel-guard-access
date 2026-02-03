@@ -16,9 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, Hash } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useCreateSale } from "@/hooks/useSales";
+import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -160,6 +160,10 @@ const SALE_TYPES = ["With GST (18%)", "Without GST"];
 export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const { data: employees = [] } = useEmployees();
   const createSale = useCreateSale();
+  const generateOrderId = useGenerateOrderId();
+
+  const [orderId, setOrderId] = useState<string>("");
+  const [isGeneratingOrderId, setIsGeneratingOrderId] = useState(false);
 
   const [formData, setFormData] = useState({
     customerCode: "",
@@ -183,6 +187,24 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
 
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [customerNotFound, setCustomerNotFound] = useState(false);
+
+  // Auto-generate Order ID when dialog opens
+  useEffect(() => {
+    if (open && !orderId) {
+      setIsGeneratingOrderId(true);
+      generateOrderId.mutateAsync()
+        .then((id) => {
+          setOrderId(id);
+        })
+        .catch((err) => {
+          console.error("Failed to generate order ID:", err);
+          toast.error("Failed to generate Order ID");
+        })
+        .finally(() => {
+          setIsGeneratingOrderId(false);
+        });
+    }
+  }, [open]);
 
   // Customer auto-fill from Leads Database
   const lookupCustomer = useCallback(async (code: string) => {
@@ -266,18 +288,16 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const totalAmount = subtotal + finalCourierCost + productGST;
   const balanceAmount = totalAmount - formData.amountReceived;
 
-  const generateOrderId = () => {
-    return `ORD${2019947 + Math.floor(Math.random() * 1000)}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.customerCode || !formData.employeeName || !formData.saleType) {
+    if (!formData.customerCode || !formData.employeeName || !formData.saleType || !orderId) {
+      if (!orderId) {
+        toast.error("Order ID not generated yet. Please wait.");
+      }
       return;
     }
 
-    const orderId = generateOrderId();
     const saleTypeValue = isWithGST ? "With" : "Without";
 
     await createSale.mutateAsync({
@@ -315,6 +335,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   };
 
   const resetForm = () => {
+    setOrderId("");
     setFormData({
       customerCode: "",
       customerName: "",
@@ -342,7 +363,23 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader className="border-b border-border pb-4">
-          <DialogTitle className="text-xl font-bold">Add New Sale</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl font-bold">Add New Sale</DialogTitle>
+            <div className="flex items-center gap-2">
+              <Hash className="h-4 w-4 text-primary" />
+              <span className="text-sm text-muted-foreground">Order ID:</span>
+              {isGeneratingOrderId ? (
+                <span className="inline-flex items-center gap-1 rounded-lg bg-muted px-3 py-1 text-sm font-medium">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Generating...
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-lg bg-success/10 px-3 py-1 text-sm font-bold text-success border border-success/20">
+                  {orderId}
+                </span>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-4">

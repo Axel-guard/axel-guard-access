@@ -43,7 +43,7 @@ export interface PaymentHistory {
   payment_reference?: string;
 }
 
-// Fetch all sales for current month
+// Fetch all sales for current month (descending order - newest first)
 export const useSales = () => {
   return useQuery({
     queryKey: ["sales"],
@@ -56,7 +56,7 @@ export const useSales = () => {
         .from("sales")
         .select("*")
         .gte("sale_date", startOfMonth.toISOString())
-        .order("sale_date", { ascending: true });
+        .order("sale_date", { ascending: false });
 
       if (error) throw error;
       return data as Sale[];
@@ -64,7 +64,7 @@ export const useSales = () => {
   });
 };
 
-// Fetch all sales with items
+// Fetch all sales with items (descending order - newest first)
 export const useSalesWithItems = () => {
   return useQuery({
     queryKey: ["sales-with-items"],
@@ -77,7 +77,7 @@ export const useSalesWithItems = () => {
         .from("sales")
         .select("*")
         .gte("sale_date", startOfMonth.toISOString())
-        .order("sale_date", { ascending: true });
+        .order("sale_date", { ascending: false });
 
       if (salesError) throw salesError;
 
