@@ -37,14 +37,15 @@ interface TrackingDetailsDialogProps {
 
 const SHIPMENT_TYPES = ["Sale", "Replacement"];
 const COURIER_PARTNERS = [
-  "Delhivery",
+  "Trackon",
   "DTDC",
-  "Ecom Express",
+  "Porter",
+  "Self Pick",
+  "By Bus",
+  "Delhivery",
   "BlueDart",
   "XpressBees",
-  "Shadowfax",
-  "Ekart",
-  "Professional Courier",
+  "Ecom Express",
   "India Post",
   "Other"
 ];
