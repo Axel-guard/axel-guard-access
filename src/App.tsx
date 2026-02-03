@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SalesPage from "./pages/Sales";
+import CurrentMonthSalesPage from "./pages/CurrentMonthSales";
 import LeadsPage from "./pages/Leads";
 import InventoryPage from "./pages/Inventory";
 import QualityCheckPage from "./pages/QualityCheck";
@@ -27,6 +28,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Index />} />
+            <Route path="current-month-sales" element={<CurrentMonthSalesPage />} />
             <Route path="sales" element={<SalesPage />} />
             <Route path="balance-payments" element={<BalancePaymentsPage />} />
             <Route path="leads" element={<LeadsPage />} />
