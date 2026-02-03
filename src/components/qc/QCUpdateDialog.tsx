@@ -76,8 +76,8 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
   const { data: products } = useProducts();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState({
-    qc_date: "",
+  const getInitialFormData = () => ({
+    qc_date: new Date().toISOString().split("T")[0],
     serial_number: "",
     product_name: "",
     category: "",
@@ -89,41 +89,52 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
     online_test: "",
     camera_quality: "",
     monitor_test: "",
-    qc_result: "",
+    qc_result: "Pending",
     ip_address: "",
     checked_by: "",
   });
 
-  // Load item data when dialog opens
+  const [formData, setFormData] = useState(getInitialFormData());
+
+  // Load item data when dialog opens - use formData for display
   useEffect(() => {
-    if (item && open) {
-      setFormData({
-        qc_date: item.qc_date ? new Date(item.qc_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-        serial_number: item.serial_number || "",
-        product_name: item.product_name || "",
-        category: item.category || "",
-        sd_connect: item.sd_connect || "",
-        all_channels: item.all_channels || "",
-        network_test: item.network_test || "",
-        gps_test: item.gps_test || "",
-        sim_slot: item.sim_slot || "",
-        online_test: item.online_test || "",
-        camera_quality: item.camera_quality || "",
-        monitor_test: item.monitor_test || "",
-        qc_result: item.qc_result || "Pending",
-        ip_address: item.ip_address || "",
-        checked_by: item.checked_by || "",
-      });
+    if (open) {
+      if (item && item.serial_number) {
+        setFormData({
+          qc_date: item.qc_date 
+            ? new Date(item.qc_date).toISOString().split("T")[0] 
+            : new Date().toISOString().split("T")[0],
+          serial_number: item.serial_number || "",
+          product_name: item.product_name || "",
+          category: item.category || "",
+          sd_connect: item.sd_connect || "",
+          all_channels: item.all_channels || "",
+          network_test: item.network_test || "",
+          gps_test: item.gps_test || "",
+          sim_slot: item.sim_slot || "",
+          online_test: item.online_test || "",
+          camera_quality: item.camera_quality || "",
+          monitor_test: item.monitor_test || "",
+          qc_result: item.qc_result || "Pending",
+          ip_address: item.ip_address || "",
+          checked_by: item.checked_by || "",
+        });
+      } else {
+        // Reset to initial if no valid item
+        setFormData(getInitialFormData());
+      }
     }
   }, [item, open]);
 
   // Auto-calculate final status when tests change
   useEffect(() => {
+    if (!open) return;
     const calculatedStatus = calculateFinalStatus(formData);
     if (calculatedStatus !== formData.qc_result) {
       setFormData((prev) => ({ ...prev, qc_result: calculatedStatus }));
     }
   }, [
+    open,
     formData.sd_connect,
     formData.all_channels,
     formData.network_test,
@@ -139,9 +150,11 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
     ? [...new Set(products.map((p) => p.category))].sort()
     : [];
 
-  // Get products for selected category
+  // Get products for selected category - also include all products if no category
   const categoryProducts = products
-    ? products.filter((p) => p.category === formData.category)
+    ? formData.category 
+      ? products.filter((p) => p.category === formData.category)
+      : products
     : [];
 
   const handleCategoryChange = (category: string) => {
@@ -171,8 +184,8 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
         .from("inventory")
         .update({
           qc_date: formData.qc_date || null,
-          product_name: formData.product_name,
-          category: formData.category,
+          product_name: formData.product_name || item.product_name,
+          category: formData.category || item.category || null,
           sd_connect: formData.sd_connect || null,
           all_channels: formData.all_channels || null,
           network_test: formData.network_test || null,
@@ -181,7 +194,7 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
           online_test: formData.online_test || null,
           camera_quality: formData.camera_quality || null,
           monitor_test: formData.monitor_test || null,
-          qc_result: formData.qc_result,
+          qc_result: formData.qc_result || "Pending",
           ip_address: formData.ip_address || null,
           checked_by: formData.checked_by || null,
           updated_at: new Date().toISOString(),
@@ -190,13 +203,15 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
 
       if (error) throw error;
 
+      // Immediately invalidate queries to refresh the table and dashboard
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
 
       toast({
-        title: "QC Updated",
-        description: `QC report for ${formData.serial_number} saved successfully.`,
+        title: "QC Saved Successfully",
+        description: `QC report for ${formData.serial_number || item.serial_number} has been updated.`,
       });
 
+      // Close dialog after successful save
       onOpenChange(false);
     } catch (error: any) {
       console.error("Update error:", error);
@@ -210,6 +225,11 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
     }
   };
 
+  // Display values - use formData which is populated from item
+  const displaySerialNumber = formData.serial_number || "Not loaded";
+  const displayProductName = formData.product_name || "Not specified";
+  const hasValidItem = item && item.serial_number;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -220,7 +240,7 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
           </DialogTitle>
         </DialogHeader>
 
-        {item && (
+        {hasValidItem ? (
           <div className="bg-success/10 border border-success/20 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 text-success mb-2">
               <CheckCircle className="h-5 w-5" />
@@ -229,13 +249,23 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Serial Number:</span>
-                <p className="font-semibold">{item.serial_number}</p>
+                <p className="font-semibold">{displaySerialNumber}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Model Name:</span>
-                <p className="font-semibold">{item.product_name || "N/A"}</p>
+                <p className="font-semibold">{displayProductName}</p>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2 text-warning mb-2">
+              <Edit className="h-5 w-5" />
+              <span className="font-medium">No Device Selected</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Please select a device from the QC Reports table to update its QC data.
+            </p>
           </div>
         )}
 
