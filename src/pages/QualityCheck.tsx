@@ -4,12 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Search, CheckCircle, XCircle, Clock, ClipboardCheck } from "lucide-react";
 import { useInventory } from "@/hooks/useInventory";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { ClickableStatCard } from "@/components/dashboard/ClickableStatCard";
 import { QCReportUploadDialog } from "@/components/inventory/QCReportUploadDialog";
 import { QCTable } from "@/components/qc/QCTable";
 import { QCFilters } from "@/components/qc/QCFilters";
 import { QCExport } from "@/components/qc/QCExport";
+import { QCUpdateDialog } from "@/components/qc/QCUpdateDialog";
 import type { InventoryItem } from "@/hooks/useInventory";
+
+type CardFilter = "all" | "pass" | "fail" | "pending";
 
 const QualityCheckPage = () => {
   const { data: inventory, isLoading } = useInventory();
@@ -19,6 +22,13 @@ const QualityCheckPage = () => {
   const [qcFilter, setQcFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
   const [checkedByFilter, setCheckedByFilter] = useState("all");
+  
+  // Card filter state (for clickable cards)
+  const [activeCardFilter, setActiveCardFilter] = useState<CardFilter>("all");
+  
+  // QC Update Dialog state
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   // Get unique values for filters
   const uniqueProducts = useMemo(() => {
@@ -33,11 +43,40 @@ const QualityCheckPage = () => {
     return checkers.sort();
   }, [inventory]);
 
+  // Calculate QC stats
+  const qcStats = useMemo(() => {
+    if (!inventory) return { total: 0, pass: 0, fail: 0, pending: 0 };
+    
+    const total = inventory.length;
+    const pass = inventory.filter(i => {
+      const result = i.qc_result?.toLowerCase() || "";
+      return result.includes("pass");
+    }).length;
+    const fail = inventory.filter(i => {
+      const result = i.qc_result?.toLowerCase() || "";
+      return result.includes("fail");
+    }).length;
+    const pending = inventory.filter(i => {
+      const result = i.qc_result?.toLowerCase() || "";
+      return result === "pending" || !i.qc_result;
+    }).length;
+    
+    return { total, pass, fail, pending };
+  }, [inventory]);
+
   // Filter inventory for QC data
   const filteredQCData = useMemo(() => {
     if (!inventory) return [];
     
     return inventory.filter((item) => {
+      // Card filter (from clickable cards)
+      if (activeCardFilter !== "all") {
+        const result = item.qc_result?.toLowerCase() || "";
+        if (activeCardFilter === "pass" && !result.includes("pass")) return false;
+        if (activeCardFilter === "fail" && !result.includes("fail")) return false;
+        if (activeCardFilter === "pending" && !(result === "pending" || !item.qc_result)) return false;
+      }
+      
       // Search filter
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
@@ -47,8 +86,14 @@ const QualityCheckPage = () => {
         (item.checked_by?.toLowerCase() || "").includes(searchLower) ||
         (item.ip_address?.toLowerCase() || "").includes(searchLower);
 
-      // QC filter
-      const matchesQC = qcFilter === "all" || item.qc_result === qcFilter;
+      // QC dropdown filter (in addition to card filter)
+      let matchesQC = true;
+      if (qcFilter !== "all") {
+        matchesQC = item.qc_result === qcFilter || 
+                   (qcFilter === "Pass" && item.qc_result?.toLowerCase().includes("pass")) ||
+                   (qcFilter === "Fail" && item.qc_result?.toLowerCase().includes("fail")) ||
+                   (qcFilter === "Pending" && (!item.qc_result || item.qc_result === "Pending"));
+      }
 
       // Product filter
       const matchesProduct = productFilter === "all" || item.product_name === productFilter;
@@ -58,24 +103,24 @@ const QualityCheckPage = () => {
 
       return matchesSearch && matchesQC && matchesProduct && matchesCheckedBy;
     });
-  }, [inventory, searchTerm, qcFilter, productFilter, checkedByFilter]);
-
-  // Calculate QC stats
-  const qcStats = useMemo(() => {
-    if (!inventory) return { total: 0, pass: 0, fail: 0, pending: 0 };
-    
-    const total = inventory.length;
-    const pass = inventory.filter(i => i.qc_result === "Pass" || i.qc_result === "QC Pass").length;
-    const fail = inventory.filter(i => i.qc_result === "Fail" || i.qc_result === "QC Fail").length;
-    const pending = inventory.filter(i => i.qc_result === "Pending" || !i.qc_result).length;
-    
-    return { total, pass, fail, pending };
-  }, [inventory]);
+  }, [inventory, searchTerm, qcFilter, productFilter, checkedByFilter, activeCardFilter]);
 
   const handleClearFilters = () => {
     setQcFilter("all");
     setProductFilter("all");
     setCheckedByFilter("all");
+    setActiveCardFilter("all");
+  };
+
+  const handleCardClick = (filter: CardFilter) => {
+    setActiveCardFilter(filter === activeCardFilter ? "all" : filter);
+    // Reset dropdown filter when card is clicked
+    setQcFilter("all");
+  };
+
+  const handleRowClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setUpdateDialogOpen(true);
   };
 
   if (isLoading) {
@@ -110,33 +155,56 @@ const QualityCheckPage = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Clickable Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+        <ClickableStatCard
           title="Total Checked"
           value={String(qcStats.total)}
           icon={ClipboardCheck}
           variant="primary"
+          isActive={activeCardFilter === "all"}
+          onClick={() => handleCardClick("all")}
         />
-        <StatCard
+        <ClickableStatCard
           title="QC Pass"
           value={String(qcStats.pass)}
           icon={CheckCircle}
           variant="success"
+          isActive={activeCardFilter === "pass"}
+          onClick={() => handleCardClick("pass")}
         />
-        <StatCard
+        <ClickableStatCard
           title="QC Fail"
           value={String(qcStats.fail)}
           icon={XCircle}
           variant="danger"
+          isActive={activeCardFilter === "fail"}
+          onClick={() => handleCardClick("fail")}
         />
-        <StatCard
+        <ClickableStatCard
           title="Pending"
           value={String(qcStats.pending)}
           icon={Clock}
           variant="warning"
+          isActive={activeCardFilter === "pending"}
+          onClick={() => handleCardClick("pending")}
         />
       </div>
+
+      {/* Filter indicator */}
+      {activeCardFilter !== "all" && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Showing:</span>
+          <span className="font-medium text-primary capitalize">{activeCardFilter}</span>
+          <span className="text-muted-foreground">records</span>
+          <button
+            onClick={() => setActiveCardFilter("all")}
+            className="text-primary hover:underline ml-2"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Search, Filter, and Table */}
       <Card className="shadow-card">
@@ -170,9 +238,16 @@ const QualityCheckPage = () => {
           </div>
         </CardHeader>
         <CardContent className="px-0 pb-0">
-          <QCTable data={filteredQCData} />
+          <QCTable data={filteredQCData} onRowClick={handleRowClick} />
         </CardContent>
       </Card>
+
+      {/* QC Update Dialog */}
+      <QCUpdateDialog
+        item={selectedItem}
+        open={updateDialogOpen}
+        onOpenChange={setUpdateDialogOpen}
+      />
     </div>
   );
 };
