@@ -86,7 +86,7 @@ const navItems: NavItem[] = [
     label: "Database",
     children: [
       { icon: Users, label: "Leads Database", path: "/leads" },
-      { icon: Package, label: "Products Database", path: "/settings?tab=products" },
+      { icon: Package, label: "Products Database", path: "/products" },
     ],
   },
   { icon: Settings, label: "Settings", path: "/settings" },
