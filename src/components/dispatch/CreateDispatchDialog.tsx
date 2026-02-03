@@ -377,15 +377,15 @@ export const CreateDispatchDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Truck className="h-6 w-6 text-primary" />
               Create Dispatch
             </DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="space-y-6 pb-4">
               {/* Order Details Header */}
               <div className="bg-gradient-to-r from-primary to-primary/80 rounded-xl p-5 text-primary-foreground">
@@ -604,10 +604,10 @@ export const CreateDispatchDialog = ({
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
-          {/* Footer Actions */}
-          <div className="border-t pt-4 flex gap-3">
+          {/* Footer Actions - Sticky */}
+          <div className="border-t px-6 py-4 bg-background shrink-0 flex gap-3">
             <Button
               variant="outline"
               className="flex-1 gap-2"
