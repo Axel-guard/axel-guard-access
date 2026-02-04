@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Save, FileDown, ArrowRightLeft, FileText } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Save,
+  FileDown,
+  FileText,
+  Loader2,
+  Check,
+  ChevronsUpDown,
+  UserPlus,
+  AlertCircle,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -24,15 +48,35 @@ import {
   useCreateQuotation,
   QuotationItem,
 } from "@/hooks/useQuotations";
+import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface QuotationFormProps {
   onSuccess?: () => void;
   onConvertToSale?: (quotationId: string) => void;
 }
 
+interface Lead {
+  id: string;
+  customer_code: string;
+  customer_name: string;
+  company_name: string | null;
+  complete_address: string | null;
+  mobile_number: string;
+  gst_number: string | null;
+}
+
 export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps) => {
+  const navigate = useNavigate();
   const { data: nextQuotationNo } = useGenerateQuotationNo();
   const createQuotation = useCreateQuotation();
+
+  // Customer Code search
+  const [customerCodeOpen, setCustomerCodeOpen] = useState(false);
+  const [customerCode, setCustomerCode] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [customerFound, setCustomerFound] = useState<boolean | null>(null);
+  const [highlightedFields, setHighlightedFields] = useState<Set<string>>(new Set());
 
   // Customer Details
   const [customerName, setCustomerName] = useState("");
@@ -65,6 +109,19 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     },
   ]);
 
+  // Fetch all leads for dropdown
+  const { data: leads = [] } = useQuery({
+    queryKey: ["leads-for-quotation"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number")
+        .order("customer_code", { ascending: true });
+      if (error) throw error;
+      return data as Lead[];
+    },
+  });
+
   // Fetch products
   const { data: products = [] } = useQuery({
     queryKey: ["products-for-quotation"],
@@ -84,6 +141,54 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       setQuotationNo(nextQuotationNo);
     }
   }, [nextQuotationNo]);
+
+  // Highlight fields animation
+  const highlightField = useCallback((fields: string[]) => {
+    setHighlightedFields(new Set(fields));
+    setTimeout(() => {
+      setHighlightedFields(new Set());
+    }, 2000);
+  }, []);
+
+  // Fetch customer details by code
+  const fetchCustomerByCode = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setCustomerFound(null);
+      return;
+    }
+
+    setIsSearching(true);
+    
+    // Search in leads database
+    const lead = leads.find(l => l.customer_code === code);
+    
+    if (lead) {
+      setCustomerName(lead.customer_name || "");
+      setCompanyName(lead.company_name || "");
+      setAddress(lead.complete_address || "");
+      setMobile(lead.mobile_number || "");
+      setGstNumber(lead.gst_number || "");
+      setCustomerFound(true);
+      highlightField(["customerName", "companyName", "address", "mobile", "gstNumber"]);
+    } else {
+      // Clear fields if not found
+      setCustomerName("");
+      setCompanyName("");
+      setAddress("");
+      setMobile("");
+      setGstNumber("");
+      setCustomerFound(false);
+    }
+    
+    setIsSearching(false);
+  }, [leads, highlightField]);
+
+  // Handle customer code selection
+  const handleSelectCustomer = (code: string) => {
+    setCustomerCode(code);
+    setCustomerCodeOpen(false);
+    fetchCustomerByCode(code);
+  };
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
@@ -180,6 +285,13 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     doc.save(`Quotation-${quotationNo}.pdf`);
   };
 
+  const getFieldClassName = (fieldName: string) => {
+    return cn(
+      "transition-all duration-300",
+      highlightedFields.has(fieldName) && "ring-2 ring-primary bg-primary/5"
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -205,6 +317,109 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
             <CardTitle className="text-base">Customer Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Customer Code Search */}
+            <div className="space-y-2">
+              <Label>Customer Code *</Label>
+              <Popover open={customerCodeOpen} onOpenChange={setCustomerCodeOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={customerCodeOpen}
+                    className="w-full justify-between"
+                  >
+                    {customerCode || "Search or select customer code..."}
+                    {isSearching ? (
+                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type customer code..." />
+                    <CommandList>
+                      <CommandEmpty>
+                        <div className="flex flex-col items-center gap-2 py-4">
+                          <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">No customer found</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => {
+                              setCustomerCodeOpen(false);
+                              navigate("/leads");
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Create New Lead
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup heading="Customers">
+                        {leads.map((lead) => (
+                          <CommandItem
+                            key={lead.id}
+                            value={`${lead.customer_code} ${lead.customer_name}`}
+                            onSelect={() => handleSelectCustomer(lead.customer_code)}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                customerCode === lead.customer_code
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-medium">{lead.customer_code}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {lead.customer_name}
+                                {lead.company_name && ` - ${lead.company_name}`}
+                              </span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {/* Status indicator */}
+              {isSearching && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Fetching customer details...
+                </div>
+              )}
+              {customerFound === true && (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  <Check className="mr-1 h-3 w-3" />
+                  Customer found - details auto-filled
+                </Badge>
+              )}
+              {customerFound === false && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                    <AlertCircle className="mr-1 h-3 w-3" />
+                    Customer not found in Lead Database
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-xs gap-1"
+                    onClick={() => navigate("/leads")}
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    Create New Lead
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="customerName">Customer Name *</Label>
@@ -213,6 +428,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Enter customer name"
+                  readOnly={customerFound === true}
+                  className={cn(
+                    getFieldClassName("customerName"),
+                    customerFound === true && "bg-muted cursor-not-allowed"
+                  )}
                   required
                 />
               </div>
@@ -223,6 +443,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Enter company name"
+                  className={getFieldClassName("companyName")}
                 />
               </div>
             </div>
@@ -234,6 +455,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Enter complete address"
                 rows={2}
+                className={getFieldClassName("address")}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -244,6 +466,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   placeholder="Enter mobile number"
+                  readOnly={customerFound === true}
+                  className={cn(
+                    getFieldClassName("mobile"),
+                    customerFound === true && "bg-muted cursor-not-allowed"
+                  )}
                 />
               </div>
               <div className="space-y-2">
@@ -253,6 +480,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                   value={gstNumber}
                   onChange={(e) => setGstNumber(e.target.value)}
                   placeholder="Enter GST number (optional)"
+                  className={getFieldClassName("gstNumber")}
                 />
               </div>
             </div>
