@@ -460,6 +460,8 @@ export type Database = {
           courier_gst_amount: number
           courier_type: string | null
           created_at: string
+          customer_code: string | null
+          customer_id: string | null
           customer_name: string
           grand_total: number
           gst_amount: number
@@ -482,6 +484,8 @@ export type Database = {
           courier_gst_amount?: number
           courier_type?: string | null
           created_at?: string
+          customer_code?: string | null
+          customer_id?: string | null
           customer_name: string
           grand_total?: number
           gst_amount?: number
@@ -504,6 +508,8 @@ export type Database = {
           courier_gst_amount?: number
           courier_type?: string | null
           created_at?: string
+          customer_code?: string | null
+          customer_id?: string | null
           customer_name?: string
           grand_total?: number
           gst_amount?: number
@@ -516,7 +522,15 @@ export type Database = {
           subtotal?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       renewals: {
         Row: {
@@ -611,6 +625,7 @@ export type Database = {
           created_at: string | null
           customer_code: string
           customer_contact: string | null
+          customer_id: string | null
           customer_name: string | null
           employee_name: string
           gst_amount: number | null
@@ -633,6 +648,7 @@ export type Database = {
           created_at?: string | null
           customer_code: string
           customer_contact?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           employee_name: string
           gst_amount?: number | null
@@ -655,6 +671,7 @@ export type Database = {
           created_at?: string | null
           customer_code?: string
           customer_contact?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           employee_name?: string
           gst_amount?: number | null
@@ -668,7 +685,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shipments: {
         Row: {

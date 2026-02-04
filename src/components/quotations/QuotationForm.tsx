@@ -30,6 +30,7 @@ import { format } from "date-fns";
 import { QuotationProductRow } from "./QuotationProductRow";
 import { generateQuotationPDF } from "./QuotationPDF";
 import { numberToWords } from "@/lib/numberToWords";
+import { toast } from "sonner";
 import {
   useGenerateQuotationNo,
   useCreateQuotation,
@@ -60,6 +61,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
 
   // Customer Code search with debounce
   const [customerCode, setCustomerCode] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [customerFound, setCustomerFound] = useState<boolean | null>(null);
   const [highlightedFields, setHighlightedFields] = useState<Set<string>>(new Set());
@@ -99,6 +101,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   const fetchCustomerByCode = useCallback(async (code: string) => {
     if (!code.trim()) {
       setCustomerFound(null);
+      setCustomerId(null);
       setCustomerName("");
       setCompanyName("");
       setAddress("");
@@ -119,6 +122,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       if (error) throw error;
 
       if (data) {
+        setCustomerId(data.id);
         setCustomerName(data.customer_name || "");
         setCompanyName(data.company_name || "");
         setAddress(data.complete_address || "");
@@ -128,6 +132,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
         highlightField(["customerName", "companyName", "address", "mobile", "gstNumber"]);
       } else {
         // Clear fields if not found
+        setCustomerId(null);
         setCustomerName("");
         setCompanyName("");
         setAddress("");
@@ -204,6 +209,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   // Clear customer code and reset fields
   const handleClearCustomer = () => {
     setCustomerCode("");
+    setCustomerId(null);
     setCustomerName("");
     setCompanyName("");
     setAddress("");
@@ -262,6 +268,14 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   };
 
   const handleSave = async () => {
+    if (!customerCode.trim()) {
+      toast.error("Customer Code is required");
+      return;
+    }
+    if (customerFound !== true || !customerId) {
+      toast.error("Please enter a valid Customer Code from Lead Database");
+      return;
+    }
     if (!customerName || items.every((i) => !i.product_code)) {
       return;
     }
@@ -269,6 +283,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     const quotationData = {
       quotation_no: quotationNo,
       quotation_date: new Date(quotationDate).toISOString(),
+      customer_code: customerCode.trim(),
+      customer_id: customerId,
       customer_name: customerName,
       company_name: companyName,
       address,
@@ -680,7 +696,14 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
         <Button
           onClick={handleSave}
           className="gap-2"
-          disabled={createQuotation.isPending || !customerName || items.every((i) => !i.product_code)}
+          disabled={
+            createQuotation.isPending ||
+            !customerCode.trim() ||
+            customerFound !== true ||
+            !customerId ||
+            !customerName ||
+            items.every((i) => !i.product_code)
+          }
         >
           <Save className="h-4 w-4" />
           {createQuotation.isPending ? "Saving..." : "Save Quotation"}

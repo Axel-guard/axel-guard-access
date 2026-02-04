@@ -17,6 +17,8 @@ export interface Quotation {
   id?: string;
   quotation_no: string;
   quotation_date: string;
+  customer_code?: string;
+  customer_id?: string;
   customer_name: string;
   company_name: string;
   address: string;
@@ -186,40 +188,90 @@ export const useConvertToSale = () => {
 
       if (orderIdError) throw orderIdError;
 
-      // Look up customer code from customers table or leads table using mobile number
-      let customerCode = "WALK-IN";
-      if (quotation.mobile) {
-        // First try customers table
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("customer_code")
-          .eq("mobile_number", quotation.mobile)
-          .single();
-        
-        if (customer?.customer_code) {
-          customerCode = customer.customer_code;
-        } else {
-          // Fallback to leads table
-          const { data: lead } = await supabase
-            .from("leads")
-            .select("customer_code")
-            .eq("mobile_number", quotation.mobile)
-            .single();
-          
-          if (lead?.customer_code) {
-            customerCode = lead.customer_code;
-          }
+      const isLikelyMobileNumber = (value: string) => {
+        const cleaned = (value ?? "").toString().replace(/\D/g, "");
+        return cleaned.length === 10 && /^[6-9]/.test(cleaned);
+      };
+
+      // Resolve customer_code + customer_id from Lead Database.
+      // Quotation conversions must NEVER default to WALK-IN.
+      let resolvedCustomerCode = (quotation as any).customer_code
+        ? String((quotation as any).customer_code).trim()
+        : "";
+      let resolvedCustomerId = ((quotation as any).customer_id as string | null) || null;
+
+      // If we have ID but not code, look up code by lead ID
+      if (!resolvedCustomerCode && resolvedCustomerId) {
+        const { data: leadById, error: leadByIdError } = await supabase
+          .from("leads")
+          .select("id, customer_code")
+          .eq("id", resolvedCustomerId)
+          .maybeSingle();
+
+        if (leadByIdError) throw leadByIdError;
+        if (leadById?.customer_code) {
+          resolvedCustomerCode = String(leadById.customer_code).trim();
         }
+      }
+
+      // If we still don't have code, try looking up by mobile_number
+      if (!resolvedCustomerCode && quotation.mobile) {
+        const { data: leadByMobile, error: leadByMobileError } = await supabase
+          .from("leads")
+          .select("id, customer_code")
+          .eq("mobile_number", quotation.mobile)
+          .maybeSingle();
+
+        if (leadByMobileError) throw leadByMobileError;
+        if (leadByMobile?.customer_code) {
+          resolvedCustomerCode = String(leadByMobile.customer_code).trim();
+          resolvedCustomerId = leadByMobile.id;
+        }
+      }
+
+      if (!resolvedCustomerCode) {
+        throw new Error("Customer Code missing in quotation");
+      }
+
+      // Validation: customer code must be a numeric code, not a phone number
+      if (!/^\d+$/.test(resolvedCustomerCode) || isLikelyMobileNumber(resolvedCustomerCode)) {
+        throw new Error("Invalid Customer Code in quotation");
+      }
+
+      // Ensure we have lead id
+      if (!resolvedCustomerId) {
+        const { data: leadByCode, error: leadByCodeError } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("customer_code", resolvedCustomerCode)
+          .maybeSingle();
+
+        if (leadByCodeError) throw leadByCodeError;
+        if (!leadByCode?.id) throw new Error("Customer Code missing in quotation");
+        resolvedCustomerId = leadByCode.id;
+      }
+
+      // Best-effort: persist resolved fields back to quotation for future conversions
+      try {
+        const patch: any = {};
+        if (!(quotation as any).customer_code) patch.customer_code = resolvedCustomerCode;
+        if (!(quotation as any).customer_id) patch.customer_id = resolvedCustomerId;
+        if (Object.keys(patch).length > 0) {
+          await supabase.from("quotations").update(patch).eq("id", quotationId);
+        }
+      } catch {
+        // non-blocking
       }
 
       // Create sale
       const saleData = {
         order_id: newOrderId,
         sale_date: new Date().toISOString(),
-        customer_code: customerCode,
+        customer_id: resolvedCustomerId,
+        customer_code: resolvedCustomerCode,
         customer_name: quotation.customer_name,
         company_name: quotation.company_name,
-        customer_contact: quotation.mobile,
+        customer_contact: quotation.mobile || null,
         employee_name: "System",
         // Must match backend CHECK constraint: 'With' | 'Without'
         sale_type: quotation.apply_gst ? "With" : "Without",
