@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
+import { createNotification } from "@/hooks/useNotifications";
 export interface QuotationItem {
   id?: string;
   quotation_id?: string;
@@ -123,9 +123,23 @@ export const useCreateQuotation = () => {
 
       return newQuotation;
     },
-    onSuccess: () => {
+    onSuccess: (newQuotation) => {
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["next-quotation-no"] });
+      
+      // Send notification to admins
+      createNotification(
+        "New Quotation Created",
+        `Quotation #${newQuotation.quotation_no} created for ${newQuotation.customer_name}. Total: ₹${newQuotation.grand_total.toLocaleString()}`,
+        "quotation",
+        {
+          quotation_id: newQuotation.id,
+          quotation_no: newQuotation.quotation_no,
+          customer_name: newQuotation.customer_name,
+          total_amount: newQuotation.grand_total,
+        }
+      );
+      
       toast({
         title: "Quotation Created",
         description: "Quotation has been saved successfully.",
