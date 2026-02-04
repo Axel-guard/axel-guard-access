@@ -372,6 +372,54 @@ export type Database = {
         }
         Relationships: []
       }
+      renewals: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          customer_code: string | null
+          customer_name: string | null
+          dispatch_date: string
+          id: string
+          order_id: string
+          product_name: string | null
+          product_type: string
+          renewal_end_date: string
+          renewal_start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          customer_code?: string | null
+          customer_name?: string | null
+          dispatch_date: string
+          id?: string
+          order_id: string
+          product_name?: string | null
+          product_type: string
+          renewal_end_date: string
+          renewal_start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          customer_code?: string | null
+          customer_name?: string | null
+          dispatch_date?: string
+          id?: string
+          order_id?: string
+          product_name?: string | null
+          product_type?: string
+          renewal_end_date?: string
+          renewal_start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sale_items: {
         Row: {
           created_at: string | null

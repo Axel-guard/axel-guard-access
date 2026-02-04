@@ -43,9 +43,10 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { useQueryClient } from "@tanstack/react-query";
+import { RENEWAL_PRODUCTS } from "@/hooks/useRenewals";
 
 interface ProductToDispatch {
   product_name: string;
@@ -356,11 +357,56 @@ export const CreateDispatchDialog = ({
 
       if (shipmentError) throw shipmentError;
 
+      // Check for renewal products and create renewal records
+      const renewalProducts = productsToDispatch.filter(product => 
+        RENEWAL_PRODUCTS.some(rp => 
+          product.product_name.toLowerCase().includes(rp.toLowerCase().replace(" charges", "").trim()) ||
+          product.product_name.toLowerCase().includes("server") ||
+          product.product_name.toLowerCase().includes("cloud") ||
+          product.product_name.toLowerCase().includes("sim")
+        )
+      );
+
+      if (renewalProducts.length > 0) {
+        const dispatchDateObj = new Date(dispatchDate);
+        const renewalEndDate = addDays(dispatchDateObj, 364);
+
+        const renewalRecords = renewalProducts.map(product => ({
+          order_id: order.order_id,
+          customer_code: order.customer_code || null,
+          customer_name: order.customer_name || null,
+          company_name: order.company_name || null,
+          product_type: product.product_name.toLowerCase().includes("server") 
+            ? "Server Charges" 
+            : product.product_name.toLowerCase().includes("cloud")
+            ? "Cloud Charges"
+            : "SIM Charges",
+          product_name: product.product_name,
+          dispatch_date: dispatchDateObj.toISOString(),
+          renewal_start_date: dispatchDateObj.toISOString(),
+          renewal_end_date: renewalEndDate.toISOString(),
+          status: "Active",
+        }));
+
+        const { error: renewalError } = await supabase
+          .from("renewals")
+          .insert(renewalRecords);
+
+        if (renewalError) {
+          console.error("Failed to create renewal records:", renewalError);
+          // Don't throw - dispatch succeeded, just log renewal failure
+        } else {
+          toast.success(`Created ${renewalRecords.length} renewal record(s)`);
+        }
+      }
+
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
       queryClient.invalidateQueries({ queryKey: ["shipments"] });
       queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["renewals"] });
+      queryClient.invalidateQueries({ queryKey: ["renewals-summary"] });
 
       toast.success(`Dispatch completed! ${serialNumbers.length} devices dispatched.`);
       onOpenChange(false);
