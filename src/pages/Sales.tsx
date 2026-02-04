@@ -86,6 +86,20 @@ const SalesPage = () => {
     return Math.max(0, totalAmount - amountReceived);
   };
 
+  // Check if value looks like a mobile number (10 digits)
+  const isMobileNumber = (value: string) => {
+    if (!value) return false;
+    const cleaned = value.replace(/\D/g, "");
+    return cleaned.length === 10 && /^[6-9]/.test(cleaned);
+  };
+
+  // Display customer code - show WALK-IN if it looks like a mobile number
+  const getDisplayCustomerCode = (customerCode: string) => {
+    if (!customerCode) return "WALK-IN";
+    if (isMobileNumber(customerCode)) return "WALK-IN";
+    return customerCode;
+  };
+
   // Filter and sort sales
   const filteredSales = sales
     ?.filter((sale) => {
@@ -202,7 +216,7 @@ const SalesPage = () => {
                       {sale.order_id}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {sale.customer_code}
+                      {getDisplayCustomerCode(sale.customer_code)}
                     </TableCell>
                     <TableCell>
                       {sale.sale_date

@@ -186,9 +186,10 @@ export const useConvertToSale = () => {
 
       if (orderIdError) throw orderIdError;
 
-      // Look up customer code from customers table using mobile number
+      // Look up customer code from customers table or leads table using mobile number
       let customerCode = "WALK-IN";
       if (quotation.mobile) {
+        // First try customers table
         const { data: customer } = await supabase
           .from("customers")
           .select("customer_code")
@@ -197,6 +198,17 @@ export const useConvertToSale = () => {
         
         if (customer?.customer_code) {
           customerCode = customer.customer_code;
+        } else {
+          // Fallback to leads table
+          const { data: lead } = await supabase
+            .from("leads")
+            .select("customer_code")
+            .eq("mobile_number", quotation.mobile)
+            .single();
+          
+          if (lead?.customer_code) {
+            customerCode = lead.customer_code;
+          }
         }
       }
 
