@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useUpdateBalancePayment, useSales } from "@/hooks/useSales";
 import { Search } from "lucide-react";
+import { createNotification } from "@/hooks/useNotifications";
 
 interface BalancePaymentDialogProps {
   open: boolean;
@@ -81,6 +82,14 @@ export const BalancePaymentDialog = ({
       account_received: accountReceived,
       payment_reference: paymentReference,
     });
+
+    // Create notification for balance payment
+    await createNotification(
+      "Balance Payment Received",
+      `Balance payment of ₹${amount.toLocaleString()} received for Order ID ${selectedSale.order_id}`,
+      "payment",
+      { order_id: selectedSale.order_id, amount, customer: selectedSale.customer_name || selectedSale.customer_code }
+    );
 
     onOpenChange(false);
     resetForm();
