@@ -1,28 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Mail, Lock, LogIn, UserPlus, AlertCircle, CheckCircle } from "lucide-react";
+import { Sparkles, Mail, KeyRound, LogIn, AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Please enter a valid email address");
-const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+
+type AuthStep = "email" | "otp";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, signIn, signUp, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [step, setStep] = useState<AuthStep>("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -31,60 +34,100 @@ const Auth = () => {
     }
   }, [user, isLoading, navigate]);
 
-  const validateForm = (): boolean => {
-    setError(null);
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
+  const validateEmail = (): boolean => {
+    setError(null);
     try {
       emailSchema.parse(email);
+      return true;
     } catch (e) {
       if (e instanceof z.ZodError) {
         setError(e.errors[0].message);
-        return false;
       }
-    }
-
-    try {
-      passwordSchema.parse(password);
-    } catch (e) {
-      if (e instanceof z.ZodError) {
-        setError(e.errors[0].message);
-        return false;
-      }
-    }
-
-    if (isSignUp && password !== confirmPassword) {
-      setError("Passwords do not match");
       return false;
     }
-
-    return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+  const handleSendOTP = async () => {
+    if (!validateEmail()) return;
 
     setSubmitting(true);
     setError(null);
     setSuccess(null);
 
     try {
-      if (isSignUp) {
-        const { error } = await signUp(email, password);
-        if (error) {
-          setError(error.message);
-        } else {
-          setSuccess("Account created! Please check your email to verify your account.");
-          setIsSignUp(false);
-          setPassword("");
-          setConfirmPassword("");
+      const { data, error: fnError } = await supabase.functions.invoke("send-otp", {
+        body: { email: email.trim(), action: "send" },
+      });
+
+      if (fnError) {
+        setError(fnError.message || "Failed to send OTP");
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
+        return;
+      }
+
+      setSuccess("OTP sent to your email. Please check your inbox.");
+      setStep("otp");
+      setResendCooldown(30);
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      setError("Please enter the complete 6-digit OTP");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("send-otp", {
+        body: { email: email.trim(), action: "verify", otp },
+      });
+
+      if (fnError) {
+        setError(fnError.message || "Failed to verify OTP");
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
+        setOtp("");
+        return;
+      }
+
+      if (data?.token && data?.type) {
+        // Verify the token to sign in
+        const { error: signInError } = await supabase.auth.verifyOtp({
+          email: data.email,
+          token: data.token,
+          type: "magiclink",
+        });
+
+        if (signInError) {
+          console.error("Sign in error:", signInError);
+          setError("Failed to complete sign in. Please try again.");
+          return;
         }
-      } else {
-        const { error } = await signIn(email, password);
-        if (error) {
-          setError(error.message);
-        }
+
+        setSuccess("Login successful! Redirecting...");
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -92,6 +135,28 @@ const Auth = () => {
       setSubmitting(false);
     }
   };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+    await handleSendOTP();
+  };
+
+  const handleBackToEmail = () => {
+    setStep("email");
+    setOtp("");
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !submitting) {
+      if (step === "email") {
+        handleSendOTP();
+      } else if (step === "otp" && otp.length === 6) {
+        handleVerifyOTP();
+      }
+    }
+  }, [step, otp, submitting]);
 
   if (isLoading) {
     return (
@@ -111,13 +176,16 @@ const Auth = () => {
           <div>
             <CardTitle className="text-2xl font-bold">AxelGuard</CardTitle>
             <CardDescription className="text-muted-foreground mt-1">
-              {isSignUp ? "Create your account" : "Sign in to your account"}
+              {step === "email" 
+                ? "Enter your email to receive a login code" 
+                : "Enter the 6-digit code sent to your email"
+              }
             </CardDescription>
           </div>
         </CardHeader>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent onKeyPress={handleKeyPress}>
+          <div className="space-y-4">
             {error && (
               <Alert variant="destructive" className="animate-in fade-in-50">
                 <AlertCircle className="h-4 w-4" />
@@ -126,128 +194,119 @@ const Auth = () => {
             )}
 
             {success && (
-              <Alert className="border-success bg-success/10 text-success animate-in fade-in-50">
+              <Alert className="border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 animate-in fade-in-50">
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email Address
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-11"
-                  required
-                  disabled={submitting}
-                />
-              </div>
-            </div>
+            {step === "email" ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email Address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10 h-11"
+                      required
+                      disabled={submitting}
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-11"
-                  required
+                <Button
+                  onClick={handleSendOTP}
+                  className="w-full h-11 gap-2 font-medium"
                   disabled={submitting}
-                />
+                >
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogIn className="h-4 w-4" />
+                  )}
+                  Send OTP
+                </Button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    One-Time Password
+                  </Label>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="relative">
+                      <KeyRound className="absolute -left-8 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground hidden sm:block" />
+                    </div>
+                    <InputOTP
+                      maxLength={6}
+                      value={otp}
+                      onChange={setOtp}
+                      disabled={submitting}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Sent to <span className="font-medium">{email}</span>
+                  </p>
+                </div>
 
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                  Confirm Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 h-11"
-                    required
+                <Button
+                  onClick={handleVerifyOTP}
+                  className="w-full h-11 gap-2 font-medium"
+                  disabled={submitting || otp.length !== 6}
+                >
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogIn className="h-4 w-4" />
+                  )}
+                  Verify & Sign In
+                </Button>
+
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToEmail}
                     disabled={submitting}
-                  />
+                    className="text-muted-foreground"
+                  >
+                    ← Change email
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResendOTP}
+                    disabled={submitting || resendCooldown > 0}
+                    className="gap-1 text-muted-foreground"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${submitting ? "animate-spin" : ""}`} />
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                  </Button>
                 </div>
               </div>
             )}
-
-            <Button
-              type="submit"
-              className="w-full h-11 gap-2 font-medium"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-              ) : isSignUp ? (
-                <>
-                  <UserPlus className="h-4 w-4" />
-                  Create Account
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </>
-              )}
-            </Button>
-          </form>
+          </div>
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4 pt-2">
-          <div className="text-center text-sm text-muted-foreground">
-            {isSignUp ? (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(false);
-                    setError(null);
-                    setSuccess(null);
-                  }}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Sign in
-                </button>
-              </>
-            ) : (
-              <>
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(true);
-                    setError(null);
-                    setSuccess(null);
-                  }}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Create one
-                </button>
-              </>
-            )}
-          </div>
-          
           <p className="text-xs text-center text-muted-foreground/70">
             Only pre-approved email addresses can access this system.
           </p>

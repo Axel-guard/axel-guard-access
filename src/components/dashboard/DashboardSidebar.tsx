@@ -44,6 +44,7 @@ interface NavItem {
   path?: string;
   children?: { icon: React.ElementType; label: string; path: string }[];
   adminOnly?: boolean;
+  masterAdminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -93,14 +94,14 @@ const navItems: NavItem[] = [
       { icon: Package, label: "Products Database", path: "/products" },
     ],
   },
-  { icon: Shield, label: "User Management", path: "/user-management", adminOnly: true },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Shield, label: "User Management", path: "/user-management", masterAdminOnly: true },
+  { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
 ];
 
 export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isMasterAdmin, role } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>(["Sale", "Inventory"]);
 
   const handleNavClick = (path: string) => {
@@ -127,8 +128,12 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
     return item.children?.some((child) => isActive(child.path));
   };
 
-  // Filter nav items based on admin status
-  const filteredNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+  // Filter nav items based on admin/master admin status
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.masterAdminOnly) return isMasterAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   // Get user initials
   const getUserInitials = () => {
@@ -268,7 +273,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">
-                  {isAdmin ? "Admin" : "User"}
+                  {isMasterAdmin ? "Master Admin" : isAdmin ? "Admin" : "User"}
                 </p>
                 {isAdmin && <Shield className="h-3 w-3 text-primary" />}
               </div>
