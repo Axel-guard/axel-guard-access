@@ -71,7 +71,7 @@ const navItems: NavItem[] = [
       { icon: ShoppingCart, label: "Current Month Sale", path: "/current-month-sales" },
       { icon: CreditCard, label: "Balance Payment", path: "/balance-payments" },
       { icon: Database, label: "Sale Database", path: "/sales" },
-      { icon: FileCheck, label: "Quotations", path: "/sales?tab=quotations" },
+      { icon: FileCheck, label: "Quotations", path: "/quotations" },
       { icon: RefreshCw, label: "Renewal", path: "/renewal" },
     ],
   },

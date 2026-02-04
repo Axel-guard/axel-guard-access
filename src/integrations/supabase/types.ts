@@ -405,6 +405,119 @@ export type Database = {
         }
         Relationships: []
       }
+      quotation_items: {
+        Row: {
+          amount: number
+          created_at: string
+          hsn_sac: string | null
+          id: string
+          product_code: string
+          product_name: string
+          quantity: number
+          quotation_id: string
+          unit_price: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          hsn_sac?: string | null
+          id?: string
+          product_code: string
+          product_name: string
+          quantity?: number
+          quotation_id: string
+          unit_price?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          hsn_sac?: string | null
+          id?: string
+          product_code?: string
+          product_name?: string
+          quantity?: number
+          quotation_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          address: string | null
+          apply_courier_gst: boolean
+          apply_gst: boolean
+          company_name: string | null
+          converted_order_id: string | null
+          courier_charge: number
+          courier_gst_amount: number
+          courier_type: string | null
+          created_at: string
+          customer_name: string
+          grand_total: number
+          gst_amount: number
+          gst_number: string | null
+          id: string
+          mobile: string | null
+          quotation_date: string
+          quotation_no: string
+          status: string
+          subtotal: number
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          apply_courier_gst?: boolean
+          apply_gst?: boolean
+          company_name?: string | null
+          converted_order_id?: string | null
+          courier_charge?: number
+          courier_gst_amount?: number
+          courier_type?: string | null
+          created_at?: string
+          customer_name: string
+          grand_total?: number
+          gst_amount?: number
+          gst_number?: string | null
+          id?: string
+          mobile?: string | null
+          quotation_date?: string
+          quotation_no: string
+          status?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          apply_courier_gst?: boolean
+          apply_gst?: boolean
+          company_name?: string | null
+          converted_order_id?: string | null
+          courier_charge?: number
+          courier_gst_amount?: number
+          courier_type?: string | null
+          created_at?: string
+          customer_name?: string
+          grand_total?: number
+          gst_amount?: number
+          gst_number?: string | null
+          id?: string
+          mobile?: string | null
+          quotation_date?: string
+          quotation_no?: string
+          status?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       renewals: {
         Row: {
           company_name: string | null
@@ -621,6 +734,7 @@ export type Database = {
     Functions: {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       generate_order_id: { Args: never; Returns: string }
+      generate_quotation_no: { Args: never; Returns: string }
       get_email_role: {
         Args: { _email: string }
         Returns: Database["public"]["Enums"]["app_role"]
