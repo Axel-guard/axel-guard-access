@@ -65,7 +65,19 @@ Deno.serve(async (req) => {
 
     const isMasterAdmin = normalizedEmail === "info@axel-guard.com";
 
-    if (!allowedEmail && !(emailCount === 0 && isMasterAdmin)) {
+    // Master admin is ALWAYS allowed - this is a permanent system rule
+    if (isMasterAdmin) {
+      // Ensure master admin is in the allowed list with correct role
+      await supabaseAdmin
+        .from("allowed_emails")
+        .upsert({ 
+          email: normalizedEmail, 
+          role: "master_admin" 
+        }, { 
+          onConflict: "email" 
+        });
+    } else if (!allowedEmail && emailCount !== 0) {
+      // Non-master admin not in allowed list
       return new Response(
         JSON.stringify({ error: "Access denied. Your email is not in the approved list." }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -256,14 +268,18 @@ Deno.serve(async (req) => {
         }
 
         userId = newUser.user.id;
+      }
 
-        // For first-time master admin setup
-        if (emailCount === 0 && isMasterAdmin) {
-          // Add to allowed_emails
-          await supabaseAdmin
-            .from("allowed_emails")
-            .insert({ email: normalizedEmail, role: "master_admin" });
-        }
+      // Ensure master admin always has master_admin role
+      if (isMasterAdmin) {
+        await supabaseAdmin
+          .from("user_roles")
+          .upsert({ 
+            user_id: userId, 
+            role: "master_admin" 
+          }, { 
+            onConflict: "user_id,role" 
+          });
       }
 
       // Generate a magic link for the user to sign in
