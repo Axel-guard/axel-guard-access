@@ -89,8 +89,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       product_code: "",
       product_name: "",
       hsn_sac: "",
-      quantity: 1,
-      unit_price: 0,
+      quantity: "",
+      unit_price: "",
       amount: 0,
     },
   ]);
@@ -244,8 +244,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
         product_code: "",
         product_name: "",
         hsn_sac: "",
-        quantity: 1,
-        unit_price: 0,
+        quantity: "",
+        unit_price: "",
         amount: 0,
       },
     ]);

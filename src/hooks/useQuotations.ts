@@ -8,8 +8,8 @@ export interface QuotationItem {
   product_code: string;
   product_name: string;
   hsn_sac: string;
-  quantity: number;
-  unit_price: number;
+  quantity: number | string;
+  unit_price: number | string;
   amount: number;
 }
 
@@ -109,9 +109,11 @@ export const useCreateQuotation = () => {
 
       if (quotationError) throw quotationError;
 
-      // Insert items
+      // Insert items - ensure numeric values for database
       const itemsWithQuotationId = items.map((item) => ({
         ...item,
+        quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) || 1 : item.quantity,
+        unit_price: typeof item.unit_price === "string" ? parseFloat(item.unit_price) || 0 : item.unit_price,
         quotation_id: newQuotation.id,
       }));
 
