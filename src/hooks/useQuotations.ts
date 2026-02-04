@@ -186,11 +186,25 @@ export const useConvertToSale = () => {
 
       if (orderIdError) throw orderIdError;
 
+      // Look up customer code from customers table using mobile number
+      let customerCode = "WALK-IN";
+      if (quotation.mobile) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("customer_code")
+          .eq("mobile_number", quotation.mobile)
+          .single();
+        
+        if (customer?.customer_code) {
+          customerCode = customer.customer_code;
+        }
+      }
+
       // Create sale
       const saleData = {
         order_id: newOrderId,
         sale_date: new Date().toISOString(),
-        customer_code: quotation.mobile || "WALK-IN",
+        customer_code: customerCode,
         customer_name: quotation.customer_name,
         company_name: quotation.company_name,
         customer_contact: quotation.mobile,
