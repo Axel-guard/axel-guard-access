@@ -23,6 +23,8 @@ const getNotificationIcon = (type: string) => {
       return "✅";
     case "inventory":
       return "📦";
+    case "payment":
+      return "💰";
     default:
       return "🔔";
   }
