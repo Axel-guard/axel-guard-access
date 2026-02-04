@@ -232,9 +232,13 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     field: keyof QuotationItem,
     value: any
   ) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+    // Use functional update so multiple rapid updates (e.g. qty + amount)
+    // don't overwrite each other within the same event loop.
+    setItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   const handleAddItem = () => {
