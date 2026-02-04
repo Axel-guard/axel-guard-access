@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "user";
+type AppRole = "master_admin" | "admin" | "user";
 
 interface AuthContextType {
   user: User | null;
@@ -10,8 +10,7 @@ interface AuthContextType {
   role: AppRole | null;
   isLoading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  isMasterAdmin: boolean;
   signOut: () => Promise<void>;
   checkEmailAllowed: (email: string) => Promise<boolean>;
 }
@@ -99,13 +98,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (countError) {
         console.error("Error checking email count:", countError);
-        // If we can't check, allow login attempt (Supabase will handle auth)
         return true;
       }
 
-      // If no emails in the list, this is the first admin - auto-approve
-      if (count === 0) {
-        console.log("No approved emails yet - first user will be auto-approved as admin");
+      // If no emails in the list and this is master admin - auto-approve
+      if (count === 0 && email.toLowerCase() === "info@axel-guard.com") {
+        console.log("First-time setup - master admin will be auto-approved");
         return true;
       }
 
@@ -118,7 +116,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error) {
         console.error("Error checking email:", error);
-        // If RLS blocks the check, try using RPC function
+        // Fallback to RPC function
         const { data: rpcResult, error: rpcError } = await supabase
           .rpc("is_email_allowed", { _email: email });
         
@@ -137,57 +135,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      // First check if email is allowed
-      const isAllowed = await checkEmailAllowed(email);
-      if (!isAllowed) {
-        return { error: new Error("Access denied. Your email is not in the approved list.") };
-      }
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        return { error };
-      }
-
-      return { error: null };
-    } catch (err) {
-      return { error: err as Error };
-    }
-  };
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      // First check if email is allowed
-      const isAllowed = await checkEmailAllowed(email);
-      if (!isAllowed) {
-        return { error: new Error("Access denied. Your email is not in the approved list.") };
-      }
-
-      const redirectUrl = `${window.location.origin}/`;
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-        },
-      });
-
-      if (error) {
-        return { error };
-      }
-
-      return { error: null };
-    } catch (err) {
-      return { error: err as Error };
-    }
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -200,9 +147,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     session,
     role,
     isLoading,
-    isAdmin: role === "admin",
-    signIn,
-    signUp,
+    isAdmin: role === "admin" || role === "master_admin",
+    isMasterAdmin: role === "master_admin",
     signOut,
     checkEmailAllowed,
   };

@@ -5,6 +5,7 @@ import {
   Plus, 
   Trash2, 
   Shield, 
+  ShieldCheck,
   User, 
   Mail, 
   Search,
@@ -17,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { 
   Dialog, 
   DialogContent, 
@@ -55,24 +55,47 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { z } from "zod";
 
+type AppRole = "master_admin" | "admin" | "user";
+
 interface AllowedEmail {
   id: string;
   email: string;
-  role: "admin" | "user";
+  role: AppRole;
   created_at: string;
 }
 
 const emailSchema = z.string().email("Please enter a valid email address");
 
+const ROLE_CONFIG: Record<AppRole, { label: string; description: string; icon: typeof ShieldCheck; color: string }> = {
+  master_admin: {
+    label: "Master Admin",
+    description: "Full access + user management",
+    icon: ShieldCheck,
+    color: "text-purple-600 dark:text-purple-400",
+  },
+  admin: {
+    label: "Admin",
+    description: "Full system access",
+    icon: Shield,
+    color: "text-primary",
+  },
+  user: {
+    label: "User",
+    description: "Limited access",
+    icon: User,
+    color: "text-muted-foreground",
+  },
+};
+
 const UserManagement = () => {
   const queryClient = useQueryClient();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isMasterAdmin } = useAuth();
   
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<AllowedEmail | null>(null);
   const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState<"admin" | "user">("user");
+  const [newRole, setNewRole] = useState<AppRole>("user");
   const [searchTerm, setSearchTerm] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
 
@@ -92,7 +115,7 @@ const UserManagement = () => {
 
   // Add email mutation
   const addEmailMutation = useMutation({
-    mutationFn: async ({ email, role }: { email: string; role: "admin" | "user" }) => {
+    mutationFn: async ({ email, role }: { email: string; role: AppRole }) => {
       const { error } = await supabase
         .from("allowed_emails")
         .insert({
@@ -121,7 +144,7 @@ const UserManagement = () => {
 
   // Update role mutation
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: "admin" | "user" }) => {
+    mutationFn: async ({ id, role }: { id: string; role: AppRole }) => {
       const { error } = await supabase
         .from("allowed_emails")
         .update({ role, updated_at: new Date().toISOString() })
@@ -175,14 +198,28 @@ const UserManagement = () => {
   };
 
   const handleDeleteClick = (email: AllowedEmail) => {
+    // Prevent deleting master admin
+    if (email.role === "master_admin") {
+      toast.error("Cannot delete Master Admin");
+      return;
+    }
     setSelectedEmail(email);
     setDeleteDialogOpen(true);
+  };
+
+  const canChangeRole = (targetRole: AppRole) => {
+    // Only master admin can assign/modify master_admin role
+    if (targetRole === "master_admin" && !isMasterAdmin) {
+      return false;
+    }
+    return true;
   };
 
   const filteredEmails = allowedEmails.filter((item) =>
     item.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const masterAdminCount = allowedEmails.filter((e) => e.role === "master_admin").length;
   const adminCount = allowedEmails.filter((e) => e.role === "admin").length;
   const userCount = allowedEmails.filter((e) => e.role === "user").length;
 
@@ -196,7 +233,7 @@ const UserManagement = () => {
             User Access Management
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage who can access the system
+            Manage who can access the system and their roles
           </p>
         </div>
         <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
@@ -206,11 +243,20 @@ const UserManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Users</CardDescription>
             <CardTitle className="text-3xl">{allowedEmails.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1">
+              <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              Master Admins
+            </CardDescription>
+            <CardTitle className="text-3xl text-purple-600 dark:text-purple-400">{masterAdminCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -270,55 +316,82 @@ const UserManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmails.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          {item.email}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={item.role}
-                          onValueChange={(value: "admin" | "user") => 
-                            updateRoleMutation.mutate({ id: item.id, role: value })
-                          }
-                        >
-                          <SelectTrigger className="w-28">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              <div className="flex items-center gap-2">
-                                <Shield className="h-3 w-3 text-primary" />
-                                Admin
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="user">
-                              <div className="flex items-center gap-2">
-                                <User className="h-3 w-3" />
-                                User
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClick(item)}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredEmails.map((item) => {
+                    const roleConfig = ROLE_CONFIG[item.role] || ROLE_CONFIG.user;
+                    const RoleIcon = roleConfig.icon;
+                    const isMasterAdminEmail = item.role === "master_admin";
+                    
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            {item.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {isMasterAdminEmail && !isMasterAdmin ? (
+                            <div className="flex items-center gap-2">
+                              <RoleIcon className={`h-4 w-4 ${roleConfig.color}`} />
+                              <span className={roleConfig.color}>{roleConfig.label}</span>
+                            </div>
+                          ) : (
+                            <Select
+                              value={item.role}
+                              onValueChange={(value: AppRole) => {
+                                if (canChangeRole(value)) {
+                                  updateRoleMutation.mutate({ id: item.id, role: value });
+                                } else {
+                                  toast.error("Only Master Admin can assign this role");
+                                }
+                              }}
+                              disabled={isMasterAdminEmail && !isMasterAdmin}
+                            >
+                              <SelectTrigger className="w-36">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {isMasterAdmin && (
+                                  <SelectItem value="master_admin">
+                                    <div className="flex items-center gap-2">
+                                      <ShieldCheck className="h-3 w-3 text-purple-500" />
+                                      Master Admin
+                                    </div>
+                                  </SelectItem>
+                                )}
+                                <SelectItem value="admin">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-3 w-3 text-primary" />
+                                    Admin
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="user">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-3 w-3" />
+                                    User
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(item)}
+                            disabled={isMasterAdminEmail}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-30"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -332,7 +405,7 @@ const UserManagement = () => {
           <DialogHeader>
             <DialogTitle>Add Allowed User</DialogTitle>
             <DialogDescription>
-              Add an email address to the allowed list. Only these emails can sign up and log in.
+              Add an email address to the allowed list. Only these emails can log in.
             </DialogDescription>
           </DialogHeader>
           
@@ -359,15 +432,23 @@ const UserManagement = () => {
 
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={newRole} onValueChange={(v: "admin" | "user") => setNewRole(v)}>
+              <Select value={newRole} onValueChange={(v: AppRole) => setNewRole(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {isMasterAdmin && (
+                    <SelectItem value="master_admin">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-purple-500" />
+                        Master Admin - Full access + user management
+                      </div>
+                    </SelectItem>
+                  )}
                   <SelectItem value="admin">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-primary" />
-                      Admin - Full access to all features
+                      Admin - Full system access
                     </div>
                   </SelectItem>
                   <SelectItem value="user">
