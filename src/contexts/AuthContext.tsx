@@ -92,6 +92,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const checkEmailAllowed = async (email: string): Promise<boolean> => {
     try {
+      // First check if the allowed_emails table is empty (first-time setup)
+      const { count, error: countError } = await supabase
+        .from("allowed_emails")
+        .select("*", { count: "exact", head: true });
+
+      if (countError) {
+        console.error("Error checking email count:", countError);
+        // If we can't check, allow login attempt (Supabase will handle auth)
+        return true;
+      }
+
+      // If no emails in the list, this is the first admin - auto-approve
+      if (count === 0) {
+        console.log("No approved emails yet - first user will be auto-approved as admin");
+        return true;
+      }
+
+      // Check if this specific email is in the allowed list
       const { data, error } = await supabase
         .from("allowed_emails")
         .select("id")
@@ -100,7 +118,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error) {
         console.error("Error checking email:", error);
-        return false;
+        // If RLS blocks the check, try using RPC function
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc("is_email_allowed", { _email: email });
+        
+        if (rpcError) {
+          console.error("Error in RPC check:", rpcError);
+          return false;
+        }
+        
+        return rpcResult as boolean;
       }
       
       return !!data;
