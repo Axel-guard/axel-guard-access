@@ -180,7 +180,8 @@ export const BalancePaymentDialog = ({
                   <Input
                     id="amount"
                     type="number"
-                    min="1"
+                    step="0.01"
+                    min="0.01"
                     max={Number(selectedSale.balance_amount)}
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
