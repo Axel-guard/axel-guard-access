@@ -198,8 +198,13 @@ const UserManagement = () => {
   };
 
   const handleDeleteClick = (email: AllowedEmail) => {
-    // Prevent deleting master admin
-    if (email.role === "master_admin") {
+    // Prevent deleting permanent master admin
+    if (email.email.toLowerCase() === "info@axel-guard.com") {
+      toast.error("Cannot delete the permanent Master Admin");
+      return;
+    }
+    // Prevent deleting other master admins unless you're a master admin
+    if (email.role === "master_admin" && !isMasterAdmin) {
       toast.error("Cannot delete Master Admin");
       return;
     }
@@ -319,6 +324,7 @@ const UserManagement = () => {
                   {filteredEmails.map((item) => {
                     const roleConfig = ROLE_CONFIG[item.role] || ROLE_CONFIG.user;
                     const RoleIcon = roleConfig.icon;
+                    const isPermanentMasterAdmin = item.email.toLowerCase() === "info@axel-guard.com";
                     const isMasterAdminEmail = item.role === "master_admin";
                     
                     return (
@@ -330,7 +336,15 @@ const UserManagement = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {isMasterAdminEmail && !isMasterAdmin ? (
+                          {isPermanentMasterAdmin ? (
+                            <div className="flex items-center gap-2">
+                              <RoleIcon className={`h-4 w-4 ${roleConfig.color}`} />
+                              <span className={roleConfig.color}>{roleConfig.label}</span>
+                              <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
+                                Protected
+                              </span>
+                            </div>
+                          ) : isMasterAdminEmail && !isMasterAdmin ? (
                             <div className="flex items-center gap-2">
                               <RoleIcon className={`h-4 w-4 ${roleConfig.color}`} />
                               <span className={roleConfig.color}>{roleConfig.label}</span>
@@ -383,8 +397,9 @@ const UserManagement = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteClick(item)}
-                            disabled={isMasterAdminEmail}
+                            disabled={isPermanentMasterAdmin || isMasterAdminEmail}
                             className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-30"
+                            title={isPermanentMasterAdmin ? "Cannot delete permanent master admin" : undefined}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
