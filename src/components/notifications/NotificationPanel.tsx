@@ -25,6 +25,8 @@ const getNotificationIcon = (type: string) => {
       return "📦";
     case "payment":
       return "💰";
+    case "quotation":
+      return "📋";
     default:
       return "🔔";
   }
