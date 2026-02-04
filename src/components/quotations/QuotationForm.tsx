@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,19 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
@@ -33,9 +20,9 @@ import {
   FileText,
   Loader2,
   Check,
-  ChevronsUpDown,
   UserPlus,
   AlertCircle,
+  XCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,13 +58,12 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   const { data: nextQuotationNo } = useGenerateQuotationNo();
   const createQuotation = useCreateQuotation();
 
-  // Customer Code search
-  const [customerCodeOpen, setCustomerCodeOpen] = useState(false);
+  // Customer Code search with debounce
   const [customerCode, setCustomerCode] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [customerFound, setCustomerFound] = useState<boolean | null>(null);
   const [highlightedFields, setHighlightedFields] = useState<Set<string>>(new Set());
-
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   // Customer Details
   const [customerName, setCustomerName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -109,18 +95,53 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     },
   ]);
 
-  // Fetch all leads for dropdown
-  const { data: leads = [] } = useQuery({
-    queryKey: ["leads-for-quotation"],
-    queryFn: async () => {
+  // Fetch customer by code from database
+  const fetchCustomerByCode = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setCustomerFound(null);
+      setCustomerName("");
+      setCompanyName("");
+      setAddress("");
+      setMobile("");
+      setGstNumber("");
+      return;
+    }
+
+    setIsSearching(true);
+    
+    try {
       const { data, error } = await supabase
         .from("leads")
         .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number")
-        .order("customer_code", { ascending: true });
+        .eq("customer_code", code.trim())
+        .maybeSingle();
+
       if (error) throw error;
-      return data as Lead[];
-    },
-  });
+
+      if (data) {
+        setCustomerName(data.customer_name || "");
+        setCompanyName(data.company_name || "");
+        setAddress(data.complete_address || "");
+        setMobile(data.mobile_number || "");
+        setGstNumber(data.gst_number || "");
+        setCustomerFound(true);
+        highlightField(["customerName", "companyName", "address", "mobile", "gstNumber"]);
+      } else {
+        // Clear fields if not found
+        setCustomerName("");
+        setCompanyName("");
+        setAddress("");
+        setMobile("");
+        setGstNumber("");
+        setCustomerFound(false);
+      }
+    } catch (err) {
+      console.error("Error fetching customer:", err);
+      setCustomerFound(false);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
 
   // Fetch products
   const { data: products = [] } = useQuery({
@@ -150,45 +171,55 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     }, 2000);
   }, []);
 
-  // Fetch customer details by code
-  const fetchCustomerByCode = useCallback(async (code: string) => {
-    if (!code.trim()) {
-      setCustomerFound(null);
-      return;
-    }
-
-    setIsSearching(true);
+  // Handle customer code input with debounce
+  const handleCustomerCodeChange = (value: string) => {
+    setCustomerCode(value);
+    setCustomerFound(null);
     
-    // Search in leads database
-    const lead = leads.find(l => l.customer_code === code);
-    
-    if (lead) {
-      setCustomerName(lead.customer_name || "");
-      setCompanyName(lead.company_name || "");
-      setAddress(lead.complete_address || "");
-      setMobile(lead.mobile_number || "");
-      setGstNumber(lead.gst_number || "");
-      setCustomerFound(true);
-      highlightField(["customerName", "companyName", "address", "mobile", "gstNumber"]);
-    } else {
-      // Clear fields if not found
-      setCustomerName("");
-      setCompanyName("");
-      setAddress("");
-      setMobile("");
-      setGstNumber("");
-      setCustomerFound(false);
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
     
-    setIsSearching(false);
-  }, [leads, highlightField]);
-
-  // Handle customer code selection
-  const handleSelectCustomer = (code: string) => {
-    setCustomerCode(code);
-    setCustomerCodeOpen(false);
-    fetchCustomerByCode(code);
+    // Set new debounce timeout (900ms)
+    debounceRef.current = setTimeout(() => {
+      if (value.trim()) {
+        fetchCustomerByCode(value);
+      }
+    }, 900);
   };
+
+  // Handle blur event for immediate fetch
+  const handleCustomerCodeBlur = () => {
+    // Clear debounce timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    if (customerCode.trim() && customerFound === null) {
+      fetchCustomerByCode(customerCode);
+    }
+  };
+
+  // Clear customer code and reset fields
+  const handleClearCustomer = () => {
+    setCustomerCode("");
+    setCustomerName("");
+    setCompanyName("");
+    setAddress("");
+    setMobile("");
+    setGstNumber("");
+    setCustomerFound(null);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
@@ -317,76 +348,34 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
             <CardTitle className="text-base">Customer Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Customer Code Search */}
+            {/* Customer Code Input */}
             <div className="space-y-2">
-              <Label>Customer Code *</Label>
-              <Popover open={customerCodeOpen} onOpenChange={setCustomerCodeOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={customerCodeOpen}
-                    className="w-full justify-between"
-                  >
-                    {customerCode || "Search or select customer code..."}
-                    {isSearching ? (
-                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Type customer code..." />
-                    <CommandList>
-                      <CommandEmpty>
-                        <div className="flex flex-col items-center gap-2 py-4">
-                          <AlertCircle className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">No customer found</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1"
-                            onClick={() => {
-                              setCustomerCodeOpen(false);
-                              navigate("/leads");
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4" />
-                            Create New Lead
-                          </Button>
-                        </div>
-                      </CommandEmpty>
-                      <CommandGroup heading="Customers">
-                        {leads.map((lead) => (
-                          <CommandItem
-                            key={lead.id}
-                            value={`${lead.customer_code} ${lead.customer_name}`}
-                            onSelect={() => handleSelectCustomer(lead.customer_code)}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                customerCode === lead.customer_code
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            <div className="flex flex-col">
-                              <span className="font-medium">{lead.customer_code}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {lead.customer_name}
-                                {lead.company_name && ` - ${lead.company_name}`}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="customerCode">Customer Code *</Label>
+              <div className="relative">
+                <Input
+                  id="customerCode"
+                  value={customerCode}
+                  onChange={(e) => handleCustomerCodeChange(e.target.value)}
+                  onBlur={handleCustomerCodeBlur}
+                  placeholder="Enter Customer Code"
+                  className={cn(
+                    "pr-10",
+                    customerFound === true && "border-primary focus-visible:ring-primary",
+                    customerFound === false && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {isSearching && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {!isSearching && customerFound === true && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                  {!isSearching && customerFound === false && (
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  )}
+                </div>
+              </div>
 
               {/* Status indicator */}
               {isSearching && (
@@ -396,16 +385,27 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                 </div>
               )}
               {customerFound === true && (
-                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                  <Check className="mr-1 h-3 w-3" />
-                  Customer found - details auto-filled
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                    <Check className="mr-1 h-3 w-3" />
+                    Customer found - details auto-filled
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={handleClearCustomer}
+                  >
+                    <XCircle className="h-3 w-3" />
+                    Clear
+                  </Button>
+                </div>
               )}
               {customerFound === false && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
                     <AlertCircle className="mr-1 h-3 w-3" />
-                    Customer not found in Lead Database
+                    Customer not found
                   </Badge>
                   <Button
                     size="sm"
