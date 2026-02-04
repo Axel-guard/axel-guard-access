@@ -46,6 +46,7 @@ import {
 } from "@/hooks/useQuotations";
 import { generateQuotationPDF } from "./QuotationPDF";
 import { useNavigate } from "react-router-dom";
+import { ConvertToSaleDialog } from "./ConvertToSaleDialog";
 
 export const QuotationsList = () => {
   const { data: quotations, isLoading } = useQuotations();
@@ -59,6 +60,10 @@ export const QuotationsList = () => {
   );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quotationToDelete, setQuotationToDelete] = useState<string | null>(null);
+  
+  // Convert to Sale dialog state
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [quotationToConvert, setQuotationToConvert] = useState<{ id: string; quotation_no: string } | null>(null);
 
   const { data: selectedQuotation } = useQuotationWithItems(selectedQuotationId);
 
@@ -82,9 +87,21 @@ export const QuotationsList = () => {
     }, 500);
   };
 
-  const handleConvertToSale = async (quotationId: string) => {
-    const orderId = await convertToSale.mutateAsync(quotationId);
+  const handleConvertClick = (quotation: { id: string; quotation_no: string }) => {
+    setQuotationToConvert(quotation);
+    setConvertDialogOpen(true);
+  };
+
+  const handleConvertConfirm = async (employeeName: string) => {
+    if (!quotationToConvert) return;
+    
+    const orderId = await convertToSale.mutateAsync({
+      quotationId: quotationToConvert.id,
+      employeeName,
+    });
     if (orderId) {
+      setConvertDialogOpen(false);
+      setQuotationToConvert(null);
       navigate("/sales");
     }
   };
@@ -207,7 +224,7 @@ export const QuotationsList = () => {
                           </DropdownMenuItem>
                           {quotation.status !== "Converted" && (
                             <DropdownMenuItem
-                              onClick={() => handleConvertToSale(quotation.id)}
+                              onClick={() => handleConvertClick({ id: quotation.id, quotation_no: quotation.quotation_no })}
                               disabled={convertToSale.isPending}
                             >
                               <ArrowRightLeft className="mr-2 h-4 w-4" />
@@ -271,6 +288,15 @@ export const QuotationsList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Convert to Sale Dialog */}
+      <ConvertToSaleDialog
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        onConfirm={handleConvertConfirm}
+        isConverting={convertToSale.isPending}
+        quotationNo={quotationToConvert?.quotation_no || ""}
+      />
     </div>
   );
 };

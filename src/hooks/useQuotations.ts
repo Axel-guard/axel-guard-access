@@ -164,7 +164,7 @@ export const useConvertToSale = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (quotationId: string) => {
+    mutationFn: async ({ quotationId, employeeName }: { quotationId: string; employeeName: string }) => {
       // Get quotation with items
       const { data: quotation, error: qError } = await supabase
         .from("quotations")
@@ -272,7 +272,7 @@ export const useConvertToSale = () => {
         customer_name: quotation.customer_name,
         company_name: quotation.company_name,
         customer_contact: quotation.mobile || null,
-        employee_name: "System",
+        employee_name: employeeName,
         // Must match backend CHECK constraint: 'With' | 'Without'
         sale_type: quotation.apply_gst ? "With" : "Without",
         subtotal: quotation.subtotal,
