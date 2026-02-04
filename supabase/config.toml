@@ -1,4 +1,4 @@
 project_id = "mejmdaxuokcfqzuodhnf"
 
-[functions.send-otp]
+[functions.setup-master-admin]
 verify_jwt = false
