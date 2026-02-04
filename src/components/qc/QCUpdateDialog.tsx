@@ -119,7 +119,6 @@ const TestSelect = ({
           <SelectValue placeholder="-- Select --" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">-- Select --</SelectItem>
           {TEST_OPTIONS.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               <span className="flex items-center gap-2">
