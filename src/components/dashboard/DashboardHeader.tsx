@@ -182,6 +182,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
           <Button 
             variant="outline" 
             className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+            onClick={() => navigate("/balance-payments")}
           >
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Balance Report</span>
