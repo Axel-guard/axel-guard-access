@@ -80,33 +80,21 @@ export const QuotationProductRow = ({
   };
 
   const handleQuantityChange = (value: string) => {
-    // Allow empty string for full editability
-    if (value === "") {
-      onUpdate(index, "quantity", "");
-      onUpdate(index, "amount", 0);
-      return;
-    }
-    const qty = parseFloat(value);
-    if (!isNaN(qty)) {
-      onUpdate(index, "quantity", qty);
-      const price = getNumericValue(item.unit_price);
-      onUpdate(index, "amount", qty * price);
-    }
+    // Always update the value directly - allow any input
+    onUpdate(index, "quantity", value);
+    // Calculate amount
+    const qty = parseFloat(value) || 0;
+    const price = getNumericValue(item.unit_price);
+    onUpdate(index, "amount", qty * price);
   };
 
   const handlePriceChange = (value: string) => {
-    // Allow empty string for full editability
-    if (value === "") {
-      onUpdate(index, "unit_price", "");
-      onUpdate(index, "amount", 0);
-      return;
-    }
-    const price = parseFloat(value);
-    if (!isNaN(price)) {
-      onUpdate(index, "unit_price", price);
-      const qty = getNumericValue(item.quantity);
-      onUpdate(index, "amount", qty * price);
-    }
+    // Always update the value directly - allow any input
+    onUpdate(index, "unit_price", value);
+    // Calculate amount
+    const price = parseFloat(value) || 0;
+    const qty = getNumericValue(item.quantity);
+    onUpdate(index, "amount", qty * price);
   };
 
   // Get the selected product name for display (without category)
