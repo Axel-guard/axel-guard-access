@@ -59,27 +59,54 @@ export const QuotationProductRow = ({
     }));
   }, [products]);
 
+  // Helper to get numeric value for calculations
+  const getNumericValue = (value: number | string): number => {
+    if (typeof value === "string") {
+      return parseFloat(value) || 0;
+    }
+    return value || 0;
+  };
+
   const handleProductChange = (productCode: string) => {
     const product = products.find((p) => p.product_code === productCode);
     if (product) {
       onUpdate(index, "product_code", product.product_code);
       onUpdate(index, "product_name", product.product_name);
-      // Auto-calculate amount
-      const newAmount = item.quantity * item.unit_price;
-      onUpdate(index, "amount", newAmount);
+      // Recalculate amount with current values
+      const qty = getNumericValue(item.quantity);
+      const price = getNumericValue(item.unit_price);
+      onUpdate(index, "amount", qty * price);
     }
   };
 
   const handleQuantityChange = (value: string) => {
-    const qty = parseFloat(value) || 0;
-    onUpdate(index, "quantity", qty);
-    onUpdate(index, "amount", qty * item.unit_price);
+    // Allow empty string for full editability
+    if (value === "") {
+      onUpdate(index, "quantity", "");
+      onUpdate(index, "amount", 0);
+      return;
+    }
+    const qty = parseFloat(value);
+    if (!isNaN(qty)) {
+      onUpdate(index, "quantity", qty);
+      const price = getNumericValue(item.unit_price);
+      onUpdate(index, "amount", qty * price);
+    }
   };
 
   const handlePriceChange = (value: string) => {
-    const price = parseFloat(value) || 0;
-    onUpdate(index, "unit_price", price);
-    onUpdate(index, "amount", item.quantity * price);
+    // Allow empty string for full editability
+    if (value === "") {
+      onUpdate(index, "unit_price", "");
+      onUpdate(index, "amount", 0);
+      return;
+    }
+    const price = parseFloat(value);
+    if (!isNaN(price)) {
+      onUpdate(index, "unit_price", price);
+      const qty = getNumericValue(item.quantity);
+      onUpdate(index, "amount", qty * price);
+    }
   };
 
   // Get the selected product name for display (without category)
@@ -131,6 +158,7 @@ export const QuotationProductRow = ({
           step="1"
           value={item.quantity}
           onChange={(e) => handleQuantityChange(e.target.value)}
+          placeholder="Enter qty"
           className="w-20 text-center"
         />
       </td>
@@ -141,6 +169,7 @@ export const QuotationProductRow = ({
           step="0.01"
           value={item.unit_price}
           onChange={(e) => handlePriceChange(e.target.value)}
+          placeholder="Enter price"
           className="w-28 text-right"
         />
       </td>
