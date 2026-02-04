@@ -46,7 +46,20 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { useQueryClient } from "@tanstack/react-query";
-import { RENEWAL_PRODUCTS } from "@/hooks/useRenewals";
+
+// Service products that don't require inventory (digital products)
+const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
+
+// Check if a product is a service/digital product
+const isServiceProduct = (productName: string): boolean => {
+  const lowerName = productName.toLowerCase();
+  return SERVICE_PRODUCTS.some(sp => 
+    lowerName.includes(sp.toLowerCase().replace(" charges", "").trim()) ||
+    lowerName.includes("server charges") ||
+    lowerName.includes("cloud charges") ||
+    lowerName.includes("sim charges")
+  );
+};
 
 interface ProductToDispatch {
   product_name: string;
@@ -54,6 +67,7 @@ interface ProductToDispatch {
   required_qty: number;
   scanned_qty: number;
   scanned_serials: string[];
+  isServiceProduct: boolean;
 }
 
 interface ScannedDevice {
@@ -97,13 +111,18 @@ export const CreateDispatchDialog = ({
   // Initialize products to dispatch from order items
   useEffect(() => {
     if (orderItems.length > 0) {
-      const products = orderItems.map(item => ({
-        product_name: item.product_name,
-        category: null as string | null,
-        required_qty: item.quantity,
-        scanned_qty: 0,
-        scanned_serials: [] as string[],
-      }));
+      const products = orderItems.map(item => {
+        const isService = isServiceProduct(item.product_name);
+        return {
+          product_name: item.product_name,
+          category: null as string | null,
+          required_qty: item.quantity,
+          // Service products are auto-completed (no scanning needed)
+          scanned_qty: isService ? item.quantity : 0,
+          scanned_serials: [] as string[],
+          isServiceProduct: isService,
+        };
+      });
       setProductsToDispatch(products);
     }
   }, [orderItems]);
@@ -123,7 +142,10 @@ export const CreateDispatchDialog = ({
         setProductsToDispatch(prev => 
           prev.map(product => {
             const found = data.find(p => p.product_name === product.product_name);
-            return { ...product, category: found?.category || null };
+            return { 
+              ...product, 
+              category: found?.category || (product.isServiceProduct ? "Digital Service" : null)
+            };
           })
         );
       }
@@ -145,12 +167,22 @@ export const CreateDispatchDialog = ({
     }
   }, [open]);
 
-  // Calculate if all items are scanned
+  // Calculate if all items are scanned (service products are auto-complete)
   const allItemsScanned = productsToDispatch.length > 0 && 
-    productsToDispatch.every(p => p.scanned_qty >= p.required_qty);
+    productsToDispatch.every(p => p.isServiceProduct || p.scanned_qty >= p.required_qty);
 
   const totalRequired = productsToDispatch.reduce((sum, p) => sum + p.required_qty, 0);
-  const totalScanned = scannedDevices.length;
+  // Count physical scanned devices + service product quantities
+  const totalScanned = scannedDevices.length + 
+    productsToDispatch.filter(p => p.isServiceProduct).reduce((sum, p) => sum + p.required_qty, 0);
+  
+  // Check if order has only service products (no physical items)
+  const hasOnlyServiceProducts = productsToDispatch.length > 0 && 
+    productsToDispatch.every(p => p.isServiceProduct);
+  
+  // Physical products that need scanning
+  const physicalProducts = productsToDispatch.filter(p => !p.isServiceProduct);
+  const serviceProducts = productsToDispatch.filter(p => p.isServiceProduct);
 
   // Handle barcode scan/add
   const handleAddDevice = useCallback(async () => {
@@ -327,45 +359,41 @@ export const CreateDispatchDialog = ({
     
     setIsProcessing(true);
     try {
-      // Update inventory status for all scanned devices
+      // Only update inventory for physical products (scanned devices)
       const serialNumbers = scannedDevices.map(d => d.serial_number);
       
-      const { error: inventoryError } = await supabase
-        .from("inventory")
-        .update({
-          status: "Dispatched",
-          dispatch_date: dispatchDate,
-          order_id: order.order_id,
-          customer_code: order.customer_code,
-          customer_name: order.customer_name,
-        })
-        .in("serial_number", serialNumbers);
+      if (serialNumbers.length > 0) {
+        const { error: inventoryError } = await supabase
+          .from("inventory")
+          .update({
+            status: "Dispatched",
+            dispatch_date: dispatchDate,
+            order_id: order.order_id,
+            customer_code: order.customer_code,
+            customer_name: order.customer_name,
+          })
+          .in("serial_number", serialNumbers);
 
-      if (inventoryError) throw inventoryError;
+        if (inventoryError) throw inventoryError;
+      }
 
-      // Create shipment record
+      // Create shipment record (for both physical and service products)
+      const shipmentType = hasOnlyServiceProducts ? "Service Activation" : "Outbound";
       const { error: shipmentError } = await supabase
         .from("shipments")
         .insert({
           order_id: order.order_id,
-          shipment_type: "Outbound",
-          courier_partner: courierPartner || null,
-          shipping_mode: dispatchMethod || null,
+          shipment_type: shipmentType,
+          courier_partner: hasOnlyServiceProducts ? "N/A" : (courierPartner || null),
+          shipping_mode: hasOnlyServiceProducts ? "Digital" : (dispatchMethod || null),
           weight_kg: null,
-          shipping_cost: order.courier_cost || null,
+          shipping_cost: hasOnlyServiceProducts ? 0 : (order.courier_cost || null),
         });
 
       if (shipmentError) throw shipmentError;
 
-      // Check for renewal products and create renewal records
-      const renewalProducts = productsToDispatch.filter(product => 
-        RENEWAL_PRODUCTS.some(rp => 
-          product.product_name.toLowerCase().includes(rp.toLowerCase().replace(" charges", "").trim()) ||
-          product.product_name.toLowerCase().includes("server") ||
-          product.product_name.toLowerCase().includes("cloud") ||
-          product.product_name.toLowerCase().includes("sim")
-        )
-      );
+      // Check for renewal products (service products) and create renewal records
+      const renewalProducts = productsToDispatch.filter(product => product.isServiceProduct);
 
       if (renewalProducts.length > 0) {
         const dispatchDateObj = new Date(dispatchDate);
@@ -394,9 +422,8 @@ export const CreateDispatchDialog = ({
 
         if (renewalError) {
           console.error("Failed to create renewal records:", renewalError);
-          // Don't throw - dispatch succeeded, just log renewal failure
         } else {
-          toast.success(`Created ${renewalRecords.length} renewal record(s)`);
+          toast.success(`Created ${renewalRecords.length} renewal record(s) with 364-day cycle`);
         }
       }
 
@@ -408,7 +435,15 @@ export const CreateDispatchDialog = ({
       queryClient.invalidateQueries({ queryKey: ["renewals"] });
       queryClient.invalidateQueries({ queryKey: ["renewals-summary"] });
 
-      toast.success(`Dispatch completed! ${serialNumbers.length} devices dispatched.`);
+      // Success message based on product type
+      if (hasOnlyServiceProducts) {
+        toast.success(`Service activated for order ${order.order_id}!`);
+      } else if (serviceProducts.length > 0) {
+        toast.success(`Dispatch completed! ${serialNumbers.length} devices dispatched + ${serviceProducts.length} service(s) activated.`);
+      } else {
+        toast.success(`Dispatch completed! ${serialNumbers.length} devices dispatched.`);
+      }
+      onOpenChange(false);
       onOpenChange(false);
     } catch (error: any) {
       toast.error(`Failed to dispatch: ${error.message}`);
@@ -458,138 +493,200 @@ export const CreateDispatchDialog = ({
                 </div>
               </div>
 
-              {/* Products to Dispatch */}
-              <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Products to Dispatch
-                </h3>
+              {/* Service Products (Digital) */}
+              {serviceProducts.length > 0 && (
                 <div className="space-y-3">
-                  {productsToDispatch.map((product, index) => {
-                    const remaining = product.required_qty - product.scanned_qty;
-                    const isComplete = remaining <= 0;
-                    
-                    return (
+                  <h3 className="font-semibold flex items-center gap-2 text-primary">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Digital Service Products
+                    <Badge className="bg-primary/10 text-primary border-primary/20">No Stock Required</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {serviceProducts.map((product, index) => (
                       <div
-                        key={index}
-                        className={`p-4 rounded-lg border-2 transition-colors ${
-                          isComplete 
-                            ? "border-success/30 bg-success/5" 
-                            : "border-border bg-card"
-                        }`}
+                        key={`service-${index}`}
+                        className="p-4 rounded-lg border-2 border-primary/30 bg-primary/5"
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">{product.product_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Category: {product.category || "Uncategorized"}
-                            </p>
+                            <Badge className="mt-1 bg-primary/10 text-primary border-primary/20 text-xs">
+                              Digital Service Product
+                            </Badge>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className={`text-lg font-bold ${isComplete ? "text-success" : "text-warning"}`}>
-                                {product.scanned_qty} / {product.required_qty}
+                              <p className="text-lg font-bold text-success">
+                                {product.required_qty} / {product.required_qty}
                               </p>
-                              <p className={`text-sm ${isComplete ? "text-success" : "text-warning"}`}>
-                                {isComplete ? "Complete" : `${remaining} Remaining`}
+                              <p className="text-sm text-success flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Service Activated
                               </p>
                             </div>
-                            {!isComplete && (
-                              <Button
-                                size="sm"
-                                className="gap-1 bg-primary"
-                                onClick={() => handleAddAllForProduct(product.product_name)}
-                              >
-                                <Plus className="h-3 w-3" />
-                                Add All
-                              </Button>
-                            )}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Barcode Scanner Section */}
-              <div className="border-2 border-dashed border-success/50 rounded-xl p-5 bg-success/5">
-                <h3 className="font-semibold flex items-center gap-2 text-success mb-4">
-                  <Barcode className="h-5 w-5" />
-                  Scan Products (Barcode Scanner Ready)
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="serial-scan">Scan Device Serial Number</Label>
-                    <Input
-                      id="serial-scan"
-                      ref={scanInputRef}
-                      placeholder="Scan barcode or type serial number..."
-                      value={serialInput}
-                      onChange={(e) => setSerialInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="mt-1"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 gap-2 bg-success hover:bg-success/90"
-                      onClick={handleAddDevice}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Add Device
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 gap-2"
-                      onClick={() => setSerialInput("")}
-                    >
-                      <X className="h-4 w-4" />
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Scanned Devices List */}
-              <div className="border rounded-xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-success" />
-                    Scanned Devices
-                  </h3>
-                  <Badge className="bg-primary">{totalScanned} Scanned</Badge>
-                </div>
-                
-                {scannedDevices.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-4">
-                    No devices scanned yet. Start scanning barcodes...
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {scannedDevices.map((device) => (
-                      <div
-                        key={device.serial_number}
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{device.serial_number}</p>
-                          <p className="text-xs text-muted-foreground">{device.product_name}</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveDevice(device.serial_number)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Physical Products to Dispatch */}
+              {physicalProducts.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Physical Products to Dispatch
+                    <Badge variant="outline" className="text-xs">Stock Required</Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {physicalProducts.map((product, index) => {
+                      const remaining = product.required_qty - product.scanned_qty;
+                      const isComplete = remaining <= 0;
+                      
+                      return (
+                        <div
+                          key={`physical-${index}`}
+                          className={`p-4 rounded-lg border-2 transition-colors ${
+                            isComplete 
+                              ? "border-success/30 bg-success/5" 
+                              : "border-border bg-card"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{product.product_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Category: {product.category || "Uncategorized"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className={`text-lg font-bold ${isComplete ? "text-success" : "text-warning"}`}>
+                                  {product.scanned_qty} / {product.required_qty}
+                                </p>
+                                <p className={`text-sm ${isComplete ? "text-success" : "text-warning"}`}>
+                                  {isComplete ? "Complete" : `${remaining} Remaining`}
+                                </p>
+                              </div>
+                              {!isComplete && (
+                                <Button
+                                  size="sm"
+                                  className="gap-1 bg-primary"
+                                  onClick={() => handleAddAllForProduct(product.product_name)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Add All
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Barcode Scanner Section - Only show if there are physical products */}
+              {physicalProducts.length > 0 && (
+                <div className="border-2 border-dashed border-success/50 rounded-xl p-5 bg-success/5">
+                  <h3 className="font-semibold flex items-center gap-2 text-success mb-4">
+                    <Barcode className="h-5 w-5" />
+                    Scan Products (Barcode Scanner Ready)
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="serial-scan">Scan Device Serial Number</Label>
+                      <Input
+                        id="serial-scan"
+                        ref={scanInputRef}
+                        placeholder="Scan barcode or type serial number..."
+                        value={serialInput}
+                        onChange={(e) => setSerialInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="mt-1"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 gap-2 bg-success hover:bg-success/90"
+                        onClick={handleAddDevice}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Add Device
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-2"
+                        onClick={() => setSerialInput("")}
+                      >
+                        <X className="h-4 w-4" />
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scanned Devices List - Only show if there are physical products */}
+              {physicalProducts.length > 0 && (
+                <div className="border rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                      Scanned Devices
+                    </h3>
+                    <Badge className="bg-primary">{scannedDevices.length} Scanned</Badge>
+                  </div>
+                  
+                  {scannedDevices.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">
+                      No devices scanned yet. Start scanning barcodes...
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {scannedDevices.map((device) => (
+                        <div
+                          key={device.serial_number}
+                          className="flex items-center justify-between p-2 bg-muted/50 rounded-lg"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{device.serial_number}</p>
+                            <p className="text-xs text-muted-foreground">{device.product_name}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveDevice(device.serial_number)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Service-only dispatch notice */}
+              {hasOnlyServiceProducts && (
+                <div className="border-2 border-primary/30 rounded-xl p-5 bg-primary/5">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-8 w-8 text-success" />
+                    <div>
+                      <h3 className="font-semibold text-lg">Ready for Service Activation</h3>
+                      <p className="text-sm text-muted-foreground">
+                        This order contains only digital service products. No physical inventory scanning required.
+                        Click "Create Dispatch" to activate services and start the renewal cycle.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Dispatch Details */}
               <div className="space-y-4">
@@ -668,7 +765,10 @@ export const CreateDispatchDialog = ({
               onClick={() => setShowConfirmDialog(true)}
             >
               <Send className="h-4 w-4" />
-              Create Dispatch ({totalScanned} devices)
+              {hasOnlyServiceProducts 
+                ? `Activate Service (${serviceProducts.length} item${serviceProducts.length > 1 ? 's' : ''})`
+                : `Create Dispatch (${scannedDevices.length} devices${serviceProducts.length > 0 ? ` + ${serviceProducts.length} service${serviceProducts.length > 1 ? 's' : ''}` : ''})`
+              }
             </Button>
           </div>
         </DialogContent>
@@ -680,16 +780,37 @@ export const CreateDispatchDialog = ({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" />
-              Confirm Dispatch
+              {hasOnlyServiceProducts ? "Confirm Service Activation" : "Confirm Dispatch"}
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>You are about to dispatch <strong>{totalScanned}</strong> devices for order <strong>{order?.order_id}</strong>.</p>
-              <p>This action will:</p>
-              <ul className="list-disc list-inside text-sm space-y-1 mt-2">
-                <li>Mark all scanned devices as <strong>Dispatched</strong></li>
-                <li>Update inventory with customer and order details</li>
-                <li>Create a shipment record</li>
-              </ul>
+              {hasOnlyServiceProducts ? (
+                <>
+                  <p>You are about to activate <strong>{serviceProducts.length}</strong> service(s) for order <strong>{order?.order_id}</strong>.</p>
+                  <p>This action will:</p>
+                  <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                    <li>Activate digital service products</li>
+                    <li>Start <strong>364-day</strong> renewal countdown</li>
+                    <li>Create renewal tracking records</li>
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <p>You are about to dispatch for order <strong>{order?.order_id}</strong>.</p>
+                  <p>This action will:</p>
+                  <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                    {scannedDevices.length > 0 && (
+                      <>
+                        <li>Mark <strong>{scannedDevices.length}</strong> devices as <strong>Dispatched</strong></li>
+                        <li>Update inventory with customer and order details</li>
+                      </>
+                    )}
+                    <li>Create a shipment record</li>
+                    {serviceProducts.length > 0 && (
+                      <li>Activate <strong>{serviceProducts.length}</strong> digital service(s) with 364-day renewal cycle</li>
+                    )}
+                  </ul>
+                </>
+              )}
               <p className="mt-3 font-medium">This action cannot be undone. Are you sure?</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -700,7 +821,7 @@ export const CreateDispatchDialog = ({
               disabled={isProcessing}
               className="bg-success hover:bg-success/90"
             >
-              {isProcessing ? "Processing..." : "Confirm Dispatch"}
+              {isProcessing ? "Processing..." : (hasOnlyServiceProducts ? "Confirm Activation" : "Confirm Dispatch")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
