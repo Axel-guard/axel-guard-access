@@ -20,6 +20,7 @@ import BalancePaymentsPage from "./pages/BalancePayments";
 import PricingPage from "./pages/Pricing";
 import ProductsDatabase from "./pages/ProductsDatabase";
 import UserManagement from "./pages/UserManagement";
+import RenewalPage from "./pages/Renewal";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="quality-check" element={<QualityCheckPage />} />
               <Route path="dispatch" element={<DispatchPage />} />
+              <Route path="renewal" element={<RenewalPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="pricing" element={<PricingPage />} />
               <Route path="products" element={<ProductsDatabase />} />

@@ -72,7 +72,7 @@ const navItems: NavItem[] = [
       { icon: CreditCard, label: "Balance Payment", path: "/balance-payments" },
       { icon: Database, label: "Sale Database", path: "/sales" },
       { icon: FileCheck, label: "Quotations", path: "/sales?tab=quotations" },
-      { icon: RefreshCw, label: "Renewal", path: "/sales?tab=renewal" },
+      { icon: RefreshCw, label: "Renewal", path: "/renewal" },
     ],
   },
   {
