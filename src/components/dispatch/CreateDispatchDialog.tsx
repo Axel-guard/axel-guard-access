@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { useQueryClient } from "@tanstack/react-query";
+import { createNotification } from "@/hooks/useNotifications";
 
 // Service products that don't require inventory (digital products)
 const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
@@ -434,6 +435,20 @@ export const CreateDispatchDialog = ({
       queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
       queryClient.invalidateQueries({ queryKey: ["renewals"] });
       queryClient.invalidateQueries({ queryKey: ["renewals-summary"] });
+
+      // Create notification for admins
+      const dispatchMessage = hasOnlyServiceProducts
+        ? `Service activated for order ${order.order_id} - ${serviceProducts.length} service(s).`
+        : serialNumbers.length > 0
+        ? `Dispatch completed - Order ${order.order_id}: ${serialNumbers.length} devices dispatched${serviceProducts.length > 0 ? ` + ${serviceProducts.length} service(s)` : ""}.`
+        : `Dispatch completed for order ${order.order_id}.`;
+      
+      createNotification(
+        "Dispatch Completed",
+        dispatchMessage,
+        "dispatch",
+        { order_id: order.order_id, devices_count: serialNumbers.length }
+      );
 
       // Success message based on product type
       if (hasOnlyServiceProducts) {

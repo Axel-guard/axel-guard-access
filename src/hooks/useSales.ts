@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { createNotification } from "@/hooks/useNotifications";
 
 export interface SaleItem {
   id?: string;
@@ -196,10 +197,19 @@ export const useCreateSale = () => {
 
       return saleData;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      
+      // Create notification for admins
+      createNotification(
+        "New Sale Created",
+        `New sale created - Order ID ${variables.sale.order_id} for ${variables.sale.customer_name || "customer"}.`,
+        "sale",
+        { order_id: variables.sale.order_id, customer_name: variables.sale.customer_name }
+      );
+      
       toast.success("Sale created successfully!");
     },
     onError: (error) => {

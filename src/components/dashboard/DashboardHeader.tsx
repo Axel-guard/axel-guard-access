@@ -4,7 +4,6 @@ import {
   Plus, 
   FileText, 
   LogOut, 
-  Bell, 
   Search, 
   Sparkles,
   ShoppingCart,
@@ -29,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -187,12 +187,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
             <span className="hidden sm:inline">Balance Report</span>
           </Button>
 
-          <Button variant="ghost" size="icon" className="relative rounded-xl hover:bg-muted">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">
-              3
-            </span>
-          </Button>
+          <NotificationPanel />
 
           {/* User Menu */}
           <DropdownMenu>

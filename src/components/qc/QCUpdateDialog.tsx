@@ -35,6 +35,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { InventoryItem } from "@/hooks/useInventory";
 import { useProducts } from "@/hooks/useProducts";
 import { cn } from "@/lib/utils";
+import { createNotification } from "@/hooks/useNotifications";
 
 interface QCUpdateDialogProps {
   item: InventoryItem | null;
@@ -302,6 +303,14 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
 
       // Refresh data
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+
+      // Create notification for admins
+      createNotification(
+        "QC Updated",
+        `QC ${formData.qc_result} for serial ${formData.serial_number} (${formData.product_name || "Unknown product"}).`,
+        "qc",
+        { serial_number: formData.serial_number, qc_result: formData.qc_result }
+      );
 
       toast({
         title: "QC Saved Successfully",

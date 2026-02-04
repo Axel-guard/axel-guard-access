@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { createNotification } from "@/hooks/useNotifications";
 
 interface InventoryRow {
   id: string;
@@ -158,6 +159,17 @@ export const AddInventoryDialog = () => {
       const { error } = await supabase.from("inventory").insert(inventoryRecords);
 
       if (error) throw error;
+
+      // Create notification for admins
+      const productSummary = validRows.length === 1 
+        ? validRows[0].productName 
+        : `${validRows.length} devices`;
+      createNotification(
+        "Inventory Added",
+        `New inventory added: ${productSummary}. QC entries created automatically.`,
+        "inventory",
+        { count: validRows.length, products: validRows.map(r => r.productName) }
+      );
 
       toast.success(
         `${validRows.length} device(s) added successfully! QC entries created automatically.`

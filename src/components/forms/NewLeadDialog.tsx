@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateLead, useNextCustomerCode } from "@/hooks/useLeads";
 import { useQueryClient } from "@tanstack/react-query";
+import { createNotification } from "@/hooks/useNotifications";
 import { 
   User, 
   Phone, 
@@ -61,6 +62,14 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
       complete_address: formData.completeAddress || undefined,
       status: "New",
     });
+
+    // Create notification for admins
+    createNotification(
+      "New Lead Added",
+      `New lead "${formData.customerName}" (${nextCode}) has been added.`,
+      "lead",
+      { customer_code: nextCode, customer_name: formData.customerName }
+    );
 
     // Invalidate next code query so it refetches for next lead
     queryClient.invalidateQueries({ queryKey: ["leads", "nextCode"] });
