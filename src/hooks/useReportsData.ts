@@ -89,9 +89,10 @@ export const useInventoryReport = () => {
         return acc;
       }, {} as Record<string, ModelInventoryReport>);
 
-      const modelReports: ModelInventoryReport[] = (Object.values(byModel) as ModelInventoryReport[]).sort((a, b) => 
-        a.modelName.localeCompare(b.modelName)
-      );
+      // Filter to only show models with in-stock items > 0
+      const modelReports: ModelInventoryReport[] = (Object.values(byModel) as ModelInventoryReport[])
+        .filter((model) => model.inStock > 0)
+        .sort((a, b) => a.modelName.localeCompare(b.modelName));
 
       return {
         summary: {
