@@ -22,6 +22,7 @@ import {
   Tag,
   ClipboardCheck,
   BarChart3,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardSidebarProps {
   isOpen: boolean;
@@ -40,6 +43,7 @@ interface NavItem {
   label: string;
   path?: string;
   children?: { icon: React.ElementType; label: string; path: string }[];
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -89,12 +93,14 @@ const navItems: NavItem[] = [
       { icon: Package, label: "Products Database", path: "/products" },
     ],
   },
+  { icon: Shield, label: "User Management", path: "/user-management", adminOnly: true },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAdmin } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>(["Sale", "Inventory"]);
 
   const handleNavClick = (path: string) => {
@@ -119,6 +125,15 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
   const isGroupActive = (item: NavItem) => {
     if (item.path) return isActive(item.path);
     return item.children?.some((child) => isActive(child.path));
+  };
+
+  // Filter nav items based on admin status
+  const filteredNavItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+
+  // Get user initials
+  const getUserInitials = () => {
+    if (!user?.email) return "U";
+    return user.email.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -162,7 +177,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3">
           <div className="space-y-1">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               if (item.children) {
                 const groupIsOpen = openGroups.includes(item.label);
                 const groupActive = isGroupActive(item);
@@ -233,6 +248,11 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
                 >
                   <item.icon className="h-5 w-5" />
                   <span>{item.label}</span>
+                  {item.adminOnly && (
+                    <Badge variant="outline" className="ml-auto text-xs py-0 px-1.5">
+                      Admin
+                    </Badge>
+                  )}
                 </button>
               );
             })}
@@ -243,11 +263,16 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">AS</span>
+              <span className="text-sm font-bold text-primary-foreground">{getUserInitials()}</span>
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="truncate text-sm font-semibold text-foreground">Admin User</p>
-              <p className="truncate text-xs text-muted-foreground">admin@axelguard.com</p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {isAdmin ? "Admin" : "User"}
+                </p>
+                {isAdmin && <Shield className="h-3 w-3 text-primary" />}
+              </div>
+              <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
         </div>

@@ -12,20 +12,26 @@ import {
   Wallet,
   FileEdit,
   Package,
-  Truck
+  Truck,
+  User,
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface DashboardHeaderProps {
   onMenuToggle: () => void;
@@ -78,6 +84,7 @@ const menuItems = [
 
 export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
   const navigate = useNavigate();
+  const { user, signOut, isAdmin, role } = useAuth();
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [balancePaymentOpen, setBalancePaymentOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
@@ -105,6 +112,12 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
         navigate("/dispatch");
         break;
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
   };
 
   return (
@@ -181,9 +194,50 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
             </span>
           </Button>
 
-          <Button variant="ghost" size="icon" className="rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-            <LogOut className="h-5 w-5" />
-          </Button>
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted">
+                <div className="relative">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                  {isAdmin && (
+                    <Shield className="absolute -bottom-1 -right-1 h-3 w-3 text-primary" />
+                  )}
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-xl">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium truncate">{user?.email}</p>
+                <Badge variant={isAdmin ? "default" : "secondary"} className="mt-1 text-xs">
+                  {isAdmin ? (
+                    <><Shield className="h-3 w-3 mr-1" /> Admin</>
+                  ) : (
+                    <><User className="h-3 w-3 mr-1" /> User</>
+                  )}
+                </Badge>
+              </div>
+              <DropdownMenuSeparator />
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => navigate("/user-management")} className="cursor-pointer">
+                  <Shield className="h-4 w-4 mr-2" />
+                  User Management
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
+                <User className="h-4 w-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleSignOut} 
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
