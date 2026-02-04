@@ -195,7 +195,8 @@ export const useConvertToSale = () => {
         company_name: quotation.company_name,
         customer_contact: quotation.mobile,
         employee_name: "System",
-        sale_type: quotation.apply_gst ? "With GST" : "Without GST",
+        // Must match backend CHECK constraint: 'With' | 'Without'
+        sale_type: quotation.apply_gst ? "With" : "Without",
         subtotal: quotation.subtotal,
         gst_amount: quotation.gst_amount,
         courier_cost: quotation.courier_charge + quotation.courier_gst_amount,
