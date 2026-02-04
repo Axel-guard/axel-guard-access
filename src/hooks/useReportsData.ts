@@ -60,7 +60,8 @@ export const useInventoryReport = () => {
 
       // Calculate summary
       const totalDevices = allData.length;
-      const inStock = allData.filter(i => i.status === 'In Stock').length;
+      // In Stock = status is "In Stock" AND QC result is NOT "Fail" (excludes dispatched and failed items)
+      const inStock = allData.filter(i => i.status === 'In Stock' && i.qc_result !== 'Fail').length;
       const dispatched = allData.filter(i => i.status === 'Dispatched').length;
       const qcPass = allData.filter(i => i.qc_result === 'Pass').length;
       const qcFail = allData.filter(i => i.qc_result === 'Fail').length;
@@ -81,7 +82,8 @@ export const useInventoryReport = () => {
           };
         }
         acc[model].total++;
-        if (item.status === 'In Stock') acc[model].inStock++;
+        // In Stock = status is "In Stock" AND QC is NOT "Fail"
+        if (item.status === 'In Stock' && item.qc_result !== 'Fail') acc[model].inStock++;
         if (item.status === 'Dispatched') acc[model].dispatched++;
         if (item.qc_result === 'Pass') acc[model].qcPass++;
         if (item.qc_result === 'Fail') acc[model].qcFail++;
