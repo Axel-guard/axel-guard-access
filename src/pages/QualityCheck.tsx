@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, XCircle, Clock, ClipboardCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, CheckCircle, XCircle, Clock, ClipboardCheck, Plus } from "lucide-react";
 import { useInventory } from "@/hooks/useInventory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClickableStatCard } from "@/components/dashboard/ClickableStatCard";
@@ -123,6 +124,11 @@ const QualityCheckPage = () => {
     setUpdateDialogOpen(true);
   };
 
+  const handleAddNewQC = () => {
+    setSelectedItem(null);
+    setUpdateDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -148,6 +154,13 @@ const QualityCheckPage = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={handleAddNewQC}
+            className="bg-primary hover:bg-primary/90 rounded-lg gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add QC Report
+          </Button>
           <QCReportUploadDialog />
           {filteredQCData.length > 0 && (
             <QCExport data={filteredQCData} />
