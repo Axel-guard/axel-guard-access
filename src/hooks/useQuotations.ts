@@ -236,14 +236,35 @@ export const useConvertToSale = () => {
 
       if (updateError) throw updateError;
 
-      return newOrderId;
+      // Return data needed for notification
+      return {
+        orderId: newOrderId,
+        quotationNo: quotation.quotation_no,
+        customerName: quotation.customer_name,
+        totalAmount: quotation.grand_total,
+      };
     },
-    onSuccess: (orderId) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      
+      // Send notification to admins
+      createNotification(
+        "Quotation Converted to Sale",
+        `Quotation #${data.quotationNo} converted to Sale #${data.orderId} for ${data.customerName}. Total: ₹${data.totalAmount.toLocaleString()}`,
+        "sale",
+        {
+          order_id: data.orderId,
+          quotation_no: data.quotationNo,
+          customer_name: data.customerName,
+          total_amount: data.totalAmount,
+          event: "quotation_converted",
+        }
+      );
+      
       toast({
         title: "Converted to Sale",
-        description: `Quotation converted to Sale with Order ID: ${orderId}`,
+        description: `Quotation converted to Sale with Order ID: ${data.orderId}`,
       });
     },
     onError: (error: any) => {
