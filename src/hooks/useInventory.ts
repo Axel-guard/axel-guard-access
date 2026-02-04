@@ -84,9 +84,10 @@ export const useInventorySummary = () => {
       
       // Calculate summary stats
       const totalItems = items.length;
-      const inStock = items.filter(i => i.status === 'In Stock').length;
+      // In Stock = status is "In Stock" AND QC result is NOT "Fail"
+      const inStock = items.filter(i => i.status === 'In Stock' && i.qc_result !== 'Fail').length;
       const dispatched = items.filter(i => i.status === 'Dispatched').length;
-      const qcPending = items.filter(i => i.qc_result === 'Pending').length;
+      const qcPending = items.filter(i => i.qc_result === 'Pending' || !i.qc_result).length;
       const qcPass = items.filter(i => i.qc_result === 'Pass').length;
       const qcFail = items.filter(i => i.qc_result === 'Fail').length;
 
