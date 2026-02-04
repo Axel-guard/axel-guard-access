@@ -6,6 +6,7 @@ import { useInventory, useInventorySummary } from "@/hooks/useInventory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { InventoryUploadDialog } from "@/components/inventory/InventoryUploadDialog";
+import { AddInventoryDialog } from "@/components/inventory/AddInventoryDialog";
 import { QCReportUploadDialog } from "@/components/inventory/QCReportUploadDialog";
 import { InventoryEditDialog } from "@/components/inventory/InventoryEditDialog";
 import { InventoryExport } from "@/components/inventory/InventoryExport";
@@ -106,6 +107,7 @@ const InventoryPage = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <AddInventoryDialog />
           <InventoryUploadDialog />
           <QCReportUploadDialog />
           {filteredInventory.length > 0 && (
