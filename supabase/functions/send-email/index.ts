@@ -60,31 +60,64 @@ const baseEmailStyles = `
   .tracking-number { font-size: 28px; font-weight: 700; letter-spacing: 2px; margin-top: 8px; font-family: monospace; }
 `;
 
- const getEmailTemplate = (
-   type: string,
-   data: Record<string, unknown>
- ): { subject: string; body: string } => {
-   switch (type) {
-     case "sale":
-       return {
-         subject: `Order Confirmation - ${data.orderId} | AxelGuard`,
-         body: `<!DOCTYPE html>
- <html>
- <head>
-   <meta charset="utf-8">
+const getEmailTemplate = (
+  type: string,
+  data: Record<string, unknown>
+): { subject: string; body: string } => {
+  switch (type) {
+    case "sale":
+      // Build product table rows
+      const productItems = data.productItems as Array<{
+        product_name: string;
+        quantity: number;
+        unit_price: number;
+      }> || [];
+      
+      const productTableRows = productItems.map(item => `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #374151;">${item.product_name}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #374151;">${item.quantity}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #374151;">${formatCurrency(item.unit_price)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${formatCurrency(item.quantity * item.unit_price)}</td>
+        </tr>
+      `).join('');
+
+      const courierMode = data.courierMode || 'Standard';
+      const courierCost = Number(data.courierCost) || 0;
+      const subtotal = Number(data.subtotal) || 0;
+      const gstAmount = Number(data.gstAmount) || 0;
+      const showGst = gstAmount > 0;
+
+      return {
+        subject: `Order Confirmation - ${data.orderId} | AxelGuard`,
+        body: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>${baseEmailStyles}</style>
- </head>
- <body>
+  <style>${baseEmailStyles}
+    .product-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .product-table th { background: #f3f4f6; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+    .product-table th:nth-child(2), .product-table th:nth-child(3), .product-table th:nth-child(4) { text-align: right; }
+    .product-table th:nth-child(2) { text-align: center; }
+    .summary-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row.total { background: #f0f9ff; margin: 12px -20px -20px -20px; padding: 16px 20px; border-radius: 0 0 12px 12px; border-top: 2px solid #3b82f6; }
+    .summary-label { color: #6b7280; font-size: 14px; }
+    .summary-value { font-weight: 600; color: #111827; }
+    .summary-row.total .summary-label, .summary-row.total .summary-value { color: #1e40af; font-size: 16px; }
+  </style>
+</head>
+<body>
   <div class="email-wrapper">
-     <div class="header">
+    <div class="header">
       <div class="header-logo">🛡️ AxelGuard</div>
       <div class="header-subtitle">Order Confirmation</div>
-     </div>
-     <div class="content">
+    </div>
+    <div class="content">
       <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
       <p class="intro-text">Thank you for choosing AxelGuard. Your order has been successfully created in our system.</p>
-       
+      
       <div class="section-card">
         <div class="section-title">📦 Order Details</div>
         <div class="info-row">
@@ -95,40 +128,80 @@ const baseEmailStyles = `
           <span class="info-label">Order Date:</span>
           <span class="info-value">${data.saleDate}</span>
         </div>
-       </div>
-       
+      </div>
+      
       <div class="section-card">
         <div class="section-title">🛒 Products Ordered</div>
-        <div class="product-list">${(data.products as string).split('\n').join('<br>')}</div>
-       </div>
-       
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Unit Price</th>
+              <th style="text-align: right;">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${productTableRows}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">🚚 Courier Charges</div>
+        <div class="info-row">
+          <span class="info-label">Courier Mode:</span>
+          <span class="info-value">${courierMode}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Courier Cost:</span>
+          <span class="info-value">${formatCurrency(courierCost)}</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">💰 Order Summary</div>
+        <div class="summary-row">
+          <span class="summary-label">Subtotal:</span>
+          <span class="summary-value">${formatCurrency(subtotal)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">GST ${showGst ? '(18%)' : ''}:</span>
+          <span class="summary-value">${showGst ? formatCurrency(gstAmount) : '₹0.00'}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Courier:</span>
+          <span class="summary-value">${formatCurrency(courierCost)}</span>
+        </div>
+        <div class="summary-row total">
+          <span class="summary-label">Grand Total:</span>
+          <span class="summary-value">${formatCurrency(data.totalAmount as number)}</span>
+        </div>
+      </div>
+      
       <div class="amount-section">
-        <div class="amount-box total">
-           <div class="amount-label">Total Order Value</div>
-           <div class="amount-value">${formatCurrency(data.totalAmount as number)}</div>
-         </div>
         <div class="amount-box received">
-           <div class="amount-label">Amount Received</div>
-           <div class="amount-value">${formatCurrency(data.amountReceived as number)}</div>
-         </div>
+          <div class="amount-label">Amount Received</div>
+          <div class="amount-value">${formatCurrency(data.amountReceived as number)}</div>
+        </div>
         <div class="amount-box balance">
-           <div class="amount-label">Outstanding Balance</div>
-           <div class="amount-value">${formatCurrency(data.balanceAmount as number)}</div>
-         </div>
-       </div>
-       
+          <div class="amount-label">Outstanding Balance</div>
+          <div class="amount-value">${formatCurrency(data.balanceAmount as number)}</div>
+        </div>
+      </div>
+      
       <p class="closing-text">Our team is reviewing your order and will process it shortly. You will receive dispatch notification soon.</p>
-     </div>
-     <div class="footer">
+    </div>
+    <div class="footer">
       <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
       <div class="footer-contact">
         📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
       </div>
-     </div>
-   </div>
- </body>
- </html>`,
-       };
+    </div>
+  </div>
+</body>
+</html>`,
+      };
  
      case "dispatch":
        const serialNumbersHtml = (data.serialNumbers as string[])?.length > 0
@@ -453,24 +526,32 @@ const baseEmailStyles = `
        throw new Error("Customer email not found. Please update customer details with email.");
      }
  
-     const { data: saleItems } = await supabase
-       .from("sale_items")
-       .select("product_name, quantity")
-       .eq("order_id", orderId);
- 
-     const productsList = saleItems
-       ?.map((item) => `${item.product_name} x ${item.quantity}`)
-       .join("\n") || "N/A";
- 
-     let emailData: Record<string, unknown> = {
-       orderId,
-       customerName: sale.customer_name,
-       products: productsList,
-       totalAmount: Number(sale.total_amount) || 0,
-       amountReceived: Number(sale.amount_received) || 0,
-       balanceAmount: Number(sale.balance_amount) || 0,
-       saleDate: new Date(sale.sale_date).toLocaleDateString("en-IN"),
-     };
+    const { data: saleItems } = await supabase
+      .from("sale_items")
+      .select("product_name, quantity, unit_price")
+      .eq("order_id", orderId);
+
+    // Determine courier mode based on sale type or default
+    let courierMode = 'Standard';
+    if (sale.sale_type?.toLowerCase().includes('air')) {
+      courierMode = 'Air';
+    } else if (sale.sale_type?.toLowerCase().includes('surface')) {
+      courierMode = 'Surface';
+    }
+
+    let emailData: Record<string, unknown> = {
+      orderId,
+      customerName: sale.customer_name,
+      productItems: saleItems || [],
+      totalAmount: Number(sale.total_amount) || 0,
+      amountReceived: Number(sale.amount_received) || 0,
+      balanceAmount: Number(sale.balance_amount) || 0,
+      saleDate: new Date(sale.sale_date).toLocaleDateString("en-IN"),
+      subtotal: Number(sale.subtotal) || 0,
+      gstAmount: Number(sale.gst_amount) || 0,
+      courierCost: Number(sale.courier_cost) || 0,
+      courierMode,
+    };
  
      if (type === "dispatch") {
        let serialNumbers: string[] = dispatchData?.serialNumbers || [];
