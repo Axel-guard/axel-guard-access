@@ -23,6 +23,43 @@
  const formatCurrency = (amount: number) =>
    `₹${amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
  
+const baseEmailStyles = `
+  body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+  .email-wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; }
+  .header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 32px 24px; text-align: center; }
+  .header-logo { font-size: 32px; font-weight: 700; margin: 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .header-subtitle { font-size: 18px; font-weight: 400; margin: 8px 0 0 0; opacity: 0.95; }
+  .content { padding: 32px 24px; background: #f9fafb; }
+  .greeting { font-size: 16px; margin-bottom: 8px; }
+  .greeting strong { color: #1e40af; }
+  .intro-text { color: #4b5563; margin-bottom: 24px; }
+  .section-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .section-title { font-size: 15px; font-weight: 600; color: #1e40af; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 2px solid #3b82f6; display: flex; align-items: center; gap: 8px; }
+  .info-row { padding: 10px 0; border-bottom: 1px solid #f3f4f6; display: flex; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: #6b7280; font-size: 14px; min-width: 140px; }
+  .info-value { font-weight: 600; color: #111827; }
+  .product-list { color: #374151; font-size: 14px; line-height: 1.8; }
+  .amount-section { margin: 24px 0; }
+  .amount-box { text-align: center; padding: 20px; border-radius: 10px; margin-bottom: 12px; }
+  .amount-box.total { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; }
+  .amount-box.received { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; }
+  .amount-box.balance { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; }
+  .amount-label { font-size: 13px; opacity: 0.9; margin-bottom: 4px; }
+  .amount-value { font-size: 26px; font-weight: 700; }
+  .closing-text { color: #4b5563; margin-top: 24px; font-size: 14px; }
+  .footer { text-align: center; padding: 28px 24px; background: #1f2937; color: #9ca3af; font-size: 13px; }
+  .footer-brand { color: #ffffff; font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+  .footer-contact { margin-top: 12px; }
+  .footer-contact a { color: #60a5fa; text-decoration: none; }
+  .serial-badge { display: inline-block; background: #10b981; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-family: monospace; margin: 4px; }
+  .status-badge { display: inline-block; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .status-badge.success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+  .status-badge.transit { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+  .tracking-highlight { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0; }
+  .tracking-number { font-size: 28px; font-weight: 700; letter-spacing: 2px; margin-top: 8px; font-family: monospace; }
+`;
+
  const getEmailTemplate = (
    type: string,
    data: Record<string, unknown>
@@ -35,68 +72,58 @@
  <html>
  <head>
    <meta charset="utf-8">
-   <style>
-     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-     .container { max-width: 600px; margin: 0 auto; }
-     .header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; padding: 30px 20px; text-align: center; }
-     .content { background: #f9fafb; padding: 30px 20px; }
-     .section { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid #e5e7eb; }
-     .section-title { font-weight: bold; color: #1e40af; margin-bottom: 15px; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; font-size: 16px; }
-     .info-row { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-     .label { color: #6b7280; font-size: 14px; }
-     .value { font-weight: 600; color: #111827; }
-     .amount-grid { margin: 20px 0; }
-     .amount-box { text-align: center; padding: 20px; margin: 10px 0; border-radius: 8px; }
-     .total { background: #1e40af; color: white; }
-     .received { background: #10b981; color: white; }
-     .balance { background: #ef4444; color: white; }
-     .footer { text-align: center; padding: 30px 20px; color: #6b7280; font-size: 13px; background: #f3f4f6; }
-     .logo { font-size: 28px; font-weight: bold; }
-     .amount-label { font-size: 12px; opacity: 0.9; }
-     .amount-value { font-size: 22px; font-weight: bold; margin-top: 5px; }
-   </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${baseEmailStyles}</style>
  </head>
  <body>
-   <div class="container">
+  <div class="email-wrapper">
      <div class="header">
-       <div class="logo">🛡️ AxelGuard</div>
-       <h2 style="margin: 15px 0 0 0; font-weight: 500;">Order Confirmation</h2>
+      <div class="header-logo">🛡️ AxelGuard</div>
+      <div class="header-subtitle">Order Confirmation</div>
      </div>
      <div class="content">
-       <p style="font-size: 16px;">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
-       <p>Thank you for choosing AxelGuard. Your order has been successfully created in our system.</p>
+      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Thank you for choosing AxelGuard. Your order has been successfully created in our system.</p>
        
-       <div class="section">
-         <div class="section-title">📦 Order Details</div>
-         <div class="info-row"><span class="label">Order ID:</span> <span class="value">${data.orderId}</span></div>
-         <div class="info-row"><span class="label">Order Date:</span> <span class="value">${data.saleDate}</span></div>
+      <div class="section-card">
+        <div class="section-title">📦 Order Details</div>
+        <div class="info-row">
+          <span class="info-label">Order ID:</span>
+          <span class="info-value">${data.orderId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Order Date:</span>
+          <span class="info-value">${data.saleDate}</span>
+        </div>
        </div>
        
-       <div class="section">
-         <div class="section-title">🛒 Products Ordered</div>
-         <div style="white-space: pre-line; color: #374151;">${data.products}</div>
+      <div class="section-card">
+        <div class="section-title">🛒 Products Ordered</div>
+        <div class="product-list">${(data.products as string).split('\n').join('<br>')}</div>
        </div>
        
-       <div class="amount-grid">
-         <div class="amount-box total">
+      <div class="amount-section">
+        <div class="amount-box total">
            <div class="amount-label">Total Order Value</div>
            <div class="amount-value">${formatCurrency(data.totalAmount as number)}</div>
          </div>
-         <div class="amount-box received">
+        <div class="amount-box received">
            <div class="amount-label">Amount Received</div>
            <div class="amount-value">${formatCurrency(data.amountReceived as number)}</div>
          </div>
-         <div class="amount-box balance">
+        <div class="amount-box balance">
            <div class="amount-label">Outstanding Balance</div>
            <div class="amount-value">${formatCurrency(data.balanceAmount as number)}</div>
          </div>
        </div>
        
-       <p style="margin-top: 20px;">Our team is reviewing your order and will process it shortly. You will receive dispatch notification soon.</p>
+      <p class="closing-text">Our team is reviewing your order and will process it shortly. You will receive dispatch notification soon.</p>
      </div>
      <div class="footer">
-       <p style="margin: 0 0 10px 0;"><strong>Warm regards,</strong><br>AxelGuard Team</p>
-       <p style="margin: 0;">📧 Support: info@axel-guard.com | 🌐 www.axel-guard.com</p>
+      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-contact">
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+      </div>
      </div>
    </div>
  </body>
@@ -105,10 +132,10 @@
  
      case "dispatch":
        const serialNumbersHtml = (data.serialNumbers as string[])?.length > 0
-         ? `<div class="section">
-             <div class="section-title">🔢 Serial Numbers</div>
-             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 13px;">
-               ${(data.serialNumbers as string[]).map((sn: string) => `<span style="display: inline-block; background: #10b981; color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; margin: 3px;">${sn}</span>`).join("")}
+        ? `<div class="section-card">
+            <div class="section-title">🔢 Serial Numbers</div>
+            <div style="text-align: center; padding: 10px 0;">
+              ${(data.serialNumbers as string[]).map((sn: string) => `<span class="serial-badge">${sn}</span>`).join("")}
              </div>
            </div>`
          : "";
@@ -119,54 +146,59 @@
  <html>
  <head>
    <meta charset="utf-8">
-   <style>
-     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-     .container { max-width: 600px; margin: 0 auto; }
-     .header { background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 30px 20px; text-align: center; }
-     .content { background: #f9fafb; padding: 30px 20px; }
-     .section { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid #e5e7eb; }
-     .section-title { font-weight: bold; color: #059669; margin-bottom: 15px; border-bottom: 2px solid #10b981; padding-bottom: 8px; font-size: 16px; }
-     .info-row { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-     .label { color: #6b7280; font-size: 14px; }
-     .value { font-weight: 600; color: #111827; }
-     .footer { text-align: center; padding: 30px 20px; color: #6b7280; font-size: 13px; background: #f3f4f6; }
-     .logo { font-size: 28px; font-weight: bold; }
-     .qc-badge { background: #10b981; color: white; padding: 12px 24px; border-radius: 6px; display: inline-block; font-weight: 600; }
-   </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${baseEmailStyles}
+    .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+    .section-title { color: #059669; border-bottom-color: #10b981; }
+  </style>
  </head>
  <body>
-   <div class="container">
+  <div class="email-wrapper">
      <div class="header">
-       <div class="logo">🚚 AxelGuard</div>
-       <h2 style="margin: 15px 0 0 0; font-weight: 500;">Order Dispatched</h2>
+      <div class="header-logo">🚚 AxelGuard</div>
+      <div class="header-subtitle">Order Dispatched</div>
      </div>
      <div class="content">
-       <p style="font-size: 16px;">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
-       <p>Great news! Your order has been dispatched and is on its way to you.</p>
+      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Great news! Your order has been dispatched and is on its way to you.</p>
        
-       <div class="section">
-         <div class="section-title">📦 Dispatch Information</div>
-         <div class="info-row"><span class="label">Order ID:</span> <span class="value">${data.orderId}</span></div>
-         <div class="info-row"><span class="label">Dispatch Date:</span> <span class="value">${data.dispatchDate}</span></div>
+      <div class="section-card">
+        <div class="section-title">📦 Dispatch Information</div>
+        <div class="info-row">
+          <span class="info-label">Order ID:</span>
+          <span class="info-value">${data.orderId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Dispatch Date:</span>
+          <span class="info-value">${data.dispatchDate}</span>
+        </div>
        </div>
        
-       <div class="section">
-         <div class="section-title">📋 Packed Product Details</div>
-         <div class="info-row"><span class="label">Product Name:</span> <span class="value">${data.productName || "N/A"}</span></div>
-         <div class="info-row"><span class="label">Quantity Dispatched:</span> <span class="value">${data.totalQuantity || 0} units</span></div>
+      <div class="section-card">
+        <div class="section-title">📋 Packed Product Details</div>
+        <div class="info-row">
+          <span class="info-label">Product Name:</span>
+          <span class="info-value">${data.productName || "N/A"}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Quantity Dispatched:</span>
+          <span class="info-value">${data.totalQuantity || 0} units</span>
+        </div>
        </div>
        
        ${serialNumbersHtml}
        
-       <div style="text-align: center; margin: 25px 0;">
-         <span class="qc-badge">✅ All devices passed quality checks</span>
+      <div style="text-align: center; margin: 28px 0;">
+        <span class="status-badge success">✅ All devices passed quality checks</span>
        </div>
        
-       <p>Courier & tracking details will be shared soon.</p>
+      <p class="closing-text">Courier & tracking details will be shared soon.</p>
      </div>
      <div class="footer">
-       <p style="margin: 0 0 10px 0;"><strong>Warm regards,</strong><br>AxelGuard Team</p>
-       <p style="margin: 0;">📧 Support: info@axel-guard.com | 🌐 www.axel-guard.com</p>
+      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-contact">
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+      </div>
      </div>
    </div>
  </body>
@@ -180,54 +212,54 @@
  <html>
  <head>
    <meta charset="utf-8">
-   <style>
-     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-     .container { max-width: 600px; margin: 0 auto; }
-     .header { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: white; padding: 30px 20px; text-align: center; }
-     .content { background: #f9fafb; padding: 30px 20px; }
-     .section { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid #e5e7eb; }
-     .section-title { font-weight: bold; color: #7c3aed; margin-bottom: 15px; border-bottom: 2px solid #a78bfa; padding-bottom: 8px; font-size: 16px; }
-     .info-row { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-     .label { color: #6b7280; font-size: 14px; }
-     .value { font-weight: 600; color: #111827; }
-     .tracking-highlight { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: white; padding: 25px; border-radius: 8px; text-align: center; margin: 20px 0; }
-     .tracking-number { font-size: 28px; font-weight: bold; letter-spacing: 2px; margin-top: 10px; }
-     .footer { text-align: center; padding: 30px 20px; color: #6b7280; font-size: 13px; background: #f3f4f6; }
-     .logo { font-size: 28px; font-weight: bold; }
-     .status-badge { background: #fbbf24; color: #78350f; padding: 10px 20px; border-radius: 6px; display: inline-block; font-weight: bold; }
-   </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${baseEmailStyles}
+    .header { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); }
+    .section-title { color: #7c3aed; border-bottom-color: #a78bfa; }
+  </style>
  </head>
  <body>
-   <div class="container">
+  <div class="email-wrapper">
      <div class="header">
-       <div class="logo">📍 AxelGuard</div>
-       <h2 style="margin: 15px 0 0 0; font-weight: 500;">Tracking Details</h2>
+      <div class="header-logo">📍 AxelGuard</div>
+      <div class="header-subtitle">Tracking Details</div>
      </div>
      <div class="content">
-       <p style="font-size: 16px;">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
-       <p>Your order is on the way! Here are your shipment tracking details.</p>
+      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Your order is on the way! Here are your shipment tracking details.</p>
        
        <div class="tracking-highlight">
          <div style="font-size: 14px; opacity: 0.9;">🚚 AWB / Tracking Number</div>
          <div class="tracking-number">${data.trackingId || "Pending"}</div>
        </div>
        
-       <div class="section">
-         <div class="section-title">📦 Shipment Details</div>
-         <div class="info-row"><span class="label">Order ID:</span> <span class="value">${data.orderId}</span></div>
-         <div class="info-row"><span class="label">Courier Partner:</span> <span class="value">${data.courier || "N/A"}</span></div>
-         <div class="info-row"><span class="label">Shipping Mode:</span> <span class="value">${data.mode || "N/A"}</span></div>
+      <div class="section-card">
+        <div class="section-title">📦 Shipment Details</div>
+        <div class="info-row">
+          <span class="info-label">Order ID:</span>
+          <span class="info-value">${data.orderId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Courier Partner:</span>
+          <span class="info-value">${data.courier || "N/A"}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Shipping Mode:</span>
+          <span class="info-value">${data.mode || "N/A"}</span>
+        </div>
        </div>
        
-       <div style="text-align: center; margin: 25px 0;">
-         <span class="status-badge">📦 In Transit</span>
+      <div style="text-align: center; margin: 28px 0;">
+        <span class="status-badge transit">📦 In Transit</span>
        </div>
        
-       <p>Contact us if you have any questions about your delivery.</p>
+      <p class="closing-text">Contact us if you have any questions about your delivery.</p>
      </div>
      <div class="footer">
-       <p style="margin: 0 0 10px 0;"><strong>Warm regards,</strong><br>AxelGuard Team</p>
-       <p style="margin: 0;">📧 Support: info@axel-guard.com | 🌐 www.axel-guard.com</p>
+      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-contact">
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+      </div>
      </div>
    </div>
  </body>
