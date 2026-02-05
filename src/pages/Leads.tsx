@@ -1,4 +1,4 @@
-import { useState } from "react";
+ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLeads, useDeleteLead, useUpdateLead } from "@/hooks/useLeads";
+ import { useLeads, useUpdateLead, Lead } from "@/hooks/useLeads";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Edit, Trash2, Search, Phone, Mail, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+ import { MoreVertical, Eye, Edit, Trash2, Search, Phone, Mail, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -28,16 +28,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LeadsUploadDialog } from "@/components/leads/LeadsUploadDialog";
+ import { LeadsUploadDialog } from "@/components/leads/LeadsUploadDialog";
+ import { LeadDetailsDialog } from "@/components/leads/LeadDetailsDialog";
+ import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
+ import { DeleteLeadDialog } from "@/components/leads/DeleteLeadDialog";
 
 const STATUSES = ["New", "Contacted", "Interested", "Not Interested", "Converted"];
 
 const LeadsPage = () => {
   const [sortDescending, setSortDescending] = useState(false);
   const { data: leads, isLoading } = useLeads(sortDescending);
-  const deleteLead = useDeleteLead();
   const updateLead = useUpdateLead();
   const [searchTerm, setSearchTerm] = useState("");
+ 
+   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+   const [detailsOpen, setDetailsOpen] = useState(false);
+   const [editOpen, setEditOpen] = useState(false);
+   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const filteredLeads = leads?.filter(
     (lead) =>
@@ -67,11 +74,20 @@ const LeadsPage = () => {
     await updateLead.mutateAsync({ id, updates: { status } });
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this lead?")) {
-      await deleteLead.mutateAsync(id);
-    }
-  };
+   const handleViewDetails = useCallback((lead: Lead) => {
+     setSelectedLead(lead);
+     setDetailsOpen(true);
+   }, []);
+ 
+   const handleEditLead = useCallback((lead: Lead) => {
+     setSelectedLead(lead);
+     setEditOpen(true);
+   }, []);
+ 
+   const handleDeleteLead = useCallback((lead: Lead) => {
+     setSelectedLead(lead);
+     setDeleteOpen(true);
+   }, []);
 
   if (isLoading) {
     return (
@@ -186,17 +202,17 @@ const LeadsPage = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => handleViewDetails(lead)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => handleEditLead(lead)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Lead
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => handleDelete(lead.id!)}
+                             onClick={() => handleDeleteLead(lead)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete Lead
@@ -218,6 +234,21 @@ const LeadsPage = () => {
           </div>
         </CardContent>
       </Card>
+       <LeadDetailsDialog
+         lead={selectedLead}
+         open={detailsOpen}
+         onOpenChange={setDetailsOpen}
+       />
+       <EditLeadDialog
+         lead={selectedLead}
+         open={editOpen}
+         onOpenChange={setEditOpen}
+       />
+       <DeleteLeadDialog
+         lead={selectedLead}
+         open={deleteOpen}
+         onOpenChange={setDeleteOpen}
+       />
     </div>
   );
 };
