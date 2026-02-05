@@ -49,6 +49,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { QuotationStatusBadge } from "./QuotationStatusBadge";
 import { QuotationEmailButton } from "./QuotationEmailButton";
+import { ApproveQuotationButton } from "./ApproveQuotationButton";
 
 interface QuotationsListProps {
   onConvertToSale?: (quotationId: string) => void;
@@ -216,11 +217,23 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        {/* Approve Button - Only visible to Master Admin for Pending Approval */}
+                        <ApproveQuotationButton
+                          quotationId={quotation.id}
+                          quotationNo={quotation.quotation_no}
+                          status={quotation.status}
+                          createdBy={quotation.created_by}
+                          customerName={quotation.customer_name}
+                          grandTotal={Number(quotation.grand_total)}
+                        />
+                        
+                        {/* Email Button */}
                         <QuotationEmailButton
                           quotationId={quotation.id}
                           quotationNo={quotation.quotation_no}
                           status={quotation.status}
                         />
+                        
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -234,7 +247,8 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
                               <FileDown className="mr-2 h-4 w-4" />
                               Download PDF
                             </DropdownMenuItem>
-                            {quotation.status === "Approved" && onConvertToSale && (
+                            {/* Convert to Sale - Only enabled after approval (Approved or Sent status) */}
+                            {(quotation.status === "Approved" || quotation.status === "Sent") && onConvertToSale && (
                               <DropdownMenuItem
                                 onClick={() => handleConvertClick(quotation.id)}
                               >
