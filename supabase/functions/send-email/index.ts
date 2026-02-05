@@ -1,6 +1,6 @@
  import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "https://esm.sh/nodemailer@6.9.10";
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -191,30 +191,26 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
  
      console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
  
-      // Initialize SMTP client with STARTTLS configuration for Gmail port 587
-      const client = new SMTPClient({
-        connection: {
-          hostname: Deno.env.get("SMTP_HOST") || "smtp.gmail.com",
-          port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
-          tls: true,
-          auth: {
-            username: Deno.env.get("SMTP_USER")!,
-            password: Deno.env.get("SMTP_PASS")!,
-          },
+      // Initialize Nodemailer transporter
+      const transporter = nodemailer.createTransport({
+        host: Deno.env.get("SMTP_HOST") || "smtp.gmail.com",
+        port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
+        secure: false, // Use STARTTLS
+        auth: {
+          user: Deno.env.get("SMTP_USER")!,
+          pass: Deno.env.get("SMTP_PASS")!,
         },
       });
  
       // Send email
-      await client.send({
+      await transporter.sendMail({
         from: Deno.env.get("SMTP_USER")!,
         to: customerEmail,
         cc: [CC_EMAIL],
         subject,
-        content: body,
+        text: body,
       });
 
-      await client.close();
- 
      console.log(`Email sent successfully for order: ${orderId}`);
  
      return new Response(
