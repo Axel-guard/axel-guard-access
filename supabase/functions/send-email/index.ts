@@ -7,16 +7,17 @@
      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
  };
  
- interface EmailRequest {
-   type: "sale" | "dispatch" | "tracking";
-   orderId: string;
-   dispatchData?: {
-     dispatchDate?: string;
-     serialNumbers?: string[];
-     productName?: string;
-     totalQuantity?: number;
-   };
- }
+interface EmailRequest {
+  type: "sale" | "dispatch" | "tracking" | "quotation";
+  orderId?: string;
+  quotationId?: string;
+  dispatchData?: {
+    dispatchDate?: string;
+    serialNumbers?: string[];
+    productName?: string;
+    totalQuantity?: number;
+  };
+}
  
  const CC_EMAIL = "mani@axel-guard.com";
  
@@ -339,10 +340,132 @@ const getEmailTemplate = (
  </html>`,
        };
  
-     default:
-       throw new Error(`Unknown email type: ${type}`);
-   }
- };
+    case "quotation":
+      const quotationItems = data.quotationItems as Array<{
+        product_name: string;
+        quantity: number;
+        unit_price: number;
+        amount: number;
+      }> || [];
+      
+      const quotationTableRows = quotationItems.map(item => `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #374151;">${item.product_name}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #374151;">${item.quantity}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #374151;">${formatCurrency(item.unit_price)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${formatCurrency(item.amount)}</td>
+        </tr>
+      `).join('');
+
+      const qSubtotal = Number(data.subtotal) || 0;
+      const qGstAmount = Number(data.gstAmount) || 0;
+      const qCourierCharge = Number(data.courierCharge) || 0;
+      const qShowGst = qGstAmount > 0;
+
+      return {
+        subject: `Quotation ${data.quotationNo} | AxelGuard`,
+        body: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${baseEmailStyles}
+    .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+    .section-title { color: #dc2626; border-bottom-color: #ef4444; }
+    .product-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .product-table th { background: #f3f4f6; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+    .product-table th:nth-child(2), .product-table th:nth-child(3), .product-table th:nth-child(4) { text-align: right; }
+    .product-table th:nth-child(2) { text-align: center; }
+    .summary-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row.total { background: #fef2f2; margin: 12px -20px -20px -20px; padding: 16px 20px; border-radius: 0 0 12px 12px; border-top: 2px solid #dc2626; }
+    .summary-label { color: #6b7280; font-size: 14px; }
+    .summary-value { font-weight: 600; color: #111827; }
+    .summary-row.total .summary-label, .summary-row.total .summary-value { color: #dc2626; font-size: 16px; }
+    .validity-box { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="header">
+      <div class="header-logo">📋 AxelGuard</div>
+      <div class="header-subtitle">Quotation</div>
+    </div>
+    <div class="content">
+      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Thank you for your interest in AxelGuard products. Please find below your quotation details.</p>
+      
+      <div class="section-card">
+        <div class="section-title">📋 Quotation Details</div>
+        <div class="info-row">
+          <span class="info-label">Quotation No:</span>
+          <span class="info-value">${data.quotationNo}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Date:</span>
+          <span class="info-value">${data.quotationDate}</span>
+        </div>
+      </div>
+      
+      <div class="section-card">
+        <div class="section-title">🛒 Products</div>
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Unit Price</th>
+              <th style="text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${quotationTableRows}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">💰 Quotation Summary</div>
+        <div class="summary-row">
+          <span class="summary-label">Subtotal:</span>
+          <span class="summary-value">${formatCurrency(qSubtotal)}</span>
+        </div>
+        ${qCourierCharge > 0 ? `
+        <div class="summary-row">
+          <span class="summary-label">Courier Charges:</span>
+          <span class="summary-value">${formatCurrency(qCourierCharge)}</span>
+        </div>` : ''}
+        <div class="summary-row">
+          <span class="summary-label">GST ${qShowGst ? '(18%)' : ''}:</span>
+          <span class="summary-value">${qShowGst ? formatCurrency(qGstAmount) : '₹0.00'}</span>
+        </div>
+        <div class="summary-row total">
+          <span class="summary-label">Grand Total:</span>
+          <span class="summary-value">${formatCurrency(data.grandTotal as number)}</span>
+        </div>
+      </div>
+
+      <div class="validity-box">
+        <p style="margin: 0; font-weight: 600; color: #92400e;">⏰ This quotation is valid for 15 days</p>
+      </div>
+      
+      <p class="closing-text">For any queries or to proceed with this order, please contact us. We look forward to serving you!</p>
+    </div>
+    <div class="footer">
+      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-contact">
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+      };
+
+    default:
+      throw new Error(`Unknown email type: ${type}`);
+  }
+};
  
  function toBase64(str: string): string {
    return btoa(str);
@@ -489,148 +612,206 @@ const getEmailTemplate = (
    }
  
    try {
-     const { type, orderId, dispatchData }: EmailRequest = await req.json();
- 
-     if (!type || !orderId) {
-       throw new Error("Missing required fields: type and orderId");
-     }
- 
-     console.log(`Processing ${type} email for order: ${orderId}`);
- 
-     const supabase = createClient(
-       Deno.env.get("SUPABASE_URL")!,
-       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-     );
- 
-     const { data: sale, error: saleError } = await supabase
-       .from("sales")
-       .select("*")
-       .eq("order_id", orderId)
-       .single();
- 
-     if (saleError || !sale) {
-       throw new Error(`Sale not found for order ID: ${orderId}`);
-     }
- 
-     let customerEmail = null;
-     if (sale.customer_code) {
-       const { data: lead } = await supabase
-         .from("leads")
-         .select("email")
-         .eq("customer_code", sale.customer_code)
-         .single();
-       customerEmail = lead?.email;
-     }
- 
-     if (!customerEmail) {
-       throw new Error("Customer email not found. Please update customer details with email.");
-     }
- 
-    const { data: saleItems } = await supabase
-      .from("sale_items")
-      .select("product_name, quantity, unit_price")
-      .eq("order_id", orderId);
+    const { type, orderId, quotationId, dispatchData }: EmailRequest = await req.json();
 
-    // Determine courier mode based on sale type or default
-    let courierMode = 'Standard';
-    if (sale.sale_type?.toLowerCase().includes('air')) {
-      courierMode = 'Air';
-    } else if (sale.sale_type?.toLowerCase().includes('surface')) {
-      courierMode = 'Surface';
+    if (!type) {
+      throw new Error("Missing required field: type");
     }
 
-    let emailData: Record<string, unknown> = {
-      orderId,
-      customerName: sale.customer_name,
-      productItems: saleItems || [],
-      totalAmount: Number(sale.total_amount) || 0,
-      amountReceived: Number(sale.amount_received) || 0,
-      balanceAmount: Number(sale.balance_amount) || 0,
-      saleDate: new Date(sale.sale_date).toLocaleDateString("en-IN"),
-      subtotal: Number(sale.subtotal) || 0,
-      gstAmount: Number(sale.gst_amount) || 0,
-      courierCost: Number(sale.courier_cost) || 0,
-      courierMode,
-    };
+    // For quotation emails, we use quotationId instead of orderId
+    if (type === "quotation") {
+      if (!quotationId) {
+        throw new Error("Missing required field: quotationId for quotation emails");
+      }
+      console.log(`Processing quotation email for: ${quotationId}`);
+    } else {
+      if (!orderId) {
+        throw new Error("Missing required field: orderId");
+      }
+      console.log(`Processing ${type} email for order: ${orderId}`);
+    }
  
-     if (type === "dispatch") {
-       let serialNumbers: string[] = dispatchData?.serialNumbers || [];
-       
-       if (serialNumbers.length === 0) {
-         const { data: inventoryItems } = await supabase
-           .from("inventory")
-           .select("serial_number")
-           .eq("order_id", orderId)
-           .eq("status", "Dispatched");
-         
-         serialNumbers = inventoryItems?.map(i => i.serial_number) || [];
-       }
-       
-       const productName = dispatchData?.productName || 
-         saleItems?.map(i => i.product_name).join(", ") || "N/A";
-       
-       const totalQuantity = dispatchData?.totalQuantity || 
-         saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
-       
-       emailData = {
-         ...emailData,
-         dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
-         serialNumbers,
-         productName,
-         totalQuantity,
-       };
-     }
-     
-     if (type === "tracking") {
-       const { data: shipment } = await supabase
-         .from("shipments")
-         .select("*")
-         .eq("order_id", orderId)
-         .order("created_at", { ascending: false })
-         .limit(1)
-         .single();
- 
-       emailData = {
-         ...emailData,
-         courier: shipment?.courier_partner,
-         mode: shipment?.shipping_mode,
-         trackingId: shipment?.tracking_id,
-       };
-     }
- 
-     const { subject, body } = getEmailTemplate(type, emailData);
- 
-     console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
- 
-     const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
-     const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
-     const smtpUser = Deno.env.get("SMTP_USER")!;
-     const smtpPass = Deno.env.get("SMTP_PASS")!;
- 
-     console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
- 
-     await sendEmailWithRetry({
-       host: smtpHost,
-       port: smtpPort,
-       username: smtpUser,
-       password: smtpPass,
-       from: smtpUser,
-       to: customerEmail,
-       cc: CC_EMAIL,
-       subject,
-       body,
-       isHtml: true,
-     }, 2);
- 
-     console.log(`Email sent successfully for order: ${orderId}`);
- 
-     return new Response(
-       JSON.stringify({ success: true, message: "Email sent successfully" }),
-       {
-         status: 200,
-         headers: { "Content-Type": "application/json", ...corsHeaders },
-       }
-     );
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    let customerEmail: string | null = null;
+    let emailData: Record<string, unknown> = {};
+
+    // Handle quotation emails separately
+    if (type === "quotation") {
+      const { data: quotation, error: quotationError } = await supabase
+        .from("quotations")
+        .select("*")
+        .eq("id", quotationId)
+        .single();
+
+      if (quotationError || !quotation) {
+        throw new Error(`Quotation not found for ID: ${quotationId}`);
+      }
+
+      // Get quotation items
+      const { data: qItems } = await supabase
+        .from("quotation_items")
+        .select("product_name, quantity, unit_price, amount")
+        .eq("quotation_id", quotationId);
+
+      // Get customer email
+      if (quotation.customer_code) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("email")
+          .eq("customer_code", quotation.customer_code)
+          .single();
+        customerEmail = lead?.email || null;
+      }
+
+      if (!customerEmail) {
+        throw new Error("Customer email not found. Please update customer details with email.");
+      }
+
+      emailData = {
+        quotationNo: quotation.quotation_no,
+        quotationDate: new Date(quotation.quotation_date).toLocaleDateString("en-IN"),
+        customerName: quotation.customer_name,
+        quotationItems: qItems || [],
+        subtotal: Number(quotation.subtotal) || 0,
+        gstAmount: Number(quotation.gst_amount) || 0,
+        courierCharge: Number(quotation.courier_charge) || 0,
+        grandTotal: Number(quotation.grand_total) || 0,
+      };
+    } else {
+      // Handle sale-based emails (sale, dispatch, tracking)
+      const { data: sale, error: saleError } = await supabase
+        .from("sales")
+        .select("*")
+        .eq("order_id", orderId)
+        .single();
+
+      if (saleError || !sale) {
+        throw new Error(`Sale not found for order ID: ${orderId}`);
+      }
+
+      if (sale.customer_code) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("email")
+          .eq("customer_code", sale.customer_code)
+          .single();
+        customerEmail = lead?.email || null;
+      }
+
+      if (!customerEmail) {
+        throw new Error("Customer email not found. Please update customer details with email.");
+      }
+
+      const { data: saleItems } = await supabase
+        .from("sale_items")
+        .select("product_name, quantity, unit_price")
+        .eq("order_id", orderId);
+
+      // Determine courier mode based on sale type or default
+      let courierMode = 'Standard';
+      if (sale.sale_type?.toLowerCase().includes('air')) {
+        courierMode = 'Air';
+      } else if (sale.sale_type?.toLowerCase().includes('surface')) {
+        courierMode = 'Surface';
+      }
+
+      emailData = {
+        orderId,
+        customerName: sale.customer_name,
+        productItems: saleItems || [],
+        totalAmount: Number(sale.total_amount) || 0,
+        amountReceived: Number(sale.amount_received) || 0,
+        balanceAmount: Number(sale.balance_amount) || 0,
+        saleDate: new Date(sale.sale_date).toLocaleDateString("en-IN"),
+        subtotal: Number(sale.subtotal) || 0,
+        gstAmount: Number(sale.gst_amount) || 0,
+        courierCost: Number(sale.courier_cost) || 0,
+        courierMode,
+      };
+
+      if (type === "dispatch") {
+        let serialNumbers: string[] = dispatchData?.serialNumbers || [];
+        
+        if (serialNumbers.length === 0) {
+          const { data: inventoryItems } = await supabase
+            .from("inventory")
+            .select("serial_number")
+            .eq("order_id", orderId)
+            .eq("status", "Dispatched");
+          
+          serialNumbers = inventoryItems?.map(i => i.serial_number) || [];
+        }
+        
+        const productName = dispatchData?.productName || 
+          saleItems?.map(i => i.product_name).join(", ") || "N/A";
+        
+        const totalQuantity = dispatchData?.totalQuantity || 
+          saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+        
+        emailData = {
+          ...emailData,
+          dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
+          serialNumbers,
+          productName,
+          totalQuantity,
+        };
+      }
+      
+      if (type === "tracking") {
+        const { data: shipment } = await supabase
+          .from("shipments")
+          .select("*")
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        emailData = {
+          ...emailData,
+          courier: shipment?.courier_partner,
+          mode: shipment?.shipping_mode,
+          trackingId: shipment?.tracking_id,
+        };
+      }
+    }
+
+    const { subject, body } = getEmailTemplate(type, emailData);
+
+    console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
+
+    const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+    const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+    const smtpUser = Deno.env.get("SMTP_USER")!;
+    const smtpPass = Deno.env.get("SMTP_PASS")!;
+
+    console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
+
+    await sendEmailWithRetry({
+      host: smtpHost,
+      port: smtpPort,
+      username: smtpUser,
+      password: smtpPass,
+      from: smtpUser,
+      to: customerEmail,
+      cc: CC_EMAIL,
+      subject,
+      body,
+      isHtml: true,
+    }, 2);
+
+    console.log(`Email sent successfully for ${type === "quotation" ? `quotation: ${quotationId}` : `order: ${orderId}`}`);
+
+    return new Response(
+      JSON.stringify({ success: true, message: "Email sent successfully" }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
    } catch (error) {
      console.error("Error sending email:", error);
      return new Response(

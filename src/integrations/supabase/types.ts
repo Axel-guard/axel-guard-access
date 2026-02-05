@@ -80,6 +80,44 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          error_message: string | null
+          id: string
+          quotation_id: string | null
+          recipient_email: string | null
+          sent_at: string
+          sent_by: string | null
+          status: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          quotation_id?: string | null
+          recipient_email?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          quotation_id?: string | null
+          recipient_email?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string | null
@@ -460,12 +498,16 @@ export type Database = {
           address: string | null
           apply_courier_gst: boolean
           apply_gst: boolean
+          approved_at: string | null
+          approved_by: string | null
           company_name: string | null
           converted_order_id: string | null
           courier_charge: number
           courier_gst_amount: number
           courier_type: string | null
           created_at: string
+          created_by: string | null
+          created_role: string | null
           customer_code: string | null
           customer_id: string | null
           customer_name: string
@@ -476,6 +518,7 @@ export type Database = {
           mobile: string | null
           quotation_date: string
           quotation_no: string
+          rejected_reason: string | null
           status: string
           subtotal: number
           updated_at: string
@@ -484,12 +527,16 @@ export type Database = {
           address?: string | null
           apply_courier_gst?: boolean
           apply_gst?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           company_name?: string | null
           converted_order_id?: string | null
           courier_charge?: number
           courier_gst_amount?: number
           courier_type?: string | null
           created_at?: string
+          created_by?: string | null
+          created_role?: string | null
           customer_code?: string | null
           customer_id?: string | null
           customer_name: string
@@ -500,6 +547,7 @@ export type Database = {
           mobile?: string | null
           quotation_date?: string
           quotation_no: string
+          rejected_reason?: string | null
           status?: string
           subtotal?: number
           updated_at?: string
@@ -508,12 +556,16 @@ export type Database = {
           address?: string | null
           apply_courier_gst?: boolean
           apply_gst?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           company_name?: string | null
           converted_order_id?: string | null
           courier_charge?: number
           courier_gst_amount?: number
           courier_type?: string | null
           created_at?: string
+          created_by?: string | null
+          created_role?: string | null
           customer_code?: string | null
           customer_id?: string | null
           customer_name?: string
@@ -524,6 +576,7 @@ export type Database = {
           mobile?: string | null
           quotation_date?: string
           quotation_no?: string
+          rejected_reason?: string | null
           status?: string
           subtotal?: number
           updated_at?: string

@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -36,6 +35,7 @@ import {
   ArrowRightLeft,
   Trash2,
   FileText,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -46,6 +46,9 @@ import {
 } from "@/hooks/useQuotations";
 import { generateQuotationPDF } from "./QuotationPDF";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { QuotationStatusBadge } from "./QuotationStatusBadge";
+import { QuotationEmailButton } from "./QuotationEmailButton";
 
 interface QuotationsListProps {
   onConvertToSale?: (quotationId: string) => void;
@@ -55,23 +58,27 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
   const { data: quotations, isLoading } = useQuotations();
   const deleteQuotation = useDeleteQuotation();
   const navigate = useNavigate();
+  const { user, isMasterAdmin, isAdmin } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(
-    null
-  );
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quotationToDelete, setQuotationToDelete] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: selectedQuotation } = useQuotationWithItems(selectedQuotationId);
 
   const filteredQuotations = quotations?.filter((q) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       q.quotation_no?.toLowerCase().includes(query) ||
       q.customer_name?.toLowerCase().includes(query) ||
-      q.company_name?.toLowerCase().includes(query)
-    );
+      q.company_name?.toLowerCase().includes(query);
+
+    const matchesStatus = statusFilter === "all" || q.status === statusFilter;
+    const matchesMy = statusFilter !== "my" || q.created_by === user?.id;
+
+    return matchesSearch && matchesStatus && (statusFilter !== "my" || matchesMy);
   });
 
   const handleDownloadPDF = async (quotationId: string) => {
@@ -115,27 +122,6 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Converted":
-        return (
-          <Badge className="bg-success/10 text-success border-success/20">
-            Converted
-          </Badge>
-        );
-      case "Sent":
-        return (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            Sent
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-muted text-muted-foreground">Draft</Badge>
-        );
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -160,15 +146,37 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by Quotation No, Customer..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      {/* Filters */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by Quotation No, Customer..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {["all", "Pending Approval", "Approved", "Sent", "Rejected", "Converted"].map((status) => (
+            <Button
+              key={status}
+              size="sm"
+              variant={statusFilter === status ? "default" : "outline"}
+              onClick={() => setStatusFilter(status)}
+            >
+              {status === "all" ? "All" : status}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant={statusFilter === "my" ? "default" : "outline"}
+            onClick={() => setStatusFilter("my")}
+          >
+            <User className="mr-1 h-3 w-3" />
+            My Quotations
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -203,46 +211,57 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
                         minimumFractionDigits: 2,
                       })}
                     </TableCell>
-                    <TableCell>{getStatusBadge(quotation.status)}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleDownloadPDF(quotation.id)}
-                          >
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Download PDF
-                          </DropdownMenuItem>
-                          {quotation.status !== "Converted" && onConvertToSale && (
+                      <QuotationStatusBadge status={quotation.status} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <QuotationEmailButton
+                          quotationId={quotation.id}
+                          quotationNo={quotation.quotation_no}
+                          status={quotation.status}
+                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => handleConvertClick(quotation.id)}
+                              onClick={() => handleDownloadPDF(quotation.id)}
                             >
-                              <ArrowRightLeft className="mr-2 h-4 w-4" />
-                              Convert to Sale
+                              <FileDown className="mr-2 h-4 w-4" />
+                              Download PDF
                             </DropdownMenuItem>
-                          )}
-                          {quotation.status === "Converted" && (
-                            <DropdownMenuItem
-                              onClick={() => navigate("/sales")}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Sale (#{quotation.converted_order_id})
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteClick(quotation.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {quotation.status === "Approved" && onConvertToSale && (
+                              <DropdownMenuItem
+                                onClick={() => handleConvertClick(quotation.id)}
+                              >
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                Convert to Sale
+                              </DropdownMenuItem>
+                            )}
+                            {quotation.status === "Converted" && (
+                              <DropdownMenuItem
+                                onClick={() => navigate("/sales")}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Sale (#{quotation.converted_order_id})
+                              </DropdownMenuItem>
+                            )}
+                            {(isMasterAdmin || isAdmin) && quotation.status !== "Converted" && (
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteClick(quotation.id)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
