@@ -1,5 +1,6 @@
  import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -190,38 +191,41 @@
  
      console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
  
-      // Use Resend API for reliable email delivery
-      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      // Initialize SMTP client
+      const client = new SmtpClient();
       
-      if (!resendApiKey) {
-        throw new Error("RESEND_API_KEY is not configured");
-      }
+      const smtpHost = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+      const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "465");
+      const smtpUser = Deno.env.get("SMTP_USER")!;
+      const smtpPass = Deno.env.get("SMTP_PASS")!;
 
-      // For production, you need to verify your domain at resend.com/domains
-      // For testing, Resend only allows sending to the account owner's email
-      const fromEmail = "AxelGuard <onboarding@resend.dev>";
+      console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
 
-      const resendResponse = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [customerEmail],
-          cc: [CC_EMAIL],
-          subject,
-          text: body,
-        }),
+      // Connect with TLS (port 465) 
+      await client.connectTLS({
+        hostname: smtpHost,
+        port: smtpPort,
+        username: smtpUser,
+        password: smtpPass,
       });
 
-      const resendResult = await resendResponse.json();
+      // Send email with CC in headers
+      await client.send({
+        from: smtpUser,
+        to: customerEmail,
+        subject,
+        content: body,
+      });
+      
+      // Send a copy to CC address
+      await client.send({
+        from: smtpUser,
+        to: CC_EMAIL,
+        subject: `[CC] ${subject}`,
+        content: `--- Forwarded to: ${customerEmail} ---\n\n${body}`,
+      });
 
-      if (!resendResponse.ok) {
-        console.error("Resend API error:", resendResult);
-        throw new Error(resendResult.message || "Failed to send email");
-      }
+      await client.close();
 
      console.log(`Email sent successfully for order: ${orderId}`);
  
