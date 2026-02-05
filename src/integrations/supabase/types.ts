@@ -790,6 +790,51 @@ export type Database = {
         }
         Relationships: []
       }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_code: string
+          description: string | null
+          id: string
+          issue_type: string
+          priority: string
+          status: string
+          ticket_no: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_code: string
+          description?: string | null
+          id?: string
+          issue_type: string
+          priority?: string
+          status?: string
+          ticket_no: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_code?: string
+          description?: string | null
+          id?: string
+          issue_type?: string
+          priority?: string
+          status?: string
+          ticket_no?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -819,6 +864,7 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       generate_order_id: { Args: never; Returns: string }
       generate_quotation_no: { Args: never; Returns: string }
+      generate_ticket_no: { Args: never; Returns: string }
       get_email_role: {
         Args: { _email: string }
         Returns: Database["public"]["Enums"]["app_role"]
