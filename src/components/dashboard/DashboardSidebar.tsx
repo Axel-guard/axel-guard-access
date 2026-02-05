@@ -60,7 +60,7 @@ const navItems: NavItem[] = [
     icon: Search,
     label: "Search",
     children: [
-      { icon: Users, label: "Customer Details", path: "/leads" },
+      { icon: Users, label: "Customer Details", path: "/customer-details" },
       { icon: Calculator, label: "Courier Charges Calculator", path: "/dispatch" },
     ],
   },
