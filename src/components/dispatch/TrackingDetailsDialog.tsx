@@ -18,6 +18,7 @@ import {
 import { Truck, Plus, Save, Loader2, AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEmail } from "@/hooks/useEmail";
 
 interface TrackingDetailsDialogProps {
   open: boolean;
@@ -58,6 +59,7 @@ export const TrackingDetailsDialog = ({
   editData 
 }: TrackingDetailsDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { sendTrackingEmail } = useEmail();
   const [orderLookupStatus, setOrderLookupStatus] = useState<"idle" | "loading" | "found" | "not_found">("idle");
   const [isAutoFilled, setIsAutoFilled] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{
@@ -256,6 +258,13 @@ export const TrackingDetailsDialog = ({
 
         if (error) throw error;
         toast.success("Tracking details saved successfully!");
+        
+        // Send tracking email automatically if order ID is provided
+        if (formData.order_id) {
+          sendTrackingEmail(formData.order_id).catch(emailError => {
+            console.error("Failed to send tracking email:", emailError);
+          });
+        }
       }
 
       onSuccess();
