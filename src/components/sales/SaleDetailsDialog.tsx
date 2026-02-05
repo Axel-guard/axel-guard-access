@@ -5,9 +5,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, User, Phone, MapPin, Hash, IndianRupee } from "lucide-react";
+import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useEmail } from "@/hooks/useEmail";
 
 interface SaleDetailsDialogProps {
   sale: {
@@ -29,6 +31,8 @@ interface SaleDetailsDialogProps {
 }
 
 export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialogProps) => {
+  const { sendEmail, isLoading } = useEmail();
+
   if (!sale) return null;
 
   const totalAmount = Number(sale.total_amount) || 0;
@@ -50,6 +54,10 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialo
     return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Payment Pending</Badge>;
   };
 
+  const handleSendEmail = async () => {
+    await sendEmail("sale", sale.order_id);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -59,7 +67,23 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialo
               <Hash className="h-5 w-5 text-primary" />
               Sale Details - {sale.order_id}
             </span>
-            {getStatusBadge()}
+            <div className="flex items-center gap-2">
+              {getStatusBadge()}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSendEmail}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                Send Mail
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 

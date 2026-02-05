@@ -9,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Trash2, Plane, Truck as TruckIcon, Edit2 } from "lucide-react";
+import { Trash2, Plane, Truck as TruckIcon, Edit2, Mail, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useDeleteShipment } from "@/hooks/useShipments";
+import { useEmail } from "@/hooks/useEmail";
 
 interface Shipment {
   id: string;
@@ -42,7 +43,9 @@ interface TrackingDetailsTableProps {
 
 export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTableProps) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const deleteShipment = useDeleteShipment();
+  const { sendEmail } = useEmail();
 
   const getTypeBadge = (type: string) => {
     if (type === "Replacement") {
@@ -71,6 +74,15 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
       await deleteShipment.mutateAsync(deleteId);
       setDeleteId(null);
     }
+  };
+
+  const handleSendEmail = async (shipment: Shipment) => {
+    if (!shipment.order_id) {
+      return;
+    }
+    setSendingEmailId(shipment.id);
+    await sendEmail("tracking", shipment.order_id);
+    setSendingEmailId(null);
   };
 
   if (shipments.length === 0) {
@@ -159,6 +171,20 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-primary hover:bg-primary/10 hover:text-primary"
+                        onClick={() => handleSendEmail(shipment)}
+                        disabled={sendingEmailId === shipment.id || !shipment.order_id}
+                        title="Send Tracking Email"
+                      >
+                        {sendingEmailId === shipment.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="h-4 w-4" />
+                        )}
+                      </Button>
                       {onEdit && (
                         <Button 
                           size="sm" 
