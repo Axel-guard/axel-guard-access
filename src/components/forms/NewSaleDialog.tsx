@@ -21,6 +21,7 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEmail } from "@/hooks/useEmail";
 
 interface NewSaleDialogProps {
   open: boolean;
@@ -161,6 +162,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const { data: employees = [] } = useEmployees();
   const createSale = useCreateSale();
   const generateOrderId = useGenerateOrderId();
+  const { sendSaleEmail } = useEmail();
 
   const [orderId, setOrderId] = useState<string>("");
   const [isGeneratingOrderId, setIsGeneratingOrderId] = useState(false);
@@ -307,6 +309,8 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
 
     const saleTypeValue = isWithGST ? "With" : "Without";
 
+    const createdOrderId = orderId;
+    
     await createSale.mutateAsync({
       sale: {
         order_id: orderId,
@@ -335,6 +339,11 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           quantity: parseFloat(p.quantity) || 0,
           unit_price: parseFloat(p.unit_price) || 0,
         })),
+    });
+
+    // Send sale confirmation email automatically (non-blocking)
+    sendSaleEmail(createdOrderId).catch(emailError => {
+      console.error("Failed to send sale email:", emailError);
     });
 
     onOpenChange(false);

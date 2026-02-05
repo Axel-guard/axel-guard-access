@@ -21,10 +21,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Wallet } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2 } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
+import { useEmail } from "@/hooks/useEmail";
 
 // Fetch all sales without date filter (sorted by Order ID descending)
 const useAllSales = () => {
@@ -49,6 +50,15 @@ const SalesPage = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
   const [balanceSale, setBalanceSale] = useState<any | null>(null);
+  const [sendingEmailOrderId, setSendingEmailOrderId] = useState<string | null>(null);
+  const { sendSaleEmail } = useEmail();
+
+  const handleSendEmail = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSendingEmailOrderId(orderId);
+    await sendSaleEmail(orderId);
+    setSendingEmailOrderId(null);
+  };
 
   // Fixed payment status logic: based on amount_received vs total_amount
   const getStatusBadge = (sale: any) => {
@@ -256,6 +266,17 @@ const SalesPage = () => {
                             <Wallet className="mr-2 h-4 w-4" />
                             View Balance
                           </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => handleSendEmail(sale.order_id, e)}
+                          disabled={sendingEmailOrderId === sale.order_id}
+                        >
+                          {sendingEmailOrderId === sale.order_id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mail className="mr-2 h-4 w-4" />
+                          )}
+                          Send Email
+                        </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

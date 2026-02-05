@@ -47,6 +47,7 @@ import { format, addDays } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { useQueryClient } from "@tanstack/react-query";
 import { createNotification } from "@/hooks/useNotifications";
+import { useEmail } from "@/hooks/useEmail";
 
 // Service products that don't require inventory (digital products)
 const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
@@ -95,6 +96,7 @@ export const CreateDispatchDialog = ({
 }: CreateDispatchDialogProps) => {
   const queryClient = useQueryClient();
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const { sendDispatchEmail } = useEmail();
   
   const [step, setStep] = useState<"scan" | "details">("scan");
   const [serialInput, setSerialInput] = useState("");
@@ -450,7 +452,7 @@ export const CreateDispatchDialog = ({
         { order_id: order.order_id, devices_count: serialNumbers.length }
       );
 
-      // Success message based on product type
+    // Success message based on product type
       if (hasOnlyServiceProducts) {
         toast.success(`Service activated for order ${order.order_id}!`);
       } else if (serviceProducts.length > 0) {
@@ -458,7 +460,20 @@ export const CreateDispatchDialog = ({
       } else {
         toast.success(`Dispatch completed! ${serialNumbers.length} devices dispatched.`);
       }
-      onOpenChange(false);
+
+    // Send dispatch email automatically (non-blocking)
+    const productNames = productsToDispatch.map(p => p.product_name).join(", ");
+    const totalQty = productsToDispatch.reduce((sum, p) => sum + p.required_qty, 0);
+    
+    sendDispatchEmail(order.order_id, {
+      dispatchDate: format(new Date(dispatchDate), "dd/MM/yyyy"),
+      serialNumbers,
+      productName: productNames,
+      totalQuantity: totalQty,
+    }).catch(emailError => {
+      console.error("Failed to send dispatch email:", emailError);
+    });
+
       onOpenChange(false);
     } catch (error: any) {
       toast.error(`Failed to dispatch: ${error.message}`);
