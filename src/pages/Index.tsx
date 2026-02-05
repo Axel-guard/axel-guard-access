@@ -47,12 +47,15 @@ const Index = () => {
     );
   }
 
+  // Get current month name for display
+  const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
   return (
     <div className="space-y-8">
       {/* Page Title */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard Overview</h1>
-        <p className="text-muted-foreground">Current Month Sales Summary</p>
+        <h1 className="text-3xl font-bold text-foreground">Current Month Dashboard</h1>
+        <p className="text-muted-foreground">{currentMonthName} Summary</p>
       </div>
 
       {/* Stats Grid */}
