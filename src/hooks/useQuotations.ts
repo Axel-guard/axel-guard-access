@@ -7,7 +7,9 @@ export interface QuotationItem {
   quotation_id?: string;
   product_code: string;
   product_name: string;
-  hsn_sac: string;
+  hsn_sac?: string; // Legacy field - kept for backward compatibility
+  description: string;
+  unit: string;
   quantity: number | string;
   unit_price: number | string;
   amount: number;

@@ -1,247 +1,264 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { Quotation, QuotationItem } from "@/hooks/useQuotations";
-import { numberToWords } from "@/lib/numberToWords";
-import { format } from "date-fns";
-
-export const generateQuotationPDF = (
-  quotation: Quotation,
-  items: QuotationItem[]
-) => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  // Colors
-  const primaryColor: [number, number, number] = [79, 70, 229]; // Indigo
-  const textColor: [number, number, number] = [31, 41, 55];
-  const mutedColor: [number, number, number] = [107, 114, 128];
-
-  // Header background
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 45, "F");
-
-  // Company Name
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont("helvetica", "bold");
-  doc.text("AXELGUARD", 14, 20);
-
-  // Company Tagline
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("GPS Tracking Solutions", 14, 28);
-
-  // Contact Info (Right side)
-  doc.setFontSize(9);
-  doc.text("Phone: +91 9876543210", pageWidth - 14, 15, { align: "right" });
-  doc.text("Email: info@axel-guard.com", pageWidth - 14, 21, { align: "right" });
-  doc.text("GSTIN: 27AABCT1332D1ZT", pageWidth - 14, 27, { align: "right" });
-  doc.text("Maharashtra, India", pageWidth - 14, 33, { align: "right" });
-
-  // Title
-  doc.setTextColor(...textColor);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("QUOTATION / ESTIMATE", pageWidth / 2, 58, { align: "center" });
-
-  // Quotation Info Box
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(pageWidth - 70, 65, 56, 22, 2, 2);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("Quotation No:", pageWidth - 66, 73);
-  doc.text("Date:", pageWidth - 66, 81);
-  doc.setFont("helvetica", "normal");
-  doc.text(quotation.quotation_no, pageWidth - 30, 73);
-  doc.text(
-    format(new Date(quotation.quotation_date), "dd/MM/yyyy"),
-    pageWidth - 30,
-    81
-  );
-
-  // Customer Details Box
-  doc.setFillColor(249, 250, 251);
-  doc.roundedRect(14, 65, 100, 35, 2, 2, "F");
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...primaryColor);
-  doc.text("BILL TO:", 18, 73);
-  doc.setTextColor(...textColor);
-  doc.setFont("helvetica", "bold");
-  doc.text(quotation.customer_name || "-", 18, 81);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(...mutedColor);
-  if (quotation.company_name) {
-    doc.text(quotation.company_name, 18, 87);
-  }
-  if (quotation.address) {
-    const addressLines = doc.splitTextToSize(quotation.address, 90);
-    doc.text(addressLines, 18, quotation.company_name ? 93 : 87);
-  }
-
-  // Customer contact on right side of box
-  doc.setTextColor(...textColor);
-  if (quotation.mobile) {
-    doc.text(`Mobile: ${quotation.mobile}`, 18, 97);
-  }
-  if (quotation.gst_number) {
-    doc.text(`GSTIN: ${quotation.gst_number}`, 70, 97);
-  }
-
-  // Items Table
-  const tableData = items.map((item, index) => [
-    (index + 1).toString(),
-    item.product_name,
-    item.hsn_sac || "-",
-    item.quantity.toString(),
-    `₹${item.unit_price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-    `₹${item.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-  ]);
-
-  autoTable(doc, {
-    startY: 105,
-    head: [["#", "Product Description", "HSN/SAC", "Qty", "Rate", "Amount"]],
-    body: tableData,
-    theme: "striped",
-    headStyles: {
-      fillColor: primaryColor,
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 9,
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: textColor,
-    },
-    columnStyles: {
-      0: { cellWidth: 12, halign: "center" },
-      1: { cellWidth: "auto" },
-      2: { cellWidth: 25, halign: "center" },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 30, halign: "right" },
-      5: { cellWidth: 35, halign: "right" },
-    },
-    alternateRowStyles: {
-      fillColor: [249, 250, 251],
-    },
-  });
-
-  // Get the Y position after table
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  // Summary Section
-  const summaryX = pageWidth - 80;
-  let summaryY = finalY;
-
-  doc.setFillColor(249, 250, 251);
-  doc.roundedRect(summaryX - 5, summaryY - 5, 71, 60, 2, 2, "F");
-
-  doc.setFontSize(9);
-  doc.setTextColor(...mutedColor);
-
-  // Subtotal
-  doc.text("Subtotal:", summaryX, summaryY);
-  doc.setTextColor(...textColor);
-  doc.text(
-    `₹${quotation.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-    pageWidth - 14,
-    summaryY,
-    { align: "right" }
-  );
-  summaryY += 7;
-
-  // GST
-  if (quotation.apply_gst) {
-    doc.setTextColor(...mutedColor);
-    doc.text("GST (18%):", summaryX, summaryY);
-    doc.setTextColor(...textColor);
-    doc.text(
-      `₹${quotation.gst_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      pageWidth - 14,
-      summaryY,
-      { align: "right" }
-    );
-    summaryY += 7;
-  }
-
-  // Courier
-  if (quotation.courier_charge > 0) {
-    doc.setTextColor(...mutedColor);
-    doc.text(`Courier (${quotation.courier_type || "Standard"}):`, summaryX, summaryY);
-    doc.setTextColor(...textColor);
-    doc.text(
-      `₹${quotation.courier_charge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-      pageWidth - 14,
-      summaryY,
-      { align: "right" }
-    );
-    summaryY += 7;
-
-    if (quotation.apply_courier_gst) {
-      doc.setTextColor(...mutedColor);
-      doc.text("Courier GST (18%):", summaryX, summaryY);
-      doc.setTextColor(...textColor);
-      doc.text(
-        `₹${quotation.courier_gst_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        pageWidth - 14,
-        summaryY,
-        { align: "right" }
-      );
-      summaryY += 7;
-    }
-  }
-
-  // Grand Total
-  doc.setDrawColor(...primaryColor);
-  doc.line(summaryX - 2, summaryY, pageWidth - 12, summaryY);
-  summaryY += 6;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...primaryColor);
-  doc.text("Grand Total:", summaryX, summaryY);
-  doc.text(
-    `₹${quotation.grand_total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-    pageWidth - 14,
-    summaryY,
-    { align: "right" }
-  );
-
-  // Amount in Words
-  const amountWords = numberToWords(quotation.grand_total);
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(9);
-  doc.setTextColor(...mutedColor);
-  doc.text(`Amount in Words: ${amountWords}`, 14, summaryY + 15);
-
-  // Bank Details
-  const bankY = summaryY + 30;
-  doc.setFillColor(...primaryColor);
-  doc.setTextColor(255, 255, 255);
-  doc.roundedRect(14, bankY, 85, 7, 1, 1, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("BANK DETAILS", 18, bankY + 5);
-
-  doc.setTextColor(...textColor);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("Bank: IDFC First Bank", 14, bankY + 14);
-  doc.text("Account No: 10XXXXXXXXXX", 14, bankY + 20);
-  doc.text("IFSC: IDFB0XXXXXX", 14, bankY + 26);
-  doc.text("Account Name: AxelGuard Technologies", 14, bankY + 32);
-
-  // Footer
-  const footerY = doc.internal.pageSize.getHeight() - 20;
-  doc.setDrawColor(229, 231, 235);
-  doc.line(14, footerY - 5, pageWidth - 14, footerY - 5);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(...primaryColor);
-  doc.text("Thank you for doing business with us!", pageWidth / 2, footerY, {
-    align: "center",
-  });
-
-  return doc;
-};
+ import jsPDF from "jspdf";
+ import autoTable from "jspdf-autotable";
+ import { Quotation, QuotationItem } from "@/hooks/useQuotations";
+ import { numberToWords } from "@/lib/numberToWords";
+ import { format } from "date-fns";
+ 
+ export const generateQuotationPDF = (
+   quotation: Quotation,
+   items: QuotationItem[]
+ ) => {
+   const doc = new jsPDF();
+   const pageWidth = doc.internal.pageSize.getWidth();
+   const pageHeight = doc.internal.pageSize.getHeight();
+ 
+   // Colors
+   const primaryRed: [number, number, number] = [220, 38, 38]; // Red-600
+   const textColor: [number, number, number] = [17, 24, 39];
+   const mutedColor: [number, number, number] = [75, 85, 99];
+   const lightGray: [number, number, number] = [249, 250, 251];
+ 
+   // Top Header Bar
+   doc.setFillColor(248, 248, 248);
+   doc.rect(0, 0, pageWidth, 25, "F");
+ 
+   // Logo placeholder
+   doc.setFillColor(...primaryRed);
+   doc.roundedRect(10, 5, 35, 15, 2, 2, "F");
+   doc.setTextColor(255, 255, 255);
+   doc.setFontSize(10);
+   doc.setFont("helvetica", "bold");
+   doc.text("AxelGuard", 14, 14);
+ 
+   // Contact Info in header
+   doc.setTextColor(...mutedColor);
+   doc.setFontSize(9);
+   doc.setFont("helvetica", "normal");
+   doc.text("+91 8755311835", 55, 10);
+   doc.text("info@axel-guard.com", 95, 10);
+   doc.text("Office No.210 Second Floor", pageWidth - 14, 8, { align: "right" });
+   doc.text("PC Chamber Sector 66 Noida,", pageWidth - 14, 13, { align: "right" });
+   doc.text("Uttar Pradesh - 201301", pageWidth - 14, 18, { align: "right" });
+ 
+   // Company Name Banner (Red)
+   doc.setFillColor(...primaryRed);
+   doc.rect(0, 25, pageWidth, 20, "F");
+   doc.setTextColor(255, 255, 255);
+   doc.setFontSize(16);
+   doc.setFont("helvetica", "bold");
+   doc.text("AxelGuard Technologies", 14, 37);
+ 
+   // GSTIN and State
+   doc.setTextColor(...textColor);
+   doc.setFontSize(9);
+   doc.setFont("helvetica", "normal");
+   doc.text("GSTIN: 09FSEPP6050C1ZQ", 14, 52);
+   doc.text("State: 09-Uttar Pradesh", 14, 58);
+ 
+   // Estimate Title
+   doc.setFontSize(28);
+   doc.setFont("helvetica", "bold");
+   doc.text("Estimate", pageWidth - 14, 55, { align: "right" });
+ 
+   // Estimate No & Date
+   doc.setFontSize(10);
+   doc.setFont("helvetica", "normal");
+   doc.setTextColor(...mutedColor);
+   doc.text("Estimate No.:", pageWidth - 60, 65);
+   doc.text("Date:", pageWidth - 60, 72);
+   doc.setTextColor(...textColor);
+   doc.setFont("helvetica", "bold");
+   doc.text(quotation.quotation_no, pageWidth - 14, 65, { align: "right" });
+   doc.text(format(new Date(quotation.quotation_date), "dd/MM/yyyy"), pageWidth - 14, 72, { align: "right" });
+ 
+   // Estimate For Section
+   doc.setTextColor(...primaryRed);
+   doc.setFontSize(11);
+   doc.setFont("helvetica", "bold");
+   doc.text("Estimate For:", 14, 70);
+ 
+   doc.setTextColor(...textColor);
+   doc.setFontSize(14);
+   doc.setFont("helvetica", "bold");
+   doc.text(quotation.customer_name || "-", 14, 78);
+ 
+   doc.setFontSize(9);
+   doc.setFont("helvetica", "normal");
+   if (quotation.mobile) {
+     doc.text(`Contact No.: ${quotation.mobile}`, 14, 85);
+   }
+ 
+   // Calculate total quantity
+   const totalQuantity = items.reduce((sum, item) => {
+     const qty = typeof item.quantity === "string" ? parseFloat(item.quantity) || 0 : item.quantity;
+     return sum + qty;
+   }, 0);
+ 
+   // Items Table - Build table body with descriptions
+   const tableBody: any[][] = [];
+   items.forEach((item, index) => {
+     tableBody.push([
+       (index + 1).toString(),
+       item.product_name,
+       item.quantity.toString(),
+       item.unit || "Pcs",
+       `Rs ${Number(item.unit_price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+       `Rs ${item.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+     ]);
+ 
+     // Description row if exists
+     if (item.description && item.description.trim()) {
+       tableBody.push([
+         "",
+         { content: item.description, styles: { fontSize: 8, textColor: mutedColor, fontStyle: "italic" } },
+         "",
+         "",
+         "",
+         "",
+       ]);
+     }
+   });
+ 
+   // Add Total row
+   tableBody.push([
+     { content: "Total", styles: { fontStyle: "bold", fillColor: lightGray } },
+     { content: "", styles: { fillColor: lightGray } },
+     { content: totalQuantity.toString(), styles: { fontStyle: "bold", fillColor: lightGray, halign: "center" } },
+     { content: "", styles: { fillColor: lightGray } },
+     { content: "", styles: { fillColor: lightGray } },
+     { content: `Rs ${quotation.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, styles: { fontStyle: "bold", fillColor: lightGray } },
+   ]);
+ 
+   autoTable(doc, {
+     startY: 95,
+     head: [["#", "Item name", "Quantity", "Unit", "Price/ Unit", "Amount"]],
+     body: tableBody,
+     theme: "striped",
+     headStyles: {
+       fillColor: primaryRed,
+       textColor: [255, 255, 255],
+       fontStyle: "bold",
+       fontSize: 10,
+     },
+     bodyStyles: {
+       fontSize: 9,
+       textColor: textColor,
+     },
+     columnStyles: {
+       0: { cellWidth: 15, halign: "center" },
+       1: { cellWidth: "auto", halign: "left" },
+       2: { cellWidth: 22, halign: "center" },
+       3: { cellWidth: 20, halign: "center" },
+       4: { cellWidth: 30, halign: "right" },
+       5: { cellWidth: 30, halign: "right" },
+     },
+     alternateRowStyles: {
+       fillColor: [255, 255, 255],
+     },
+   });
+ 
+   // Get the Y position after table
+   let finalY = (doc as any).lastAutoTable.finalY + 8;
+ 
+   // Summary Section (Right side)
+   const summaryX = pageWidth - 75;
+ 
+   // Sub Total
+   doc.setFontSize(9);
+   doc.setTextColor(...mutedColor);
+   doc.text("Sub Total", summaryX, finalY);
+   doc.setTextColor(...textColor);
+   doc.text(`Rs ${quotation.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
+   finalY += 7;
+ 
+   // Courier if applicable
+   if (quotation.courier_charge > 0) {
+     doc.setTextColor(...mutedColor);
+     doc.text(quotation.courier_type || "Courier", summaryX, finalY);
+     doc.setTextColor(...textColor);
+     doc.text(`Rs ${quotation.courier_charge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
+     finalY += 7;
+   }
+ 
+   // GST if applicable
+   if (quotation.apply_gst) {
+     const totalGst = quotation.gst_amount + (quotation.courier_gst_amount || 0);
+     doc.setTextColor(...mutedColor);
+     doc.text("GST (18%)", summaryX, finalY);
+     doc.setTextColor(...textColor);
+     doc.text(`Rs ${totalGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
+     finalY += 7;
+   }
+ 
+   // Total (Red background)
+   doc.setFillColor(...primaryRed);
+   doc.rect(summaryX - 5, finalY - 4, 70, 10, "F");
+   doc.setTextColor(255, 255, 255);
+   doc.setFont("helvetica", "bold");
+   doc.setFontSize(10);
+   doc.text("Total", summaryX, finalY + 3);
+   doc.text(`Rs ${quotation.grand_total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY + 3, { align: "right" });
+   finalY += 20;
+ 
+   // Bank Details Section (Left side)
+   const bankY = finalY - 30;
+   doc.setFillColor(...lightGray);
+   doc.roundedRect(14, bankY, 80, 35, 2, 2, "F");
+ 
+   doc.setTextColor(...textColor);
+   doc.setFontSize(10);
+   doc.setFont("helvetica", "bold");
+   doc.text("Pay To:", 18, bankY + 8);
+ 
+   doc.setFontSize(8);
+   doc.setFont("helvetica", "normal");
+   doc.text("Bank Name : IDFC FIRST BANK LTD, NOIDA", 18, bankY + 15);
+   doc.text("Bank Account No. : 10188344828", 18, bankY + 21);
+   doc.text("Bank IFSC code : IDFB0020158", 18, bankY + 27);
+   doc.text("Account holder's name : AxelGuard Tech", 18, bankY + 33);
+ 
+   // Amount in Words Section
+   finalY = Math.max(finalY, bankY + 45);
+   doc.setTextColor(...primaryRed);
+   doc.setFontSize(12);
+   doc.setFont("helvetica", "bold");
+   doc.text("Estimate Amount In Words", 14, finalY);
+ 
+   const amountWords = numberToWords(quotation.grand_total);
+   doc.setTextColor(...textColor);
+   doc.setFontSize(9);
+   doc.setFont("helvetica", "normal");
+   doc.text(amountWords, 14, finalY + 8);
+   finalY += 20;
+ 
+   // Terms and Conditions
+   doc.setTextColor(...primaryRed);
+   doc.setFontSize(12);
+   doc.setFont("helvetica", "bold");
+   doc.text("Terms And Conditions", 14, finalY);
+ 
+   doc.setTextColor(...textColor);
+   doc.setFontSize(9);
+   doc.setFont("helvetica", "normal");
+   doc.text("Thanks for doing business with us!", 14, finalY + 8);
+   finalY += 25;
+ 
+   // Authorized Signatory Section
+   doc.setTextColor(...mutedColor);
+   doc.text("For : AxelGuard Technologies", 14, finalY);
+ 
+   // Signature line
+   doc.setDrawColor(...mutedColor);
+   doc.line(14, finalY + 20, 70, finalY + 20);
+ 
+   doc.setTextColor(...textColor);
+   doc.setFontSize(10);
+   doc.setFont("helvetica", "bold");
+   doc.text("Authorized Signatory", 14, finalY + 27);
+ 
+   // Bottom red bar
+   doc.setFillColor(...primaryRed);
+   doc.rect(0, pageHeight - 8, pageWidth, 8, "F");
+ 
+   return doc;
+ };

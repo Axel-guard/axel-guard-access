@@ -43,6 +43,7 @@ import {
   useQuotationWithItems,
   useConvertToSale,
   useDeleteQuotation,
+  Quotation,
 } from "@/hooks/useQuotations";
 import { generateQuotationPDF } from "./QuotationPDF";
 import { useNavigate } from "react-router-dom";
@@ -81,7 +82,18 @@ export const QuotationsList = () => {
     // Wait for data to load then download
     setTimeout(() => {
       if (selectedQuotation) {
-        const doc = generateQuotationPDF(selectedQuotation, selectedQuotation.items || []);
+        // Map DB items to QuotationItem interface with backward compatibility
+        const mappedItems = (selectedQuotation.items || []).map((item: any) => ({
+          ...item,
+          description: item.description || "",
+          unit: item.unit || "Pcs",
+        }));
+        // Cast quotation to expected type with mapped items
+        const quotationWithItems = {
+          ...selectedQuotation,
+          items: mappedItems,
+        } as Quotation;
+        const doc = generateQuotationPDF(quotationWithItems, mappedItems);
         doc.save(`Quotation-${selectedQuotation.quotation_no}.pdf`);
       }
     }, 500);
