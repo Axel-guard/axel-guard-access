@@ -10,12 +10,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Eye, Truck } from "lucide-react";
+import { Eye, Truck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Sale, SaleItem } from "@/hooks/useSales";
 import { CreateDispatchDialog } from "./CreateDispatchDialog";
 import { ViewDispatchDialog } from "./ViewDispatchDialog";
+import { DeleteDispatchDialog } from "./DeleteDispatchDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Shipment {
   id: string;
@@ -35,10 +38,14 @@ interface DispatchOrdersTableProps {
 }
 
 export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTableProps) => {
+  const { isAdmin, isMasterAdmin } = useAuth();
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Sale | null>(null);
   const [orderItems, setOrderItems] = useState<SaleItem[]>([]);
+
+  const canDelete = isAdmin || isMasterAdmin;
 
   // Calculate dispatch status for each order
   const getOrderDispatchInfo = (orderId: string) => {
@@ -81,6 +88,17 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
   const handleViewClick = (order: Sale) => {
     setSelectedOrder(order);
     setViewDialogOpen(true);
+  };
+
+  const handleDeleteClick = (order: Sale) => {
+    if (!canDelete) {
+      toast.error("Permission denied", {
+        description: "Only Admin or Master Admin can delete dispatches",
+      });
+      return;
+    }
+    setSelectedOrder(order);
+    setDeleteDialogOpen(true);
   };
 
   if (orders.length === 0) {
@@ -147,26 +165,40 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
                       {getStatusBadge(dispatchInfo.status)}
                     </TableCell>
                     <TableCell className="text-center">
-                      {dispatchInfo.status === "Pending" ? (
-                        <Button 
-                          size="sm" 
-                          className="gap-1 bg-primary hover:bg-primary/90"
-                          onClick={() => handleDispatchClick(order)}
-                        >
-                          <Truck className="h-3 w-3" />
-                          Dispatch
-                        </Button>
-                      ) : (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
-                          onClick={() => handleViewClick(order)}
-                        >
-                          <Eye className="h-3 w-3" />
-                          View
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        {dispatchInfo.status === "Pending" ? (
+                          <Button 
+                            size="sm" 
+                            className="gap-1 bg-primary hover:bg-primary/90"
+                            onClick={() => handleDispatchClick(order)}
+                          >
+                            <Truck className="h-3 w-3" />
+                            Dispatch
+                          </Button>
+                        ) : (
+                          <>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
+                              onClick={() => handleViewClick(order)}
+                            >
+                              <Eye className="h-3 w-3" />
+                              View
+                            </Button>
+                            {canDelete && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-destructive border-destructive hover:bg-destructive hover:text-white"
+                                onClick={() => handleDeleteClick(order)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -187,6 +219,13 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
       <ViewDispatchDialog
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
+        order={selectedOrder}
+        shipments={shipments}
+      />
+
+      <DeleteDispatchDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
         order={selectedOrder}
         shipments={shipments}
       />
