@@ -1,6 +1,6 @@
  import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
- import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -189,31 +189,31 @@
      // Get email template
      const { subject, body } = getEmailTemplate(type, emailData);
  
-     // Initialize SMTP client
-     const client = new SMTPClient({
-       connection: {
-         hostname: Deno.env.get("SMTP_HOST")!,
-         port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
-         tls: true,
-         auth: {
-           username: Deno.env.get("SMTP_USER")!,
-           password: Deno.env.get("SMTP_PASS")!,
-         },
-       },
-     });
- 
      console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
  
-     // Send email
-     await client.send({
-       from: Deno.env.get("SMTP_USER")!,
-       to: customerEmail,
-       cc: [CC_EMAIL],
-       subject,
-       content: body,
-     });
+      // Initialize SMTP client with STARTTLS configuration for Gmail port 587
+      const client = new SMTPClient({
+        connection: {
+          hostname: Deno.env.get("SMTP_HOST") || "smtp.gmail.com",
+          port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
+          tls: true,
+          auth: {
+            username: Deno.env.get("SMTP_USER")!,
+            password: Deno.env.get("SMTP_PASS")!,
+          },
+        },
+      });
  
-     await client.close();
+      // Send email
+      await client.send({
+        from: Deno.env.get("SMTP_USER")!,
+        to: customerEmail,
+        cc: [CC_EMAIL],
+        subject,
+        content: body,
+      });
+
+      await client.close();
  
      console.log(`Email sent successfully for order: ${orderId}`);
  
