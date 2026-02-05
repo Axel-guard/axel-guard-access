@@ -83,14 +83,14 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   const [applyGst, setApplyGst] = useState(false);
   const [courierType, setCourierType] = useState("");
   const [courierCharge, setCourierCharge] = useState(0);
-  const [applyCourierGst, setApplyCourierGst] = useState(false);
 
   // Products
   const [items, setItems] = useState<QuotationItem[]>([
     {
       product_code: "",
       product_name: "",
-      hsn_sac: "",
+      description: "",
+      unit: "Pcs",
       quantity: "",
       unit_price: "",
       amount: 0,
@@ -230,7 +230,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const gstAmount = applyGst ? subtotal * 0.18 : 0;
-  const courierGstAmount = applyCourierGst ? courierCharge * 0.18 : 0;
+  const courierGstAmount = applyGst && courierCharge > 0 ? courierCharge * 0.18 : 0;
   const grandTotal = subtotal + gstAmount + courierCharge + courierGstAmount;
 
   const handleUpdateItem = (
@@ -253,7 +253,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       {
         product_code: "",
         product_name: "",
-        hsn_sac: "",
+        description: "",
+        unit: "Pcs",
         quantity: "",
         unit_price: "",
         amount: 0,
@@ -295,7 +296,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       gst_amount: gstAmount,
       courier_type: courierType,
       courier_charge: courierCharge,
-      apply_courier_gst: applyCourierGst,
+      apply_courier_gst: applyGst && courierCharge > 0,
       courier_gst_amount: courierGstAmount,
       grand_total: grandTotal,
       status: "Draft",
@@ -325,7 +326,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       gst_amount: gstAmount,
       courier_type: courierType,
       courier_charge: courierCharge,
-      apply_courier_gst: applyCourierGst,
+      apply_courier_gst: applyGst && courierCharge > 0,
       courier_gst_amount: courierGstAmount,
       grand_total: grandTotal,
       status: "Draft",
@@ -535,20 +536,24 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
             </div>
 
             {/* GST Toggle */}
-            <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/30">
+            <div className="flex items-center justify-between rounded-lg border p-4 bg-primary/5 border-primary/20">
               <div>
-                <Label className="font-medium">Apply GST (18%)</Label>
+                <Label className="font-medium">GST (18%)</Label>
                 <p className="text-sm text-muted-foreground">
-                  Add 18% GST to subtotal
+                  Apply 18% GST to products & courier
                 </p>
               </div>
-              <Switch checked={applyGst} onCheckedChange={setApplyGst} />
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-medium ${!applyGst ? 'text-primary' : 'text-muted-foreground'}`}>OFF</span>
+                <Switch checked={applyGst} onCheckedChange={setApplyGst} />
+                <span className={`text-sm font-medium ${applyGst ? 'text-primary' : 'text-muted-foreground'}`}>ON</span>
+              </div>
             </div>
 
             {/* Courier Section */}
             <div className="space-y-3 rounded-lg border p-4">
               <Label className="font-medium">Courier Charges</Label>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 items-center">
                 <Select value={courierType} onValueChange={setCourierType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select courier type" />
@@ -571,14 +576,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                   placeholder="Courier charge (₹)"
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={applyCourierGst}
-                  onCheckedChange={setApplyCourierGst}
-                  disabled={courierCharge <= 0}
-                />
-                <Label className="text-sm">Apply GST on courier (18%)</Label>
-              </div>
+              {applyGst && courierCharge > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  18% GST will be applied on courier charges
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -607,10 +609,10 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
               <thead className="bg-muted/50 text-sm">
                 <tr>
                   <th className="p-3 text-center font-medium">#</th>
-                  <th className="p-3 text-left font-medium">Product</th>
-                  <th className="p-3 text-left font-medium">HSN/SAC</th>
-                  <th className="p-3 text-center font-medium">Qty</th>
-                  <th className="p-3 text-right font-medium">Unit Price</th>
+                  <th className="p-3 text-left font-medium">Item Name</th>
+                  <th className="p-3 text-center font-medium">Quantity</th>
+                  <th className="p-3 text-center font-medium">Unit</th>
+                  <th className="p-3 text-right font-medium">Price/Unit</th>
                   <th className="p-3 text-right font-medium">Amount</th>
                   <th className="p-3 text-center font-medium">Action</th>
                 </tr>
@@ -644,23 +646,25 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
               </span>
             </div>
             {applyGst && (
-              <div className="flex w-full max-w-xs justify-between text-sm">
+              <>
+              <div className="flex w-full max-w-xs justify-between text-sm text-primary">
                 <span className="text-muted-foreground">GST (18%):</span>
                 <span className="font-medium">
                   ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
+              </>
             )}
             {courierCharge > 0 && (
               <>
                 <div className="flex w-full max-w-xs justify-between text-sm">
-                  <span className="text-muted-foreground">Courier Charge:</span>
+                  <span className="text-muted-foreground">{courierType || "Courier"}:</span>
                   <span className="font-medium">
                     ₹{courierCharge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                {applyCourierGst && (
-                  <div className="flex w-full max-w-xs justify-between text-sm">
+                {applyGst && (
+                  <div className="flex w-full max-w-xs justify-between text-sm text-primary">
                     <span className="text-muted-foreground">Courier GST (18%):</span>
                     <span className="font-medium">
                       ₹{courierGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}

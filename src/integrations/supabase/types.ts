@@ -409,34 +409,40 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          description: string | null
           hsn_sac: string | null
           id: string
           product_code: string
           product_name: string
           quantity: number
           quotation_id: string
+          unit: string | null
           unit_price: number
         }
         Insert: {
           amount?: number
           created_at?: string
+          description?: string | null
           hsn_sac?: string | null
           id?: string
           product_code: string
           product_name: string
           quantity?: number
           quotation_id: string
+          unit?: string | null
           unit_price?: number
         }
         Update: {
           amount?: number
           created_at?: string
+          description?: string | null
           hsn_sac?: string | null
           id?: string
           product_code?: string
           product_name?: string
           quantity?: number
           quotation_id?: string
+          unit?: string | null
           unit_price?: number
         }
         Relationships: [
