@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { 
   Truck, 
   Info, 
@@ -14,11 +15,14 @@ import {
   CheckCircle2,
   MapPin,
   Calendar,
-  Box
+  Box,
+  Mail,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import type { Sale } from "@/hooks/useSales";
+import { useEmail } from "@/hooks/useEmail";
 
 interface Shipment {
   id: string;
@@ -54,6 +58,7 @@ export const ViewDispatchDialog = ({
 }: ViewDispatchDialogProps) => {
   const [dispatchedDevices, setDispatchedDevices] = useState<DispatchedDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { sendEmail, isLoading: isSendingEmail } = useEmail();
 
   // Fetch dispatched devices for this order
   useEffect(() => {
@@ -82,6 +87,12 @@ export const ViewDispatchDialog = ({
 
   if (!order) return null;
 
+  const handleSendEmail = async () => {
+    if (order) {
+      await sendEmail("dispatch", order.order_id);
+    }
+  };
+
   // Get shipments for this order
   const orderShipments = shipments.filter(
     s => s.order_id === order.order_id || s.order_id === order.order_id.replace("ORD", "")
@@ -104,6 +115,20 @@ export const ViewDispatchDialog = ({
             <Truck className="h-6 w-6 text-success" />
             Dispatch Details
             <Badge className="bg-success/10 text-success border-success/20 ml-2">Completed</Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSendEmail}
+              disabled={isSendingEmail}
+              className="gap-2 ml-auto"
+            >
+              {isSendingEmail ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              Send Mail
+            </Button>
           </DialogTitle>
         </DialogHeader>
 

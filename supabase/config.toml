@@ -2,3 +2,6 @@ project_id = "mejmdaxuokcfqzuodhnf"
 
 [functions.setup-master-admin]
 verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
