@@ -281,6 +281,20 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       return;
     }
 
+    // Get current user for created_by
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get user role
+    let createdRole = "user";
+    if (user?.id) {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      createdRole = roleData?.role || "user";
+    }
+
     const quotationData = {
       quotation_no: quotationNo,
       quotation_date: new Date(quotationDate).toISOString(),
@@ -299,7 +313,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       apply_courier_gst: false,
       courier_gst_amount: 0,
       grand_total: grandTotal,
-      status: "Draft",
+      status: "Pending Approval",
+      created_by: user?.id,
+      created_role: createdRole,
     };
 
     const validItems = items.filter((i) => i.product_code);

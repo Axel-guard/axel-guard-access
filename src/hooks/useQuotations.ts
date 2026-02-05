@@ -133,22 +133,23 @@ export const useCreateQuotation = () => {
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["next-quotation-no"] });
       
-      // Send notification to admins
+      // Send notification to admins - quotation needs approval
       createNotification(
-        "New Quotation Created",
-        `Quotation #${newQuotation.quotation_no} created for ${newQuotation.customer_name}. Total: ₹${newQuotation.grand_total.toLocaleString()}`,
+        "New Quotation Awaiting Approval",
+        `Quotation #${newQuotation.quotation_no} created for ${newQuotation.customer_name}. Total: ₹${newQuotation.grand_total.toLocaleString()}. Requires Master Admin approval.`,
         "quotation",
         {
           quotation_id: newQuotation.id,
           quotation_no: newQuotation.quotation_no,
           customer_name: newQuotation.customer_name,
           total_amount: newQuotation.grand_total,
+          event: "quotation_pending_approval",
         }
       );
       
       toast({
         title: "Quotation Created",
-        description: "Quotation has been saved successfully.",
+        description: "Quotation saved and submitted for approval.",
       });
     },
     onError: (error: any) => {
