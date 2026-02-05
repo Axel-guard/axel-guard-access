@@ -1,6 +1,5 @@
  import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import nodemailer from "https://esm.sh/nodemailer@6.9.10";
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -191,25 +190,38 @@ import nodemailer from "https://esm.sh/nodemailer@6.9.10";
  
      console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
  
-      // Initialize Nodemailer transporter
-      const transporter = nodemailer.createTransport({
-        host: Deno.env.get("SMTP_HOST") || "smtp.gmail.com",
-        port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
-        secure: false, // Use STARTTLS
-        auth: {
-          user: Deno.env.get("SMTP_USER")!,
-          pass: Deno.env.get("SMTP_PASS")!,
+      // Use Resend API for reliable email delivery
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      
+      if (!resendApiKey) {
+        throw new Error("RESEND_API_KEY is not configured");
+      }
+
+      // For production, you need to verify your domain at resend.com/domains
+      // For testing, Resend only allows sending to the account owner's email
+      const fromEmail = "AxelGuard <onboarding@resend.dev>";
+
+      const resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [customerEmail],
+          cc: [CC_EMAIL],
+          subject,
+          text: body,
+        }),
       });
- 
-      // Send email
-      await transporter.sendMail({
-        from: Deno.env.get("SMTP_USER")!,
-        to: customerEmail,
-        cc: [CC_EMAIL],
-        subject,
-        text: body,
-      });
+
+      const resendResult = await resendResponse.json();
+
+      if (!resendResponse.ok) {
+        console.error("Resend API error:", resendResult);
+        throw new Error(resendResult.message || "Failed to send email");
+      }
 
      console.log(`Email sent successfully for order: ${orderId}`);
  
