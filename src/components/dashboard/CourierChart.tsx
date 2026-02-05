@@ -33,9 +33,12 @@ export const CourierChart = () => {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[image:var(--gradient-warning)] text-white">
             <Truck className="h-4 w-4" />
           </div>
-          <CardTitle className="text-base font-semibold text-foreground">
-            Shipments by Courier
-          </CardTitle>
+          <div>
+            <CardTitle className="text-base font-semibold text-foreground">
+              Shipments by Courier
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Current month</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

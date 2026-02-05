@@ -32,9 +32,12 @@ export const InventoryStatusChart = () => {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[image:var(--gradient-success)] text-white">
             <Package className="h-4 w-4" />
           </div>
-          <CardTitle className="text-base font-semibold text-foreground">
-            Inventory Status
-          </CardTitle>
+          <div>
+            <CardTitle className="text-base font-semibold text-foreground">
+              Inventory Status
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Live data (all time)</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

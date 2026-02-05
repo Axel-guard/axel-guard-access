@@ -36,9 +36,16 @@ export const useShipmentsSummary = () => {
   return useQuery({
     queryKey: ["shipments-summary"],
     queryFn: async () => {
+      // Get current month boundaries
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
       const { data, error } = await supabase
         .from("shipments")
-        .select("*");
+        .select("*")
+        .gte("created_at", startOfMonth.toISOString())
+        .lt("created_at", endOfMonth.toISOString());
 
       if (error) throw error;
       
