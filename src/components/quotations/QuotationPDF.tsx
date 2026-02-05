@@ -174,19 +174,18 @@
    // Courier if applicable
    if (quotation.courier_charge > 0) {
      doc.setTextColor(...mutedColor);
-     doc.text(quotation.courier_type || "Courier", summaryX, finalY);
+    doc.text(quotation.courier_type || "Courier Charges", summaryX, finalY);
      doc.setTextColor(...textColor);
      doc.text(`Rs ${quotation.courier_charge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
      finalY += 7;
    }
  
-   // GST if applicable
+  // Single GST on (Subtotal + Courier)
    if (quotation.apply_gst) {
-     const totalGst = quotation.gst_amount + (quotation.courier_gst_amount || 0);
      doc.setTextColor(...mutedColor);
      doc.text("GST (18%)", summaryX, finalY);
      doc.setTextColor(...textColor);
-     doc.text(`Rs ${totalGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
+    doc.text(`Rs ${quotation.gst_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY, { align: "right" });
      finalY += 7;
    }
  

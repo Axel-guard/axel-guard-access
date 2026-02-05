@@ -229,9 +229,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const gstAmount = applyGst ? subtotal * 0.18 : 0;
-  const courierGstAmount = applyGst && courierCharge > 0 ? courierCharge * 0.18 : 0;
-  const grandTotal = subtotal + gstAmount + courierCharge + courierGstAmount;
+  // Single GST on (Subtotal + Courier)
+  const gstAmount = applyGst ? (subtotal + courierCharge) * 0.18 : 0;
+  const grandTotal = subtotal + courierCharge + gstAmount;
 
   const handleUpdateItem = (
     index: number,
@@ -296,8 +296,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       gst_amount: gstAmount,
       courier_type: courierType,
       courier_charge: courierCharge,
-      apply_courier_gst: applyGst && courierCharge > 0,
-      courier_gst_amount: courierGstAmount,
+      apply_courier_gst: false,
+      courier_gst_amount: 0,
       grand_total: grandTotal,
       status: "Draft",
     };
@@ -326,8 +326,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       gst_amount: gstAmount,
       courier_type: courierType,
       courier_charge: courierCharge,
-      apply_courier_gst: applyGst && courierCharge > 0,
-      courier_gst_amount: courierGstAmount,
+      apply_courier_gst: false,
+      courier_gst_amount: 0,
       grand_total: grandTotal,
       status: "Draft",
     };
@@ -645,33 +645,21 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
                 ₹{subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
-            {applyGst && (
-              <>
-              <div className="flex w-full max-w-xs justify-between text-sm text-primary">
-                <span className="text-muted-foreground">GST (18%):</span>
+            {courierCharge > 0 && (
+              <div className="flex w-full max-w-xs justify-between text-sm">
+                <span className="text-muted-foreground">{courierType || "Courier Charges"}:</span>
                 <span className="font-medium">
+                  ₹{courierCharge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            {applyGst && (
+              <div className="flex w-full max-w-xs justify-between text-sm">
+                <span className="text-muted-foreground">GST (18%):</span>
+                <span className="font-medium text-primary">
                   ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
-              </>
-            )}
-            {courierCharge > 0 && (
-              <>
-                <div className="flex w-full max-w-xs justify-between text-sm">
-                  <span className="text-muted-foreground">{courierType || "Courier"}:</span>
-                  <span className="font-medium">
-                    ₹{courierCharge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                {applyGst && (
-                  <div className="flex w-full max-w-xs justify-between text-sm text-primary">
-                    <span className="text-muted-foreground">Courier GST (18%):</span>
-                    <span className="font-medium">
-                      ₹{courierGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )}
-              </>
             )}
             <div className="flex w-full max-w-xs justify-between border-t pt-2">
               <span className="font-semibold">Grand Total:</span>
