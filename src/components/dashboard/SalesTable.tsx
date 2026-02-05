@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEmail } from "@/hooks/useEmail";
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Eye, Edit, Trash2, Receipt } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 import { useSalesWithItems, Sale } from "@/hooks/useSales";
 import { format } from "date-fns";
 import { SaleDetailsDialog } from "@/components/forms/SaleDetailsDialog";
@@ -36,6 +38,8 @@ export const SalesTable = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [deleteCustomerName, setDeleteCustomerName] = useState<string | undefined>();
+  const { sendEmail, isLoading: isSendingEmail } = useEmail();
+  const [sendingOrderId, setSendingOrderId] = useState<string | null>(null);
 
   const getStatus = (sale: Sale): "paid" | "partial" | "pending" => {
     if (Number(sale.balance_amount) === 0) return "paid";
@@ -52,6 +56,12 @@ export const SalesTable = () => {
     setDeleteOrderId(sale.order_id);
     setDeleteCustomerName(sale.customer_name || sale.customer_code);
     setDeleteOpen(true);
+  };
+
+  const handleSendEmail = async (sale: Sale) => {
+    setSendingOrderId(sale.order_id);
+    await sendEmail("sale", sale.order_id);
+    setSendingOrderId(null);
   };
 
   if (isLoading) {
@@ -157,6 +167,18 @@ export const SalesTable = () => {
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete Sale
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="rounded-lg"
+                              onClick={() => handleSendEmail(sale)}
+                              disabled={isSendingEmail && sendingOrderId === sale.order_id}
+                            >
+                              {isSendingEmail && sendingOrderId === sale.order_id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Mail className="mr-2 h-4 w-4" />
+                              )}
+                              Send Mail
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
