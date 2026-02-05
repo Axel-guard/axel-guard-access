@@ -66,7 +66,7 @@ export const SalesTable = () => {
 
   if (isLoading) {
     return (
-      <Card className="border-white/20 bg-card/80 backdrop-blur-xl">
+      <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
         <CardHeader className="pb-2">
           <Skeleton className="h-6 w-48" />
         </CardHeader>
@@ -79,17 +79,17 @@ export const SalesTable = () => {
 
   return (
     <>
-      <Card className="border-white/20 bg-card/80 backdrop-blur-xl shadow-glass">
+      <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--gradient-primary)] text-white">
-              <Receipt className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Receipt className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-foreground">
-                Complete Sale Details
+              <CardTitle className="text-base font-semibold text-foreground">
+                Recent Sales
               </CardTitle>
-              <p className="text-sm text-muted-foreground">Current month transactions</p>
+              <p className="text-xs text-muted-foreground">Current month transactions</p>
             </div>
           </div>
         </CardHeader>
@@ -97,7 +97,7 @@ export const SalesTable = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-white/10 hover:bg-transparent">
+                <TableRow className="border-border/50 hover:bg-transparent">
                   <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Order ID</TableHead>
                   <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Date</TableHead>
                   <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Customer</TableHead>
@@ -113,7 +113,7 @@ export const SalesTable = () => {
                 {sales?.map((sale) => {
                   const status = getStatus(sale);
                   return (
-                    <TableRow key={sale.order_id} className="border-white/10 transition-colors hover:bg-white/5">
+                    <TableRow key={sale.order_id} className="border-border/50 transition-colors hover:bg-muted/50">
                       <TableCell className="font-semibold text-primary">{sale.order_id}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {format(new Date(sale.sale_date), "d/M/yyyy")}
@@ -148,11 +148,11 @@ export const SalesTable = () => {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white/10">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl border-white/20 bg-card/95 backdrop-blur-xl">
+                          <DropdownMenuContent align="end" className="rounded-xl border-border/50 bg-card">
                             <DropdownMenuItem onClick={() => handleView(sale)} className="rounded-lg">
                               <Eye className="mr-2 h-4 w-4" />
                               View Details

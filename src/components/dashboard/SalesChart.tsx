@@ -28,7 +28,7 @@ export const SalesChart = () => {
 
   if (isLoading) {
     return (
-      <Card className="border-white/20 bg-card/80 backdrop-blur-xl">
+      <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
         <CardHeader className="pb-2">
           <Skeleton className="h-6 w-48" />
         </CardHeader>
@@ -40,15 +40,18 @@ export const SalesChart = () => {
   }
 
   return (
-    <Card className="group border-white/20 bg-card/80 backdrop-blur-xl shadow-glass transition-all hover:shadow-lg">
+    <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--gradient-primary)] text-white">
-            <TrendingUp className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <TrendingUp className="h-4 w-4 text-primary" />
           </div>
-          <CardTitle className="text-lg font-semibold text-foreground">
-            Employee Sales
-          </CardTitle>
+          <div>
+            <CardTitle className="text-base font-semibold text-foreground">
+              Sales Trend
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">By employee</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

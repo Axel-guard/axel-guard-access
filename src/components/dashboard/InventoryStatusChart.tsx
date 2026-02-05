@@ -9,7 +9,7 @@ export const InventoryStatusChart = () => {
 
   if (isLoading) {
     return (
-      <Card className="border-white/20 bg-card/80 backdrop-blur-xl">
+      <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
         <CardHeader className="pb-2">
           <Skeleton className="h-5 w-32" />
         </CardHeader>
@@ -26,11 +26,11 @@ export const InventoryStatusChart = () => {
   ];
 
   return (
-    <Card className="group border-white/20 bg-card/80 backdrop-blur-xl shadow-glass transition-all hover:shadow-lg">
+    <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[image:var(--gradient-success)] text-white">
-            <Package className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10">
+            <Package className="h-4 w-4 text-success" />
           </div>
           <div>
             <CardTitle className="text-base font-semibold text-foreground">
