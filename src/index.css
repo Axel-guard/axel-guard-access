@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Compact mode styles */
+.compact .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+}
+
+.compact .p-6 {
+  padding: 1rem;
+}
+
+.compact .gap-6 {
+  gap: 1rem;
+}
+
+.compact .text-2xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 Modern Glassmorphism Theme
