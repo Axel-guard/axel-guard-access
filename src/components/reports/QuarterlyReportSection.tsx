@@ -268,9 +268,13 @@ export const QuarterlyReportSection = () => {
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="name" className="text-xs" />
-                    <YAxis tickFormatter={(val) => formatLakhs(val)} className="text-xs" />
+                    <YAxis yAxisId="left" tickFormatter={(val) => formatLakhs(val)} className="text-xs" />
+                    <YAxis yAxisId="right" orientation="right" className="text-xs" />
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value: number, name: string) => [
+                        name === "revenue" ? formatCurrency(value) : value,
+                        name === "revenue" ? "Revenue" : "Orders"
+                      ]}
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
@@ -281,13 +285,16 @@ export const QuarterlyReportSection = () => {
                     <Line
                       type="monotone"
                       dataKey="revenue"
+                      name="Revenue"
                       stroke="hsl(var(--primary))"
                       strokeWidth={3}
                       dot={{ fill: "hsl(var(--primary))", strokeWidth: 2 }}
+                      yAxisId="left"
                     />
                     <Line
                       type="monotone"
                       dataKey="orders"
+                      name="Orders"
                       stroke="hsl(var(--success))"
                       strokeWidth={2}
                       dot={{ fill: "hsl(var(--success))", strokeWidth: 2 }}
