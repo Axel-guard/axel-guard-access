@@ -3,12 +3,14 @@ import { InventoryReportSection } from "@/components/reports/InventoryReportSect
 import { DispatchReportSection } from "@/components/reports/DispatchReportSection";
 import { QCReportSection } from "@/components/reports/QCReportSection";
 import { SalesReportSection } from "@/components/reports/SalesReportSection";
+import { EmployeePerformanceSection } from "@/components/reports/EmployeePerformanceSection";
+import { QuarterlyReportSection } from "@/components/reports/QuarterlyReportSection";
 import { useSearchParams } from "react-router-dom";
-import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp } from "lucide-react";
+import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar } from "lucide-react";
 
 const ReportsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get("tab") || "inventory";
+  const currentTab = searchParams.get("tab") || "sales";
 
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value });
@@ -29,7 +31,19 @@ const ReportsPage = () => {
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full max-w-lg grid-cols-4 bg-muted/50">
+        <TabsList className="grid w-full max-w-3xl grid-cols-6 bg-muted/50">
+          <TabsTrigger value="sales" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Sales</span>
+          </TabsTrigger>
+          <TabsTrigger value="employee" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Target className="h-4 w-4" />
+            <span className="hidden sm:inline">Employee</span>
+          </TabsTrigger>
+          <TabsTrigger value="quarterly" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Quarterly</span>
+          </TabsTrigger>
           <TabsTrigger value="inventory" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Inventory</span>
@@ -42,11 +56,19 @@ const ReportsPage = () => {
             <ClipboardCheck className="h-4 w-4" />
             <span className="hidden sm:inline">QC</span>
           </TabsTrigger>
-          <TabsTrigger value="sales" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Sales</span>
-          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="sales" className="mt-6">
+          <SalesReportSection />
+        </TabsContent>
+
+        <TabsContent value="employee" className="mt-6">
+          <EmployeePerformanceSection />
+        </TabsContent>
+
+        <TabsContent value="quarterly" className="mt-6">
+          <QuarterlyReportSection />
+        </TabsContent>
 
         <TabsContent value="inventory" className="mt-6">
           <InventoryReportSection />
@@ -58,10 +80,6 @@ const ReportsPage = () => {
 
         <TabsContent value="qc" className="mt-6">
           <QCReportSection />
-        </TabsContent>
-
-        <TabsContent value="sales" className="mt-6">
-          <SalesReportSection />
         </TabsContent>
       </Tabs>
     </div>
