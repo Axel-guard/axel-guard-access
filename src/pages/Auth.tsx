@@ -125,7 +125,7 @@ const Auth = () => {
             <AxelGuardLogo size="xl" showText={false} />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">AxelGuard</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">AxelGuard</CardTitle>
             <CardDescription className="text-muted-foreground mt-1">
               {isSignUp ? "Create your account" : "Sign in to your account"}
             </CardDescription>
