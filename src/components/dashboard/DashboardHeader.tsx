@@ -134,7 +134,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
           </Button>
           
           <div className="hidden items-center gap-3 md:flex lg:hidden">
-            <AxelGuardLogo size="md" />
+            <AxelGuardLogo size="md" showText={false} />
           </div>
         </div>
 

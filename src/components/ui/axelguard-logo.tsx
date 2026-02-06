@@ -3,16 +3,15 @@ import axelguardLogo from "@/assets/axelguard-logo.png";
 
 interface AxelGuardLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
-  variant?: "colored" | "white";
   showText?: boolean;
   className?: string;
 }
 
 const sizeClasses = {
-  sm: "h-8 w-8",
-  md: "h-10 w-10",
-  lg: "h-12 w-12",
-  xl: "h-16 w-16",
+  sm: "h-8",
+  md: "h-10",
+  lg: "h-12",
+  xl: "h-16",
 };
 
 const textSizeClasses = {
@@ -24,7 +23,6 @@ const textSizeClasses = {
 
 export const AxelGuardLogo = ({
   size = "md",
-  variant = "colored",
   showText = true,
   className,
 }: AxelGuardLogoProps) => {
@@ -35,16 +33,14 @@ export const AxelGuardLogo = ({
         alt="AxelGuard"
         className={cn(
           sizeClasses[size],
-          "rounded-xl object-contain shadow-lg",
-          variant === "white" && "brightness-0 invert"
+          "object-contain"
         )}
       />
       {showText && (
         <span
           className={cn(
-            "font-bold",
-            textSizeClasses[size],
-            variant === "white" ? "text-white" : "text-foreground"
+            "font-bold text-foreground",
+            textSizeClasses[size]
           )}
         >
           AxelGuard

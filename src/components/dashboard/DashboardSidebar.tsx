@@ -161,7 +161,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
       >
         {/* Mobile header with close button */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4 lg:hidden">
-          <AxelGuardLogo size="md" />
+<AxelGuardLogo size="lg" />
           <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-muted">
             <X className="h-5 w-5" />
           </Button>
