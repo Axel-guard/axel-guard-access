@@ -4,8 +4,7 @@ import {
   Plus, 
   FileText, 
   LogOut, 
-  Search, 
-  Sparkles,
+  Search,
   ShoppingCart,
   UserPlus,
   Wallet,
@@ -15,6 +14,7 @@ import {
   User,
   Shield
 } from "lucide-react";
+import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -134,10 +134,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
           </Button>
           
           <div className="hidden items-center gap-3 md:flex lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">AxelGuard</span>
+            <AxelGuardLogo size="md" />
           </div>
         </div>
 

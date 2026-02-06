@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, Mail, Lock, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -120,8 +121,8 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-4 pb-6">
-          <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center">
-            <Shield className="h-8 w-8 text-primary" />
+          <div className="mx-auto flex items-center justify-center">
+            <AxelGuardLogo size="xl" showText={false} />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">AxelGuard</CardTitle>

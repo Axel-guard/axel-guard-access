@@ -37,6 +37,13 @@ const Index = () => {
   // Get current month name for display
   const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  // Sort employees by revenue (highest first) and identify top performer
+  const sortedEmployees = summary?.employeeStats
+    ? Object.entries(summary.employeeStats)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.revenue - a.revenue)
+    : [];
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -118,53 +125,59 @@ const Index = () => {
         />
       </div>
 
-      {/* Employee Performance Cards */}
+      {/* Employee Performance Cards - Sorted by revenue */}
       <div>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Employee Performance</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          {summary?.employeeStats &&
-            Object.entries(summary.employeeStats).map(([name, stats]) => (
+          {sortedEmployees.length > 0 ? (
+            sortedEmployees.map((emp, index) => (
               <EmployeePerformanceCard
-                key={name}
-                name={name}
-                initials={name
+                key={emp.name}
+                name={emp.name}
+                initials={emp.name
                   .split(" ")
                   .map((n) => n[0])
                   .join("")}
-                revenue={formatCurrency(stats.revenue)}
-                sales={stats.sales}
-                balance={formatCurrency(stats.balance)}
-                target={500000}
-                color={employeeColors[name] || "blue"}
+                revenue={formatCurrency(emp.revenue)}
+                revenueNum={emp.revenue}
+                sales={emp.sales}
+                balance={formatCurrency(emp.balance)}
+                target={550000}
+                color={employeeColors[emp.name] || "blue"}
+                isTopPerformer={index === 0 && emp.revenue > 0}
+                rank={index + 1}
               />
-            ))}
-          {(!summary?.employeeStats || Object.keys(summary.employeeStats).length === 0) && (
+            ))
+          ) : (
             <>
               <EmployeePerformanceCard
                 name="Akash Parashar"
                 initials="AP"
                 revenue="₹0"
+                revenueNum={0}
                 sales={0}
                 balance="₹0"
-                target={500000}
+                target={550000}
                 color="blue"
               />
               <EmployeePerformanceCard
                 name="Smruti Ranjan Nayak"
                 initials="SN"
                 revenue="₹0"
+                revenueNum={0}
                 sales={0}
                 balance="₹0"
-                target={500000}
+                target={550000}
                 color="emerald"
               />
               <EmployeePerformanceCard
                 name="Mandeep Samal"
                 initials="MS"
                 revenue="₹0"
+                revenueNum={0}
                 sales={0}
                 balance="₹0"
-                target={500000}
+                target={550000}
                 color="amber"
               />
             </>

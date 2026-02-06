@@ -10,7 +10,6 @@ import {
   FileText,
   Settings,
   X,
-  Sparkles,
   ChevronDown,
   ChevronRight,
   Search,
@@ -32,6 +31,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 
 interface DashboardSidebarProps {
   isOpen: boolean;
@@ -161,12 +161,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
       >
         {/* Mobile header with close button */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4 lg:hidden">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">AxelGuard</span>
-          </div>
+          <AxelGuardLogo size="md" />
           <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-muted">
             <X className="h-5 w-5" />
           </Button>
@@ -174,10 +169,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
 
         {/* Desktop header */}
         <div className="hidden h-16 items-center gap-3 border-b border-border px-4 lg:flex">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-foreground">AxelGuard</span>
+          <AxelGuardLogo size="md" />
         </div>
 
         {/* Navigation */}
