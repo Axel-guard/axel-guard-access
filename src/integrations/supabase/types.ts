@@ -856,12 +856,49 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          compact_view: boolean
+          created_at: string
+          dark_mode: boolean
+          email_notifications: boolean
+          id: string
+          lead_alerts: boolean
+          payment_alerts: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compact_view?: boolean
+          created_at?: string
+          dark_mode?: boolean
+          email_notifications?: boolean
+          id?: string
+          lead_alerts?: boolean
+          payment_alerts?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          compact_view?: boolean
+          created_at?: string
+          dark_mode?: boolean
+          email_notifications?: boolean
+          id?: string
+          lead_alerts?: boolean
+          payment_alerts?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       cleanup_expired_otps: { Args: never; Returns: undefined }
+      ensure_user_settings: { Args: never; Returns: string }
       generate_order_id: { Args: never; Returns: string }
       generate_quotation_no: { Args: never; Returns: string }
       generate_ticket_no: { Args: never; Returns: string }
