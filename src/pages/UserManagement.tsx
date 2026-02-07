@@ -171,14 +171,15 @@ const UserManagement = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["allowed-emails"] });
+    onSuccess: async () => {
+      // Immediately refetch to update UI
+      await queryClient.invalidateQueries({ queryKey: ["allowed-emails"] });
       setDeleteDialogOpen(false);
       setSelectedEmail(null);
-      toast.success("Email removed from allowed list");
+      toast.success("Email removed successfully");
     },
     onError: (error: Error) => {
-      toast.error("Failed to remove email: " + error.message);
+      toast.error("Failed to delete email: " + error.message);
     },
   });
 
@@ -200,14 +201,16 @@ const UserManagement = () => {
   const handleDeleteClick = (email: AllowedEmail) => {
     // Prevent deleting permanent master admin
     if (email.email.toLowerCase() === "info@axel-guard.com") {
-      toast.error("Cannot delete the permanent Master Admin");
+      toast.error("Master Admin cannot be deleted");
       return;
     }
-    // Prevent deleting other master admins unless you're a master admin
-    if (email.role === "master_admin" && !isMasterAdmin) {
-      toast.error("Cannot delete Master Admin");
+    
+    // Only Master Admin can delete emails
+    if (!isMasterAdmin) {
+      toast.error("You do not have permission");
       return;
     }
+    
     setSelectedEmail(email);
     setDeleteDialogOpen(true);
   };
@@ -393,16 +396,28 @@ const UserManagement = () => {
                           {new Date(item.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(item)}
-                            disabled={isPermanentMasterAdmin || isMasterAdminEmail}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-30"
-                            title={isPermanentMasterAdmin ? "Cannot delete permanent master admin" : undefined}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isPermanentMasterAdmin ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled
+                              className="text-muted-foreground opacity-30 cursor-not-allowed"
+                              title="Master Admin cannot be deleted"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(item)}
+                              disabled={!isMasterAdmin}
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title={!isMasterAdmin ? "You do not have permission" : "Remove email"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
