@@ -14,6 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { deleteAllowedEmail } from "@/lib/allowedEmailsApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -164,22 +165,24 @@ const UserManagement = () => {
   // Delete email mutation
   const deleteEmailMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("allowed_emails")
-        .delete()
-        .eq("id", id);
+      console.log("Delete API call", { id });
+      const res = await deleteAllowedEmail(id);
+      console.log("Delete API response", res);
 
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || "Delete failed");
+      }
     },
     onSuccess: async () => {
       // Immediately refetch to update UI
-      await queryClient.invalidateQueries({ queryKey: ["allowed-emails"] });
+      await queryClient.refetchQueries({ queryKey: ["allowed-emails"] });
       setDeleteDialogOpen(false);
       setSelectedEmail(null);
-      toast.success("Email removed successfully");
+      toast.success("Email deleted successfully");
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete email: " + error.message);
+      console.log("Delete failed", error);
+      toast.error("Failed to delete email");
     },
   });
 
@@ -199,18 +202,20 @@ const UserManagement = () => {
   };
 
   const handleDeleteClick = (email: AllowedEmail) => {
+    console.log("Delete clicked", { id: email.id, email: email.email });
+
     // Prevent deleting permanent master admin
     if (email.email.toLowerCase() === "info@axel-guard.com") {
       toast.error("Master Admin cannot be deleted");
       return;
     }
-    
+
     // Only Master Admin can delete emails
     if (!isMasterAdmin) {
       toast.error("You do not have permission");
       return;
     }
-    
+
     setSelectedEmail(email);
     setDeleteDialogOpen(true);
   };
@@ -411,9 +416,8 @@ const UserManagement = () => {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteClick(item)}
-                              disabled={!isMasterAdmin}
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                              title={!isMasterAdmin ? "You do not have permission" : "Remove email"}
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                              title={!isMasterAdmin ? "You do not have permission" : "Delete email"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -514,28 +518,27 @@ const UserManagement = () => {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove User Access</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove <strong>{selectedEmail?.email}</strong> from the allowed list? 
-              They will no longer be able to log in.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => selectedEmail && deleteEmailMutation.mutate(selectedEmail.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteEmailMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Remove"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Email</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove <strong>{selectedEmail?.email}</strong>?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => selectedEmail && deleteEmailMutation.mutate(selectedEmail.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteEmailMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Yes Delete"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
       </AlertDialog>
     </div>
   );
