@@ -63,15 +63,17 @@ export const QuickActionsBar = () => {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Desktop: horizontal row, Mobile: scrollable horizontal */}
+      <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 sm:overflow-visible sm:flex-wrap scrollbar-hide">
         {quickActions.map((action) => (
           <Button
             key={action.action}
             onClick={() => handleAction(action.action)}
-            className={`gap-2 rounded-xl px-4 py-2.5 font-medium shadow-sm transition-all hover:scale-[1.02] hover:shadow-md ${variantStyles[action.variant]}`}
+            className={`gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium shadow-sm transition-all hover:scale-[1.02] hover:shadow-md whitespace-nowrap min-h-[40px] sm:min-h-[44px] ${variantStyles[action.variant]}`}
           >
-            <action.icon className="h-4 w-4" />
-            {action.label}
+            <action.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline sm:inline">{action.label}</span>
+            <span className="xs:hidden">{action.label.split(' ')[0]}</span>
           </Button>
         ))}
       </div>

@@ -48,23 +48,24 @@ export const PaymentChart = () => {
 
   return (
     <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-info/10">
-            <Wallet className="h-4 w-4 text-info" />
+      <CardHeader className="pb-2 px-3 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-info/10">
+            <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-info" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-foreground">
+            <CardTitle className="text-sm sm:text-base font-semibold text-foreground">
               Payment Status
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Current month</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Current month</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex h-72 items-center">
-          <div className="w-1/2">
-            <ResponsiveContainer width="100%" height={200}>
+      <CardContent className="px-2 sm:px-6">
+        {/* Responsive chart container - stacks on very small screens */}
+        <div className="flex flex-col sm:flex-row h-auto sm:h-48 lg:h-56 items-center gap-4">
+          <div className="w-full sm:w-1/2 h-40 sm:h-full">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <defs>
                   <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -75,8 +76,8 @@ export const PaymentChart = () => {
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
+                  innerRadius={35}
+                  outerRadius={60}
                   paddingAngle={4}
                   dataKey="percentage"
                   strokeWidth={0}
@@ -96,24 +97,25 @@ export const PaymentChart = () => {
                     borderRadius: "12px",
                     boxShadow: "var(--shadow-lg)",
                     backdropFilter: "blur(20px)",
+                    fontSize: "12px",
                   }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex w-1/2 flex-col gap-4">
+          <div className="flex w-full sm:w-1/2 flex-row sm:flex-col gap-3 sm:gap-4 justify-center">
             {data.map((item) => (
-              <div key={item.name} className="flex items-center gap-3">
+              <div key={item.name} className="flex items-center gap-2 sm:gap-3">
                 <div 
-                  className="h-4 w-4 rounded-full shadow-md" 
+                  className="h-3 w-3 sm:h-4 sm:w-4 rounded-full shadow-md shrink-0" 
                   style={{ backgroundColor: item.color }} 
                 />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{item.name}</span>
-                    <span className="text-sm font-bold text-foreground">{item.percentage}%</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm font-medium text-foreground">{item.name}</span>
+                    <span className="text-xs sm:text-sm font-bold text-foreground">{item.percentage}%</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{item.value} orders</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">{item.value} orders</span>
                 </div>
               </div>
             ))}

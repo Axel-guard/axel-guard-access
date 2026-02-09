@@ -28,21 +28,21 @@ export const CourierChart = () => {
 
   return (
     <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-warning/10">
-            <Truck className="h-4 w-4 text-warning" />
+      <CardHeader className="pb-2 px-3 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-warning/10">
+            <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-warning" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-foreground">
+            <CardTitle className="text-sm sm:text-base font-semibold text-foreground">
               Shipments by Courier
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Current month</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Current month</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={180}>
+      <CardContent className="px-2 sm:px-6">
+        <ResponsiveContainer width="100%" height={140}>
           <BarChart data={data} layout="vertical">
             <defs>
               <linearGradient id="courierGradient" x1="0" y1="0" x2="1" y2="0">
@@ -60,7 +60,7 @@ export const CourierChart = () => {
             <XAxis 
               type="number" 
               stroke="hsl(var(--muted-foreground))" 
-              fontSize={12}
+              fontSize={10}
               axisLine={false}
               tickLine={false}
             />
@@ -68,9 +68,9 @@ export const CourierChart = () => {
               dataKey="name" 
               type="category" 
               stroke="hsl(var(--muted-foreground))" 
-              fontSize={11}
+              fontSize={9}
               fontWeight={500}
-              width={75}
+              width={55}
               axisLine={false}
               tickLine={false}
             />
@@ -80,25 +80,26 @@ export const CourierChart = () => {
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "12px",
                 backdropFilter: "blur(20px)",
+                fontSize: "12px",
               }}
               formatter={(value: number, name: string) => [
                 name === 'cost' ? `₹${value.toLocaleString()}` : value,
                 name === 'cost' ? 'Cost' : 'Shipments'
               ]}
             />
-            <Bar dataKey="shipments" fill="url(#courierGradient)" radius={[0, 6, 6, 0]} maxBarSize={30} />
+            <Bar dataKey="shipments" fill="url(#courierGradient)" radius={[0, 6, 6, 0]} maxBarSize={24} />
           </BarChart>
         </ResponsiveContainer>
-        <div className="mt-3 flex justify-center gap-8 border-t border-border/50 pt-3 text-sm">
+        <div className="mt-2 sm:mt-3 flex justify-center gap-4 sm:gap-8 border-t border-border/50 pt-2 sm:pt-3 text-sm">
           <div className="text-center">
-            <p className="text-xl font-bold text-foreground">{summary?.totalShipments || 0}</p>
-            <p className="text-xs text-muted-foreground">Total Shipments</p>
+            <p className="text-base sm:text-xl font-bold text-foreground">{summary?.totalShipments || 0}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Total Shipments</p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-bold text-warning">
+            <p className="text-base sm:text-xl font-bold text-warning">
               ₹{(summary?.totalShippingCost || 0).toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground">Shipping Cost</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Shipping Cost</p>
           </div>
         </div>
       </CardContent>

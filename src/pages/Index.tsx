@@ -66,12 +66,12 @@ const Index = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Row */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">{currentMonthName} Summary</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">{currentMonthName} Summary</p>
         </div>
         <DateFilterDropdown value={dateFilter} onValueChange={setDateFilter} />
       </div>
@@ -79,8 +79,8 @@ const Index = () => {
       {/* Quick Actions */}
       <QuickActionsBar />
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* Stats Grid - Responsive: 2 cols mobile, 3 tablet, 6 desktop */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <PremiumStatCard
           title="Total Sales"
           value={String(summary?.totalSales || 0)}
@@ -127,8 +127,8 @@ const Index = () => {
 
       {/* Employee Performance Cards - Sorted by revenue */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Employee Performance</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <h2 className="mb-3 sm:mb-4 text-base sm:text-lg font-semibold text-foreground">Employee Performance</h2>
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {sortedEmployees.length > 0 ? (
             sortedEmployees.map((emp, index) => (
               <EmployeePerformanceCard
@@ -185,17 +185,17 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Charts Grid - 2x2 Layout */}
+      {/* Charts Grid - 2x2 Layout responsive */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Analytics</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <h2 className="mb-3 sm:mb-4 text-base sm:text-lg font-semibold text-foreground">Analytics</h2>
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
           <SalesChart />
           <PaymentChart />
         </div>
       </div>
 
-      {/* Second Row Charts + Inventory */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* Second Row Charts + Inventory - Responsive */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <CourierChart />
         <ProductCategoryChart />
         <InventoryAlertCard />
