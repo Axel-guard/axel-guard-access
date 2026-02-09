@@ -113,33 +113,45 @@ serve(async (req) => {
     }
 
     // Attempt normal delete (respects RLS)
-    const { error: deleteError } = await supabaseUser
+    const { data: deletedRows, error: deleteError } = await supabaseUser
       .from("allowed_emails")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id, email");
 
-    if (!deleteError) {
-      console.log("allowed-emails delete success", { id });
+    if (!deleteError && (deletedRows?.length ?? 0) > 0) {
+      console.log("allowed-emails delete success", { id, deleted: deletedRows?.length });
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("allowed-emails delete failed, attempting force delete", {
+    // If RLS blocks the delete, PostgREST may return 200 with 0 rows deleted (no error)
+    console.log("allowed-emails delete did not remove row, attempting force delete", {
       id,
-      message: deleteError.message,
+      deleteError: deleteError?.message,
+      deleted: deletedRows?.length ?? 0,
     });
+
+    if (!serviceRoleKey) {
+      console.log("allowed-emails missing service role key; cannot force delete", { id });
+      return new Response(JSON.stringify({ success: false, error: "Delete failed" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Fallback: force delete with service role (still only after Master Admin check)
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
-    const { error: forceError } = await supabaseAdmin
+    const { data: forcedRows, error: forceError } = await supabaseAdmin
       .from("allowed_emails")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id, email");
 
     if (forceError) {
       console.log("allowed-emails force delete failed", { id, message: forceError.message });
@@ -149,7 +161,15 @@ serve(async (req) => {
       });
     }
 
-    console.log("allowed-emails force delete success", { id });
+    if ((forcedRows?.length ?? 0) === 0) {
+      console.log("allowed-emails force delete no-op (not found)", { id });
+      return new Response(JSON.stringify({ success: false, error: "Not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("allowed-emails force delete success", { id, deleted: forcedRows?.length });
     return new Response(JSON.stringify({ success: true, forced: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

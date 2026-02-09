@@ -165,23 +165,37 @@ const UserManagement = () => {
   // Delete email mutation
   const deleteEmailMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log("Delete API call", { id });
+      console.log("DELETE API CALL", id);
       const res = await deleteAllowedEmail(id);
-      console.log("Delete API response", res);
+      console.log("DELETE API RESPONSE", { id, res });
 
       if (!res.success) {
         throw new Error(res.error || "Delete failed");
       }
+
+      return res;
     },
-    onSuccess: async () => {
-      // Immediately refetch to update UI
-      await queryClient.refetchQueries({ queryKey: ["allowed-emails"] });
+    onSuccess: async (_res, id) => {
+      // Instantly remove from UI (no refresh needed)
+      queryClient.setQueryData<AllowedEmail[]>(["allowed-emails"], (prev) =>
+        (prev ?? []).filter((e) => e.id !== id),
+      );
+
       setDeleteDialogOpen(false);
       setSelectedEmail(null);
       toast.success("Email deleted successfully");
+
+      // Keep data consistent in the background
+      queryClient.invalidateQueries({ queryKey: ["allowed-emails"] });
     },
-    onError: (error: Error) => {
-      console.log("Delete failed", error);
+    onError: (error: Error, id) => {
+      console.log("DELETE FAILED", { id, message: error.message });
+
+      if (error.message.toLowerCase().includes("forbidden")) {
+        toast.error("You do not have permission");
+        return;
+      }
+
       toast.error("Failed to delete email");
     },
   });
@@ -201,17 +215,33 @@ const UserManagement = () => {
     addEmailMutation.mutate({ email: newEmail, role: newRole });
   };
 
-  const handleDeleteClick = (email: AllowedEmail) => {
-    console.log("Delete clicked", { id: email.id, email: email.email });
+  const handleDeleteClick = async (email: AllowedEmail) => {
+    console.log("DELETE CLICKED", email.id);
 
-    // Prevent deleting permanent master admin
+    // Only prevent deleting the permanent master admin email
     if (email.email.toLowerCase() === "info@axel-guard.com") {
       toast.error("Master Admin cannot be deleted");
       return;
     }
 
-    // Only Master Admin can delete emails
-    if (!isMasterAdmin) {
+    if (!currentUser) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    // Trust but verify: if the client-side flag is stale, verify with backend RPC
+    let canDelete = isMasterAdmin;
+
+    if (!canDelete) {
+      console.log("DELETE PERMISSION CHECK (RPC)", currentUser.id);
+      const { data, error } = await supabase.rpc("is_master_admin", {
+        _user_id: currentUser.id,
+      });
+      console.log("DELETE PERMISSION RPC RESULT", { data, error });
+      canDelete = !!data && !error;
+    }
+
+    if (!canDelete) {
       toast.error("You do not have permission");
       return;
     }
@@ -522,13 +552,21 @@ const UserManagement = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Remove Email</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to remove <strong>{selectedEmail?.email}</strong>?
+                Are you sure you want to remove this email?
+                {selectedEmail?.email ? (
+                  <span className="block mt-2 font-medium text-foreground">{selectedEmail.email}</span>
+                ) : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => selectedEmail && deleteEmailMutation.mutate(selectedEmail.id)}
+                disabled={deleteEmailMutation.isPending}
+                onClick={() => {
+                  if (!selectedEmail) return;
+                  console.log("DELETE CONFIRMED", selectedEmail.id);
+                  deleteEmailMutation.mutate(selectedEmail.id);
+                }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deleteEmailMutation.isPending ? (
