@@ -27,21 +27,21 @@ export const ProductCategoryChart = () => {
 
   return (
     <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-info/10">
-            <ShoppingBag className="h-4 w-4 text-info" />
+      <CardHeader className="pb-2 px-3 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-info/10">
+            <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-info" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-foreground">
+            <CardTitle className="text-sm sm:text-base font-semibold text-foreground">
               Top Products
             </CardTitle>
-            <p className="text-xs text-muted-foreground">By category</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">By category</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
+      <CardContent className="px-1 sm:px-6">
+        <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data}>
             <defs>
               <linearGradient id="categoryGradient" x1="0" y1="0" x2="0" y2="1">
@@ -58,19 +58,20 @@ export const ProductCategoryChart = () => {
             <XAxis 
               dataKey="category" 
               stroke="hsl(var(--muted-foreground))" 
-              fontSize={10}
+              fontSize={8}
               fontWeight={500}
               angle={-35}
               textAnchor="end"
-              height={50}
+              height={40}
               axisLine={false}
               tickLine={false}
             />
             <YAxis 
               stroke="hsl(var(--muted-foreground))" 
-              fontSize={12}
+              fontSize={10}
               axisLine={false}
               tickLine={false}
+              width={25}
             />
             <Tooltip
               contentStyle={{
@@ -78,6 +79,7 @@ export const ProductCategoryChart = () => {
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "12px",
                 backdropFilter: "blur(20px)",
+                fontSize: "12px",
               }}
               formatter={(value: number) => [value, 'Products']}
             />
@@ -85,7 +87,7 @@ export const ProductCategoryChart = () => {
               dataKey="count" 
               fill="url(#categoryGradient)" 
               radius={[6, 6, 0, 0]}
-              maxBarSize={40}
+              maxBarSize={30}
             />
           </BarChart>
         </ResponsiveContainer>

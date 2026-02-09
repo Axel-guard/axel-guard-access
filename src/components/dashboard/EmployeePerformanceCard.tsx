@@ -66,73 +66,73 @@ export const EmployeePerformanceCard = ({
 
   return (
     <div className={cn(
-      "group rounded-[14px] border bg-card p-5 shadow-card transition-all duration-300 hover:shadow-md",
+      "group rounded-[14px] border bg-card p-3 sm:p-4 lg:p-5 shadow-card transition-all duration-300 hover:shadow-md",
       isTopPerformer ? "border-success/50 ring-2 ring-success/20" : "border-border/50 hover:border-border"
     )}>
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-2 sm:gap-3 lg:gap-4">
         {/* Avatar with rank */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <div
             className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-md transition-transform group-hover:scale-105",
+              "flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 items-center justify-center rounded-full text-white shadow-md transition-transform group-hover:scale-105",
               styles.avatar
             )}
           >
-            <span className="text-lg font-bold">{initials}</span>
+            <span className="text-sm sm:text-base lg:text-lg font-bold">{initials}</span>
           </div>
           {isTopPerformer && (
-            <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-success text-white shadow-lg">
-              <Flame className="h-3.5 w-3.5" />
+            <div className="absolute -top-1 -right-1 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-success text-white shadow-lg">
+              <Flame className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
             </div>
           )}
         </div>
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="truncate text-base font-semibold text-foreground">{name}</h4>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <h4 className="truncate text-sm sm:text-base font-semibold text-foreground">{name}</h4>
             {isTopPerformer && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
-                <Flame className="h-3 w-3" />
+              <span className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full bg-success/10 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium text-success">
+                <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 Top
               </span>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-2">
-            <TrendingUp className={cn("h-4 w-4", styles.text)} />
-            <span className={cn("text-xl font-bold", styles.text)}>{revenue}</span>
+          <div className="mt-0.5 sm:mt-1 flex items-center gap-1.5 sm:gap-2">
+            <TrendingUp className={cn("h-3 w-3 sm:h-4 sm:w-4", styles.text)} />
+            <span className={cn("text-base sm:text-lg lg:text-xl font-bold", styles.text)}>{revenue}</span>
           </div>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between text-xs">
+      <div className="mt-3 sm:mt-4">
+        <div className="mb-1.5 sm:mb-2 flex items-center justify-between text-[10px] sm:text-xs">
           <span className="text-muted-foreground">Target Progress</span>
           <span className={cn("font-semibold", progressTextColor)}>
             {progressPercent.toFixed(0)}%
           </span>
         </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-2 sm:h-2.5 w-full overflow-hidden rounded-full bg-muted">
           <div
             className={cn("h-full rounded-full transition-all duration-700 ease-out", progressColor)}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
           Target: ₹{(target / 100000).toFixed(1)}L
         </p>
       </div>
 
       {/* Stats */}
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-          <p className="text-xs text-muted-foreground">Sales</p>
-          <p className="text-lg font-bold text-foreground">{sales}</p>
+      <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 sm:gap-4">
+        <div className="rounded-lg bg-muted/50 p-2 sm:p-2.5 text-center">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Sales</p>
+          <p className="text-base sm:text-lg font-bold text-foreground">{sales}</p>
         </div>
-        <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-          <p className="text-xs text-muted-foreground">Balance</p>
-          <p className="text-lg font-bold text-foreground">{balance}</p>
+        <div className="rounded-lg bg-muted/50 p-2 sm:p-2.5 text-center">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">Balance</p>
+          <p className="text-base sm:text-lg font-bold text-foreground">{balance}</p>
         </div>
       </div>
     </div>

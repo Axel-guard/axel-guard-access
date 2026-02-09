@@ -122,67 +122,71 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-xl lg:px-6">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-30 flex h-14 sm:h-16 shrink-0 items-center justify-between border-b border-border bg-card/95 px-2 sm:px-4 backdrop-blur-xl lg:px-6">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-muted"
+            className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-muted lg:hidden"
             onClick={onMenuToggle}
           >
             <Menu className="h-5 w-5" />
           </Button>
           
-          <div className="hidden items-center gap-3 md:flex lg:hidden">
-            <AxelGuardLogo size="md" showText={false} />
+          <div className="flex items-center gap-2 lg:hidden">
+            <AxelGuardLogo size="sm" showText={false} />
           </div>
         </div>
 
-        <div className="hidden max-w-md flex-1 px-8 md:block">
+        {/* Search - Hidden on mobile, shown on tablet+ */}
+        <div className="hidden max-w-md flex-1 px-4 md:block lg:px-8">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search orders, customers..."
-              className="h-10 w-full rounded-xl border-border bg-muted/50 pl-10 focus:bg-muted focus:border-primary/50"
+              className="h-9 sm:h-10 w-full rounded-xl border-border bg-muted/50 pl-10 text-sm focus:bg-muted focus:border-primary/50"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Add New Dropdown */}
           <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button className="gap-2 rounded-xl bg-primary shadow-lg hover:bg-primary/90 transition-all hover-scale">
+              <Button className="h-9 sm:h-10 gap-1 sm:gap-2 px-2 sm:px-4 rounded-xl bg-primary shadow-lg hover:bg-primary/90 transition-all hover-scale text-xs sm:text-sm">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add New</span>
+                <span className="hidden xs:inline sm:inline">Add New</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent 
               align="end" 
-              className="w-56 p-2 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-xl animate-scale-in"
+              className="w-48 sm:w-56 p-1.5 sm:p-2 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-xl animate-scale-in"
               sideOffset={8}
             >
               {menuItems.map((item) => (
                 <DropdownMenuItem 
                   key={item.action}
                   onClick={() => handleMenuClick(item.action)} 
-                  className="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-muted focus:bg-muted group"
+                  className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-muted focus:bg-muted group"
                 >
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.bgColor} transition-transform duration-200 group-hover:scale-110`}>
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
+                  <div className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg ${item.bgColor} transition-transform duration-200 group-hover:scale-110`}>
+                    <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${item.color}`} />
                   </div>
-                  <span className="font-medium text-foreground">{item.label}</span>
+                  <span className="font-medium text-foreground text-sm">{item.label}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Balance Report - Icon only on mobile */}
           <Button 
             variant="outline" 
-            className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
             onClick={() => navigate("/balance-payments")}
           >
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Balance Report</span>
+            <span className="hidden sm:inline sm:ml-2 text-sm">Balance Report</span>
           </Button>
 
           <NotificationPanel />
@@ -190,7 +194,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted">
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl hover:bg-muted">
                 <div className="relative">
                   <User className="h-5 w-5 text-muted-foreground" />
                   {isAdmin && (
@@ -199,7 +203,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-xl">
+            <DropdownMenuContent align="end" className="w-48 sm:w-56 rounded-xl">
               <div className="px-3 py-2">
                 <p className="text-sm font-medium truncate">{user?.email}</p>
                 <Badge variant={isAdmin ? "default" : "secondary"} className="mt-1 text-xs">

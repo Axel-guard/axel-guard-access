@@ -41,23 +41,24 @@ export const SalesChart = () => {
 
   return (
     <Card className="group rounded-[14px] border-border/50 bg-card shadow-card transition-all hover:shadow-md hover:border-border">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <TrendingUp className="h-4 w-4 text-primary" />
+      <CardHeader className="pb-2 px-3 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary/10">
+            <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-foreground">
+            <CardTitle className="text-sm sm:text-base font-semibold text-foreground">
               Sales Trend
             </CardTitle>
-            <p className="text-xs text-muted-foreground">By employee</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">By employee</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-72">
+      <CardContent className="px-2 sm:px-6">
+        {/* Responsive chart height */}
+        <div className="h-48 sm:h-56 lg:h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 30 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="hsl(var(--primary))" />
@@ -76,16 +77,16 @@ export const SalesChart = () => {
                 type="number"
                 tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`}
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
+                fontSize={10}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                width={80}
+                width={60}
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={13}
+                fontSize={11}
                 fontWeight={500}
                 tickLine={false}
                 axisLine={false}
@@ -98,6 +99,7 @@ export const SalesChart = () => {
                   borderRadius: "12px",
                   boxShadow: "var(--shadow-lg)",
                   backdropFilter: "blur(20px)",
+                  fontSize: "12px",
                 }}
                 labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600, marginBottom: 4 }}
               />
@@ -105,7 +107,7 @@ export const SalesChart = () => {
                 dataKey="sales"
                 fill="url(#salesGradient)"
                 radius={[0, 8, 8, 0]}
-                maxBarSize={45}
+                maxBarSize={35}
               />
             </BarChart>
           </ResponsiveContainer>

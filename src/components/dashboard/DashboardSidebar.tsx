@@ -155,14 +155,14 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-64 shrink-0 flex-col border-r border-border bg-card transition-transform duration-300 lg:relative lg:z-auto lg:translate-x-0",
+          "fixed left-0 top-0 z-50 flex h-full w-[280px] sm:w-64 shrink-0 flex-col border-r border-border bg-card transition-transform duration-300 lg:relative lg:z-auto lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Mobile header with close button */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4 lg:hidden">
-<AxelGuardLogo size="lg" />
-          <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-muted">
+        <div className="flex h-14 sm:h-16 items-center justify-between border-b border-border px-3 sm:px-4 lg:hidden">
+          <AxelGuardLogo size="md" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 hover:bg-muted">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -172,8 +172,8 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
           <AxelGuardLogo size="md" />
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3">
+        {/* Navigation - scrollable */}
+        <nav className="flex-1 overflow-y-auto p-2 sm:p-3">
           <div className="space-y-1">
             {filteredNavItems.map((item) => {
               if (item.children) {
@@ -258,19 +258,19 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
         </nav>
 
         {/* User section */}
-        <div className="border-t border-border p-3">
-          <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">{getUserInitials()}</span>
+        <div className="border-t border-border p-2 sm:p-3">
+          <div className="flex items-center gap-2 sm:gap-3 rounded-lg bg-muted/50 p-2 sm:p-3">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary">
+              <span className="text-xs sm:text-sm font-bold text-primary-foreground">{getUserInitials()}</span>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-foreground">
+            <div className="flex-1 overflow-hidden min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <p className="truncate text-xs sm:text-sm font-semibold text-foreground">
                   {isMasterAdmin ? "Master Admin" : isAdmin ? "Admin" : "User"}
                 </p>
-                {isAdmin && <Shield className="h-3 w-3 text-primary" />}
+                {isAdmin && <Shield className="h-3 w-3 text-primary shrink-0" />}
               </div>
-              <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+              <p className="truncate text-[10px] sm:text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
         </div>

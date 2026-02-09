@@ -80,76 +80,77 @@ export const SalesTable = () => {
   return (
     <>
       <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Receipt className="h-4 w-4 text-primary" />
+        <CardHeader className="pb-3 px-3 sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-base font-semibold text-foreground">
+              <CardTitle className="text-sm sm:text-base font-semibold text-foreground">
                 Recent Sales
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Current month transactions</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Current month transactions</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="px-0 pb-0">
-          <div className="overflow-x-auto">
-            <Table>
+          {/* Scrollable table container */}
+          <div className="overflow-x-auto -mx-0">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow className="border-border/50 hover:bg-transparent">
-                  <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Order ID</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Date</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Customer</TableHead>
-                  <TableHead className="hidden text-xs font-semibold uppercase text-muted-foreground lg:table-cell">Employee</TableHead>
-                  <TableHead className="hidden text-xs font-semibold uppercase text-muted-foreground md:table-cell">Products</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase text-muted-foreground">Total</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase text-muted-foreground">Received</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase text-muted-foreground">Status</TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap pl-3 sm:pl-6">Order ID</TableHead>
+                  <TableHead className="text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap">Date</TableHead>
+                  <TableHead className="text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap">Customer</TableHead>
+                  <TableHead className="hidden text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground lg:table-cell whitespace-nowrap">Employee</TableHead>
+                  <TableHead className="hidden text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground md:table-cell whitespace-nowrap">Products</TableHead>
+                  <TableHead className="text-right text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap">Total</TableHead>
+                  <TableHead className="text-right text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap hidden sm:table-cell">Received</TableHead>
+                  <TableHead className="text-[10px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap">Status</TableHead>
+                  <TableHead className="w-8 sm:w-10 pr-3 sm:pr-6" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales?.map((sale) => {
+              {sales?.map((sale) => {
                   const status = getStatus(sale);
                   return (
                     <TableRow key={sale.order_id} className="border-border/50 transition-colors hover:bg-muted/50">
-                      <TableCell className="font-semibold text-primary">{sale.order_id}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(sale.sale_date), "d/M/yyyy")}
+                      <TableCell className="font-semibold text-primary text-xs sm:text-sm pl-3 sm:pl-6">{sale.order_id}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
+                        {format(new Date(sale.sale_date), "d/M/yy")}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <p className="font-medium text-foreground">
+                        <div className="max-w-[100px] sm:max-w-[150px]">
+                          <p className="font-medium text-foreground text-xs sm:text-sm truncate">
                             {sale.customer_name || sale.customer_code}
                           </p>
                           {sale.company_name && (
-                            <p className="text-xs text-muted-foreground">{sale.company_name}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground truncate hidden sm:block">{sale.company_name}</p>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden text-muted-foreground lg:table-cell">
+                      <TableCell className="hidden text-muted-foreground text-xs sm:text-sm lg:table-cell">
                         {sale.employee_name}
                       </TableCell>
-                      <TableCell className="hidden max-w-[200px] truncate text-muted-foreground md:table-cell">
+                      <TableCell className="hidden max-w-[150px] sm:max-w-[200px] truncate text-muted-foreground text-xs sm:text-sm md:table-cell">
                         {sale.items?.map((i) => `${i.product_name} (x${i.quantity})`).join(", ") || "-"}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">
+                      <TableCell className="text-right font-semibold text-foreground text-xs sm:text-sm whitespace-nowrap">
                         ₹{Number(sale.total_amount).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-success">
+                      <TableCell className="text-right font-semibold text-success text-xs sm:text-sm whitespace-nowrap hidden sm:table-cell">
                         ₹{Number(sale.amount_received).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusStyles[status]}>
+                        <Badge variant="outline" className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 ${statusStyles[status]}`}>
                           {status.charAt(0).toUpperCase() + status.slice(1)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="pr-3 sm:pr-6">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted">
-                              <MoreVertical className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-muted">
+                              <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-xl border-border/50 bg-card">
