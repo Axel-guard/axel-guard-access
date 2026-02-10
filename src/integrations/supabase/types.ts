@@ -639,6 +639,36 @@ export type Database = {
         }
         Relationships: []
       }
+      sale_edit_logs: {
+        Row: {
+          created_at: string
+          edit_type: string
+          edited_by: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          edit_type?: string
+          edited_by?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          edit_type?: string
+          edited_by?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          order_id?: string
+        }
+        Relationships: []
+      }
       sale_items: {
         Row: {
           created_at: string | null
