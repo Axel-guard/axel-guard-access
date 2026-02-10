@@ -12,7 +12,10 @@ const BalancePaymentsPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Balance Payments</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Balance Payments</h1>
+          <p className="text-muted-foreground">Auto-synced from Sales Database</p>
+        </div>
         <div className="flex gap-2">
           <Button className="gap-2 bg-success hover:bg-success/90">
             <FileSpreadsheet className="h-4 w-4" />

@@ -1,30 +1,25 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2 } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2 } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
+import { EditSaleDialog } from "@/components/sales/EditSaleDialog";
+import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
 
 // Fetch all sales without date filter (sorted by Order ID descending)
@@ -45,11 +40,14 @@ const useAllSales = () => {
 
 const SalesPage = () => {
   const { data: sales, isLoading } = useAllSales();
+  const { isMasterAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
   const [balanceSale, setBalanceSale] = useState<any | null>(null);
+  const [editSale, setEditSale] = useState<any | null>(null);
+  const [deleteSale, setDeleteSale] = useState<any | null>(null);
   const [sendingEmailOrderId, setSendingEmailOrderId] = useState<string | null>(null);
   const { sendSaleEmail } = useEmail();
 
@@ -60,57 +58,34 @@ const SalesPage = () => {
     setSendingEmailOrderId(null);
   };
 
-  // Fixed payment status logic: based on amount_received vs total_amount
   const getStatusBadge = (sale: any) => {
     const totalAmount = Number(sale.total_amount) || 0;
     const amountReceived = Number(sale.amount_received) || 0;
-
-    // Paid: Amount Received >= Final Amount
     if (amountReceived >= totalAmount && totalAmount > 0) {
-      return (
-        <Badge className="bg-success/10 text-success border-success/20">
-          Paid
-        </Badge>
-      );
+      return <Badge className="bg-success/10 text-success border-success/20">Paid</Badge>;
     }
-    // Pending: Amount Received = 0
     if (amountReceived === 0) {
-      return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-          Pending
-        </Badge>
-      );
+      return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Pending</Badge>;
     }
-    // Partial: Amount Received < Final Amount
-    return (
-      <Badge className="bg-warning/10 text-warning border-warning/20">
-        Partial
-      </Badge>
-    );
+    return <Badge className="bg-warning/10 text-warning border-warning/20">Partial</Badge>;
   };
 
-  // Calculate balance (never negative)
   const getBalance = (sale: any) => {
-    const totalAmount = Number(sale.total_amount) || 0;
-    const amountReceived = Number(sale.amount_received) || 0;
-    return Math.max(0, totalAmount - amountReceived);
+    return Math.max(0, Number(sale.total_amount) - Number(sale.amount_received || 0));
   };
 
-  // Check if value looks like a mobile number (10 digits)
   const isMobileNumber = (value: string) => {
     if (!value) return false;
     const cleaned = value.replace(/\D/g, "");
     return cleaned.length === 10 && /^[6-9]/.test(cleaned);
   };
 
-  // Display customer code - show WALK-IN if it looks like a mobile number
   const getDisplayCustomerCode = (customerCode: string) => {
     if (!customerCode) return "WALK-IN";
     if (isMobileNumber(customerCode)) return "WALK-IN";
     return customerCode;
   };
 
-  // Filter and sort sales
   const filteredSales = sales
     ?.filter((sale) => {
       const query = searchQuery.toLowerCase();
@@ -184,26 +159,14 @@ const SalesPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 -ml-3"
-                      onClick={() => toggleSort("order_id")}
-                    >
-                      Order ID
-                      <ArrowUpDown className="h-3 w-3" />
+                    <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("order_id")}>
+                      Order ID <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
                   <TableHead>Cust Code</TableHead>
                   <TableHead>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 -ml-3"
-                      onClick={() => toggleSort("sale_date")}
-                    >
-                      Date
-                      <ArrowUpDown className="h-3 w-3" />
+                    <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("sale_date")}>
+                      Date <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
                   <TableHead>Customer</TableHead>
@@ -222,28 +185,16 @@ const SalesPage = () => {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setSelectedSale(sale)}
                   >
-                    <TableCell className="font-semibold text-primary">
-                      {sale.order_id}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {getDisplayCustomerCode(sale.customer_code)}
-                    </TableCell>
+                    <TableCell className="font-semibold text-primary">{sale.order_id}</TableCell>
+                    <TableCell className="font-medium">{getDisplayCustomerCode(sale.customer_code)}</TableCell>
                     <TableCell>
-                      {sale.sale_date
-                        ? format(new Date(sale.sale_date), "dd/MM/yyyy")
-                        : "-"}
+                      {sale.sale_date ? format(new Date(sale.sale_date), "dd/MM/yyyy") : "-"}
                     </TableCell>
                     <TableCell>{sale.customer_name || "-"}</TableCell>
                     <TableCell>{sale.employee_name || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{sale.sale_type || "-"}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ₹{Number(sale.total_amount).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-destructive">
-                      ₹{getBalance(sale).toLocaleString()}
-                    </TableCell>
+                    <TableCell><Badge variant="outline">{sale.sale_type || "-"}</Badge></TableCell>
+                    <TableCell className="text-right font-medium">₹{Number(sale.total_amount).toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium text-destructive">₹{getBalance(sale).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(sale)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -254,29 +205,36 @@ const SalesPage = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setBalanceSale(sale); }}>
+                            <Wallet className="mr-2 h-4 w-4" /> View Balance
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setBalanceSale(sale);
-                            }}
+                            onClick={(e) => handleSendEmail(sale.order_id, e)}
+                            disabled={sendingEmailOrderId === sale.order_id}
                           >
-                            <Wallet className="mr-2 h-4 w-4" />
-                            View Balance
+                            {sendingEmailOrderId === sale.order_id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="mr-2 h-4 w-4" />
+                            )}
+                            Send Email
                           </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => handleSendEmail(sale.order_id, e)}
-                          disabled={sendingEmailOrderId === sale.order_id}
-                        >
-                          {sendingEmailOrderId === sale.order_id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Mail className="mr-2 h-4 w-4" />
+                          {/* Master Admin only: Edit & Delete */}
+                          {isMasterAdmin && (
+                            <>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditSale(sale); }}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit Sale
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={(e) => { e.stopPropagation(); setDeleteSale(sale); }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Sale
+                              </DropdownMenuItem>
+                            </>
                           )}
-                          Send Email
-                        </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -306,6 +264,20 @@ const SalesPage = () => {
         open={!!balanceSale}
         onOpenChange={(open) => !open && setBalanceSale(null)}
       />
+
+      <EditSaleDialog
+        sale={editSale}
+        open={!!editSale}
+        onOpenChange={(open) => !open && setEditSale(null)}
+      />
+
+      {deleteSale && (
+        <DeleteSaleDialog
+          orderId={deleteSale.order_id}
+          open={!!deleteSale}
+          onOpenChange={(open) => !open && setDeleteSale(null)}
+        />
+      )}
     </div>
   );
 };

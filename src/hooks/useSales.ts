@@ -201,6 +201,9 @@ export const useCreateSale = () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
       
       // Create notification for admins
       createNotification(
@@ -254,6 +257,10 @@ export const useUpdateBalancePayment = () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-history-with-sales"] });
       toast.success("Payment updated successfully!");
     },
     onError: (error) => {
@@ -275,6 +282,9 @@ export const useDeleteSale = () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
       toast.success("Sale deleted successfully!");
     },
     onError: (error) => {
@@ -296,6 +306,9 @@ export const useUpdateSale = () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
       toast.success("Sale updated successfully!");
     },
     onError: (error) => {
