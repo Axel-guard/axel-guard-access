@@ -450,7 +450,9 @@ export const CreateDispatchDialog = ({
           order_id: order.order_id,
           customer_name: order.customer_name,
           devices_count: serialNumbers.length,
-        }
+        },
+        "/dispatch",
+        order.order_id
       );
 
     // Success message based on product type

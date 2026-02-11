@@ -13,6 +13,8 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
   metadata: Json;
+  reference_id: string | null;
+  route: string | null;
 }
 
 export const useNotifications = () => {
@@ -137,7 +139,9 @@ export const createNotification = async (
   title: string,
   message: string,
   type: string = "info",
-  metadata: Json = {}
+  metadata: Json = {},
+  route?: string,
+  reference_id?: string
 ) => {
   try {
     // Get all admin users
@@ -160,6 +164,8 @@ export const createNotification = async (
       message,
       type,
       metadata,
+      route: route || null,
+      reference_id: reference_id || null,
     }));
 
     const { error } = await supabase
