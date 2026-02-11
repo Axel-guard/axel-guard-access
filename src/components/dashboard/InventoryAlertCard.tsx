@@ -23,7 +23,7 @@ const DispatchItem = ({ label, count, icon: Icon, colorClass, bgClass }: Dispatc
   </div>
 );
 
-const useCurrentMonthDispatch = () => {
+const useDispatchStatus = () => {
   return useQuery({
     queryKey: ["dispatch-status-current-month"],
     queryFn: async () => {
@@ -31,76 +31,40 @@ const useCurrentMonthDispatch = () => {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const today = now.toISOString().split("T")[0];
 
-      const allItems: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-
-      while (true) {
-        const { data, error } = await supabase
-          .from("inventory")
-          .select("status, dispatch_date")
-          .eq("status", "Dispatched")
-          .gte("dispatch_date", firstDay)
-          .lte("dispatch_date", today)
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allItems.push(...data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-
-      // Also get pending dispatches: sales items that haven't been fully dispatched this month
-      // For simplicity, dispatch done = dispatched inventory items this month
-      const done = allItems.length;
-
-      // Get shipments this month to calculate pending
-      const { data: salesData, error: salesError } = await supabase
+      // Get all sales this month
+      const { data: sales, error: salesError } = await supabase
         .from("sales")
-        .select("order_id, sale_date")
+        .select("order_id")
         .gte("sale_date", firstDay)
-        .lte("sale_date", today);
+        .lte("sale_date", today + "T23:59:59.999Z");
 
       if (salesError) throw salesError;
-
-      const totalOrders = salesData?.length || 0;
-      // Count orders that have at least one dispatched item this month
-      const dispatchedOrderIds = new Set(allItems.map(i => i.dispatch_date ? "dispatched" : null));
-
-      // Simple approach: pending = total sales orders this month minus ones with dispatches
-      const ordersWithDispatch = new Set<string>();
-      // We need order_id from inventory for dispatched items
-      const { data: dispatchedWithOrders } = await supabase
-        .from("inventory")
-        .select("order_id")
-        .eq("status", "Dispatched")
-        .gte("dispatch_date", firstDay)
-        .lte("dispatch_date", today)
-        .not("order_id", "is", null);
-
-      if (dispatchedWithOrders) {
-        dispatchedWithOrders.forEach(i => {
-          if (i.order_id) ordersWithDispatch.add(i.order_id);
-        });
+      if (!sales || sales.length === 0) {
+        return { done: 0, pending: 0, total: 0 };
       }
 
-      const pendingOrders = salesData
-        ? salesData.filter(s => !ordersWithDispatch.has(s.order_id)).length
-        : 0;
+      const totalSales = sales.length;
+      const orderIds = sales.map(s => s.order_id);
 
-      return {
-        done,
-        pending: pendingOrders,
-        total: done + pendingOrders,
-      };
+      // Get shipments for these order IDs to find completed dispatches
+      const { data: shipments, error: shipmentsError } = await supabase
+        .from("shipments")
+        .select("order_id")
+        .in("order_id", orderIds);
+
+      if (shipmentsError) throw shipmentsError;
+
+      const dispatchedOrderIds = new Set(shipments?.map(s => s.order_id) || []);
+      const done = dispatchedOrderIds.size;
+      const pending = totalSales - done;
+
+      return { done, pending, total: totalSales };
     },
-    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 };
 
 export const InventoryAlertCard = () => {
-  const { data, isLoading } = useCurrentMonthDispatch();
+  const { data, isLoading } = useDispatchStatus();
 
   if (isLoading) {
     return (
@@ -136,7 +100,7 @@ export const InventoryAlertCard = () => {
 
       {isEmpty ? (
         <div className="flex items-center justify-center rounded-xl bg-muted/50 p-6">
-          <p className="text-sm text-muted-foreground">No dispatch records this month</p>
+          <p className="text-sm text-muted-foreground">No sales this month</p>
         </div>
       ) : (
         <div className="space-y-1.5 sm:space-y-2">
