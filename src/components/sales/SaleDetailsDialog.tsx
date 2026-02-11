@@ -155,15 +155,26 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     { category: "", product_name: "", quantity: "", unit_price: "" },
   ]);
 
-  // Fetch sale items when dialog opens
+  // Force edit mode when initialEditMode is true and user has permission
   useEffect(() => {
-    if (sale && open) {
-      const shouldEdit = initialEditMode && canEdit;
-      setIsEditMode(shouldEdit);
-      if (shouldEdit) {
+    if (open && sale) {
+      if (initialEditMode && canEdit) {
+        console.log("Edit clicked");
         console.log("Edit Mode:", true);
         console.log("User Role:", role);
+        setIsEditMode(true);
+      } else if (!initialEditMode) {
+        setIsEditMode(false);
       }
+    }
+    if (!open) {
+      setIsEditMode(false);
+    }
+  }, [open, sale, initialEditMode, canEdit, role]);
+
+  // Fetch sale items when dialog opens (separate from edit mode logic)
+  useEffect(() => {
+    if (sale && open) {
       setLoadingItems(true);
       supabase
         .from("sale_items")
@@ -178,7 +189,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           setLoadingItems(false);
         });
     }
-  }, [sale, open, initialEditMode, canEdit, role]);
+  }, [sale?.order_id, open]);
 
   // Initialize edit form when entering edit mode
   useEffect(() => {
@@ -286,6 +297,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
   const handleConfirmedSave = async () => {
     setConfirmOpen(false);
     if (!sale) return;
+    console.log("Updating sale:", sale.order_id);
 
     const saleTypeValue = isWithGST ? "With" : "Without";
 
@@ -375,6 +387,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
 
+      toast.success("Sale Updated Successfully");
       setIsEditMode(false);
       onOpenChange(false);
     } catch (error: any) {
@@ -482,7 +495,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           Send Mail
         </Button>
         {canEdit && (
-          <Button size="sm" onClick={() => { console.log("Edit Mode:", true); console.log("User Role:", role); setIsEditMode(true); }} className="gap-2">
+          <Button size="sm" onClick={() => { console.log("Edit clicked"); console.log("Edit Mode:", true); console.log("User Role:", role); setIsEditMode(true); }} className="gap-2">
             <Pencil className="h-4 w-4" /> Edit Sale
           </Button>
         )}
