@@ -104,17 +104,33 @@ const DispatchPage = () => {
     return { completed, pending };
   }, [sales, shipments]);
 
+  // Service products that don't require physical inventory
+  const isServiceProduct = useCallback((productName: string): boolean => {
+    const lowerName = productName.toLowerCase();
+    return ["server", "cloud", "sim"].some(kw => lowerName.includes(kw));
+  }, []);
+
   // Helper to compute dispatch status for an order
   const getOrderStatus = useCallback((orderId: string) => {
     const orderSaleItems = (allSaleItems || []).filter(item => item.order_id === orderId);
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-    const dispatched = (dispatchedInventory || []).filter(item => item.order_id === orderId).length;
+    const physicalDispatched = (dispatchedInventory || []).filter(item => item.order_id === orderId).length;
+    
+    // Count service product quantities as dispatched if order has a shipment
+    const orderHasShipment = (shipments || []).some(s => s.order_id === orderId);
+    const serviceDispatched = orderHasShipment
+      ? orderSaleItems
+          .filter(item => isServiceProduct(item.product_name))
+          .reduce((sum, item) => sum + Number(item.quantity), 0)
+      : 0;
+    
+    const dispatched = physicalDispatched + serviceDispatched;
     
     if (dispatched === 0) return "Pending";
     if (dispatched < totalItems) return "Partial";
     if (dispatched >= totalItems && totalItems > 0) return "Completed";
     return "Pending";
-  }, [allSaleItems, dispatchedInventory]);
+  }, [allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
 
   // Filter dispatch orders (sales data) with status filter from URL
   const filteredOrders = useMemo(() => {

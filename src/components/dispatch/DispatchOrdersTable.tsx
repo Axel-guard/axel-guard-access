@@ -53,17 +53,35 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
 
   const canDelete = isAdmin || isMasterAdmin;
 
+  // Service products that don't require physical inventory
+  const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
+  const isServiceProduct = (productName: string): boolean => {
+    const lowerName = productName.toLowerCase();
+    return SERVICE_PRODUCTS.some(sp => 
+      lowerName.includes(sp.toLowerCase().replace(" charges", "").trim()) ||
+      lowerName.includes(sp.toLowerCase())
+    );
+  };
+
   // Calculate dispatch status for each order using sale_items for total and inventory for dispatched
   const getOrderDispatchInfo = (orderId: string) => {
-    // Total items = sum of quantities from sale_items for this order
     const orderSaleItems = saleItems.filter(item => item.order_id === orderId);
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
-    // Dispatched = count of inventory items with status "Dispatched" for this order
-    const dispatched = dispatchedInventory.filter(
+    // Physical dispatched = count of inventory items with status "Dispatched"
+    const physicalDispatched = dispatchedInventory.filter(
       item => item.order_id === orderId
     ).length;
 
+    // Service dispatched = if order has a shipment, count service product quantities as dispatched
+    const orderHasShipment = shipments.some(s => s.order_id === orderId);
+    const serviceDispatched = orderHasShipment
+      ? orderSaleItems
+          .filter(item => isServiceProduct(item.product_name))
+          .reduce((sum, item) => sum + Number(item.quantity), 0)
+      : 0;
+
+    const dispatched = physicalDispatched + serviceDispatched;
     const remaining = Math.max(0, totalItems - dispatched);
 
     let status = "Pending";
