@@ -150,11 +150,12 @@ const QuotationApprovalsPage = () => {
       // Notify creator
       createNotification(
         "Quotation Approved",
-        `Quotation #${quotation.quotation_no} has been approved and sent to customer.`,
+        `Quotation ${quotation.quotation_no} for ${quotation.customer_name} has been approved.`,
         "quotation",
         {
           quotation_id: quotationId,
           quotation_no: quotation.quotation_no,
+          customer_name: quotation.customer_name,
           event: "quotation_approved",
         }
       );

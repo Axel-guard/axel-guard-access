@@ -111,7 +111,7 @@ export const ApproveQuotationButton = ({
       // Send notification to creator and admins
       await createNotification(
         "Quotation Approved",
-        `Quotation #${data.quotationNo} for ${data.customerName} has been approved by Master Admin. Total: ₹${data.grandTotal.toLocaleString()}. Email sent to customer.`,
+        `Quotation ${data.quotationNo} for ${data.customerName} has been approved.`,
         "quotation",
         {
           quotation_id: quotationId,

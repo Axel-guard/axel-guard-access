@@ -442,17 +442,15 @@ export const CreateDispatchDialog = ({
       queryClient.invalidateQueries({ queryKey: ["dispatch-status-current-month"] });
 
       // Create notification for admins
-      const dispatchMessage = hasOnlyServiceProducts
-        ? `Service activated for order ${order.order_id} - ${serviceProducts.length} service(s).`
-        : serialNumbers.length > 0
-        ? `Dispatch completed - Order ${order.order_id}: ${serialNumbers.length} devices dispatched${serviceProducts.length > 0 ? ` + ${serviceProducts.length} service(s)` : ""}.`
-        : `Dispatch completed for order ${order.order_id}.`;
-      
       createNotification(
         "Dispatch Completed",
-        dispatchMessage,
+        `Order ${order.order_id} for ${order.customer_name || "customer"} has been dispatched.`,
         "dispatch",
-        { order_id: order.order_id, devices_count: serialNumbers.length }
+        {
+          order_id: order.order_id,
+          customer_name: order.customer_name,
+          devices_count: serialNumbers.length,
+        }
       );
 
     // Success message based on product type

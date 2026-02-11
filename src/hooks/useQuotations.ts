@@ -135,8 +135,8 @@ export const useCreateQuotation = () => {
       
       // Send notification to admins - quotation needs approval
       createNotification(
-        "New Quotation Awaiting Approval",
-        `Quotation #${newQuotation.quotation_no} created for ${newQuotation.customer_name}. Total: ₹${newQuotation.grand_total.toLocaleString()}. Requires Master Admin approval.`,
+        "Quotation Approval Required",
+        `Quotation ${newQuotation.quotation_no} for ${newQuotation.customer_name} is waiting for approval.`,
         "quotation",
         {
           quotation_id: newQuotation.id,
