@@ -32,12 +32,18 @@ interface Shipment {
   created_at: string | null;
 }
 
+interface DispatchedInventoryItem {
+  order_id: string | null;
+}
+
 interface DispatchOrdersTableProps {
   orders: Sale[];
   shipments: Shipment[];
+  saleItems: SaleItem[];
+  dispatchedInventory: DispatchedInventoryItem[];
 }
 
-export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTableProps) => {
+export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory }: DispatchOrdersTableProps) => {
   const { isAdmin, isMasterAdmin } = useAuth();
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -47,16 +53,23 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
 
   const canDelete = isAdmin || isMasterAdmin;
 
-  // Calculate dispatch status for each order
+  // Calculate dispatch status for each order using sale_items for total and inventory for dispatched
   const getOrderDispatchInfo = (orderId: string) => {
-    const orderShipments = shipments.filter(
-      s => s.order_id === orderId || s.order_id === orderId.replace("ORD", "")
-    );
-    const dispatched = orderShipments.length;
-    // For now, assume total items from sale items or default to dispatched count
-    const totalItems = dispatched || 1;
+    // Total items = sum of quantities from sale_items for this order
+    const orderSaleItems = saleItems.filter(item => item.order_id === orderId);
+    const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+
+    // Dispatched = count of inventory items with status "Dispatched" for this order
+    const dispatched = dispatchedInventory.filter(
+      item => item.order_id === orderId
+    ).length;
+
     const remaining = Math.max(0, totalItems - dispatched);
-    const status = remaining === 0 && dispatched > 0 ? "Completed" : "Pending";
+
+    let status = "Pending";
+    if (dispatched === 0) status = "Pending";
+    else if (dispatched < totalItems) status = "Partial";
+    else if (dispatched >= totalItems && totalItems > 0) status = "Completed";
     
     return { totalItems, dispatched, remaining, status };
   };
@@ -64,6 +77,9 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
   const getStatusBadge = (status: string) => {
     if (status === "Completed") {
       return <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20">Completed</Badge>;
+    }
+    if (status === "Partial") {
+      return <Badge className="bg-info/10 text-info border-info/20 hover:bg-info/20">Partial</Badge>;
     }
     return <Badge className="bg-warning/10 text-warning border-warning/20 hover:bg-warning/20">Pending</Badge>;
   };
@@ -166,7 +182,7 @@ export const DispatchOrdersTable = ({ orders, shipments }: DispatchOrdersTablePr
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {dispatchInfo.status === "Pending" ? (
+                        {dispatchInfo.status !== "Completed" ? (
                           <Button 
                             size="sm" 
                             className="gap-1 bg-primary hover:bg-primary/90"
