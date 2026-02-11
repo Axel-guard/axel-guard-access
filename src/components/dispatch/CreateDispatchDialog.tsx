@@ -437,6 +437,9 @@ export const CreateDispatchDialog = ({
       queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
       queryClient.invalidateQueries({ queryKey: ["renewals"] });
       queryClient.invalidateQueries({ queryKey: ["renewals-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["dispatch-inventory-status"] });
+      queryClient.invalidateQueries({ queryKey: ["dispatch-sale-items"] });
+      queryClient.invalidateQueries({ queryKey: ["dispatch-status-current-month"] });
 
       // Create notification for admins
       const dispatchMessage = hasOnlyServiceProducts
