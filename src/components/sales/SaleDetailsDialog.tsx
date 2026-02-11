@@ -120,11 +120,12 @@ interface SaleDetailsDialogProps {
   } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialEditMode?: boolean;
 }
 
-export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialogProps) => {
+export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = false }: SaleDetailsDialogProps) => {
   const { sendEmail, isLoading: emailLoading } = useEmail();
-  const { user, isAdmin, isMasterAdmin } = useAuth();
+  const { user, isAdmin, isMasterAdmin, role } = useAuth();
   const { data: employees = [] } = useEmployees();
   const updateSale = useUpdateSale();
   const queryClient = useQueryClient();
@@ -157,7 +158,12 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialo
   // Fetch sale items when dialog opens
   useEffect(() => {
     if (sale && open) {
-      setIsEditMode(false);
+      const shouldEdit = initialEditMode && canEdit;
+      setIsEditMode(shouldEdit);
+      if (shouldEdit) {
+        console.log("Edit Mode:", true);
+        console.log("User Role:", role);
+      }
       setLoadingItems(true);
       supabase
         .from("sale_items")
@@ -172,7 +178,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialo
           setLoadingItems(false);
         });
     }
-  }, [sale, open]);
+  }, [sale, open, initialEditMode, canEdit, role]);
 
   // Initialize edit form when entering edit mode
   useEffect(() => {
@@ -476,7 +482,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange }: SaleDetailsDialo
           Send Mail
         </Button>
         {canEdit && (
-          <Button size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
+          <Button size="sm" onClick={() => { console.log("Edit Mode:", true); console.log("User Role:", role); setIsEditMode(true); }} className="gap-2">
             <Pencil className="h-4 w-4" /> Edit Sale
           </Button>
         )}

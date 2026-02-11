@@ -17,7 +17,6 @@ import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, 
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
-import { EditSaleDialog } from "@/components/sales/EditSaleDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
@@ -266,10 +265,11 @@ const SalesPage = () => {
         onOpenChange={(open) => !open && setBalanceSale(null)}
       />
 
-      <EditSaleDialog
+      <SaleDetailsDialog
         sale={editSale}
         open={!!editSale}
         onOpenChange={(open) => !open && setEditSale(null)}
+        initialEditMode={true}
       />
 
       {deleteSale && (
