@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useShipments, Shipment } from "@/hooks/useShipments";
 import { useSales } from "@/hooks/useSales";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
 import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
@@ -31,6 +33,39 @@ const DispatchPage = () => {
   const queryClient = useQueryClient();
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
   const { data: sales, isLoading: salesLoading } = useSales();
+
+  // Fetch sale_items for all current month orders to get total quantities
+  const { data: allSaleItems, isLoading: saleItemsLoading } = useQuery({
+    queryKey: ["dispatch-sale-items"],
+    queryFn: async () => {
+      if (!sales || sales.length === 0) return [];
+      const orderIds = sales.map(s => s.order_id);
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("*")
+        .in("order_id", orderIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!sales && sales.length > 0,
+  });
+
+  // Fetch dispatched inventory items for current month orders
+  const { data: dispatchedInventory, isLoading: inventoryLoading } = useQuery({
+    queryKey: ["dispatch-inventory-status"],
+    queryFn: async () => {
+      if (!sales || sales.length === 0) return [];
+      const orderIds = sales.map(s => s.order_id);
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("order_id")
+        .eq("status", "Dispatched")
+        .in("order_id", orderIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!sales && sales.length > 0,
+  });
   
   const [activeTab, setActiveTab] = useState("orders");
   const [orderIdSearch, setOrderIdSearch] = useState("");
@@ -99,7 +134,7 @@ const DispatchPage = () => {
     setTrackingDialogOpen(true);
   };
 
-  const isLoading = shipmentsLoading || salesLoading;
+  const isLoading = shipmentsLoading || salesLoading || saleItemsLoading || inventoryLoading;
 
   if (isLoading) {
     return (
@@ -218,6 +253,8 @@ const DispatchPage = () => {
               <DispatchOrdersTable 
                 orders={filteredOrders} 
                 shipments={shipments || []}
+                saleItems={allSaleItems || []}
+                dispatchedInventory={dispatchedInventory || []}
               />
             </CardContent>
           </Card>
