@@ -36,6 +36,7 @@ import {
   Trash2,
   FileText,
   User,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -53,9 +54,10 @@ import { ApproveQuotationButton } from "./ApproveQuotationButton";
 
 interface QuotationsListProps {
   onConvertToSale?: (quotationId: string) => void;
+  onEditQuotation?: (quotationId: string) => void;
 }
 
-export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
+export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsListProps) => {
   const { data: quotations, isLoading } = useQuotations();
   const deleteQuotation = useDeleteQuotation();
   const navigate = useNavigate();
@@ -241,6 +243,14 @@ export const QuotationsList = ({ onConvertToSale }: QuotationsListProps) => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {quotation.status !== "Converted" && onEditQuotation && (
+                              <DropdownMenuItem
+                                onClick={() => onEditQuotation(quotation.id)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit Quotation
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => handleDownloadPDF(quotation.id)}
                             >

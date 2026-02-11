@@ -80,7 +80,7 @@
    doc.setTextColor(...textColor);
    doc.setFontSize(14);
    doc.setFont("helvetica", "bold");
-   doc.text(quotation.customer_name || "-", 14, 78);
+   doc.text(quotation.company_name || quotation.customer_name || "-", 14, 78);
  
    doc.setFontSize(9);
    doc.setFont("helvetica", "normal");

@@ -358,6 +358,68 @@ export const useConvertToSale = () => {
   });
 };
 
+export const useUpdateQuotation = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      quotationId,
+      quotation,
+      items,
+    }: {
+      quotationId: string;
+      quotation: Partial<Omit<Quotation, "id" | "items">>;
+      items: Omit<QuotationItem, "id" | "quotation_id">[];
+    }) => {
+      // Update quotation
+      const { error: quotationError } = await supabase
+        .from("quotations")
+        .update(quotation)
+        .eq("id", quotationId);
+
+      if (quotationError) throw quotationError;
+
+      // Delete old items and insert new ones
+      const { error: deleteError } = await supabase
+        .from("quotation_items")
+        .delete()
+        .eq("quotation_id", quotationId);
+
+      if (deleteError) throw deleteError;
+
+      const itemsWithQuotationId = items.map((item) => ({
+        ...item,
+        quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) || 1 : item.quantity,
+        unit_price: typeof item.unit_price === "string" ? parseFloat(item.unit_price) || 0 : item.unit_price,
+        quotation_id: quotationId,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("quotation_items")
+        .insert(itemsWithQuotationId);
+
+      if (itemsError) throw itemsError;
+
+      return quotationId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      toast({
+        title: "Quotation Updated Successfully",
+        description: "Quotation has been updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update quotation",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
 export const useDeleteQuotation = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
