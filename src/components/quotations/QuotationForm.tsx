@@ -55,6 +55,7 @@ interface Lead {
   complete_address: string | null;
   mobile_number: string;
   gst_number: string | null;
+  email: string | null;
 }
 
 export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: QuotationFormProps) => {
@@ -77,6 +78,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   const [companyName, setCompanyName] = useState("");
   const [address, setAddress] = useState("");
   const [mobile, setMobile] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [gstNumber, setGstNumber] = useState("");
 
   // Quotation Info
@@ -112,6 +114,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       setCompanyName("");
       setAddress("");
       setMobile("");
+      setCustomerEmail("");
       setGstNumber("");
       return;
     }
@@ -121,7 +124,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     try {
       const { data, error } = await supabase
         .from("leads")
-        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number")
+        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number, email")
         .eq("customer_code", code.trim())
         .maybeSingle();
 
@@ -133,9 +136,10 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
         setCompanyName(data.company_name || "");
         setAddress(data.complete_address || "");
         setMobile(data.mobile_number || "");
+        setCustomerEmail(data.email || "");
         setGstNumber(data.gst_number || "");
         setCustomerFound(true);
-        highlightField(["customerName", "companyName", "address", "mobile", "gstNumber"]);
+        highlightField(["customerName", "companyName", "address", "mobile", "customerEmail", "gstNumber"]);
       } else {
         // Clear fields if not found
         setCustomerId(null);
@@ -143,6 +147,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
         setCompanyName("");
         setAddress("");
         setMobile("");
+        setCustomerEmail("");
         setGstNumber("");
         setCustomerFound(false);
       }
@@ -185,6 +190,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       setCompanyName(editQuotationData.company_name || "");
       setAddress(editQuotationData.address || "");
       setMobile(editQuotationData.mobile || "");
+      setCustomerEmail(editQuotationData.customer_email || "");
       setGstNumber(editQuotationData.gst_number || "");
       setApplyGst(editQuotationData.apply_gst || false);
       setCourierType(editQuotationData.courier_type || "");
@@ -253,6 +259,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     setCompanyName("");
     setAddress("");
     setMobile("");
+    setCustomerEmail("");
     setGstNumber("");
     setCustomerFound(null);
   };
@@ -343,6 +350,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       company_name: companyName,
       address,
       mobile,
+      customer_email: customerEmail,
       gst_number: gstNumber,
       subtotal,
       apply_gst: applyGst,
@@ -386,6 +394,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       company_name: companyName,
       address,
       mobile,
+      customer_email: customerEmail,
       gst_number: gstNumber,
       subtotal,
       apply_gst: applyGst,
@@ -561,15 +570,26 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gstNumber">GST Number</Label>
+                <Label htmlFor="customerEmail">Customer Email</Label>
                 <Input
-                  id="gstNumber"
-                  value={gstNumber}
-                  onChange={(e) => setGstNumber(e.target.value)}
-                  placeholder="Enter GST number (optional)"
-                  className={getFieldClassName("gstNumber")}
+                  id="customerEmail"
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="Enter customer email"
+                  className={getFieldClassName("customerEmail")}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gstNumber">GST Number</Label>
+              <Input
+                id="gstNumber"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value)}
+                placeholder="Enter GST number (optional)"
+                className={getFieldClassName("gstNumber")}
+              />
             </div>
           </CardContent>
         </Card>
