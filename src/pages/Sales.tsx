@@ -40,7 +40,7 @@ const useAllSales = () => {
 
 const SalesPage = () => {
   const { data: sales, isLoading } = useAllSales();
-  const { isMasterAdmin } = useAuth();
+  const { isMasterAdmin, isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -221,19 +221,20 @@ const SalesPage = () => {
                             )}
                             Send Email
                           </DropdownMenuItem>
-                          {/* Master Admin only: Edit & Delete */}
+                          {/* Admin & Master Admin: Edit */}
+                          {(isMasterAdmin || isAdmin) && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditSale(sale); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit Sale
+                            </DropdownMenuItem>
+                          )}
+                          {/* Master Admin only: Delete */}
                           {isMasterAdmin && (
-                            <>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditSale(sale); }}>
-                                <Pencil className="mr-2 h-4 w-4" /> Edit Sale
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={(e) => { e.stopPropagation(); setDeleteSale(sale); }}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete Sale
-                              </DropdownMenuItem>
-                            </>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={(e) => { e.stopPropagation(); setDeleteSale(sale); }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete Sale
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
