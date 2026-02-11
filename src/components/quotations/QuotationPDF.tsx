@@ -82,11 +82,16 @@
    doc.setFont("helvetica", "bold");
    doc.text(quotation.company_name || quotation.customer_name || "-", 14, 78);
  
-   doc.setFontSize(9);
-   doc.setFont("helvetica", "normal");
-   if (quotation.mobile) {
-     doc.text(`Contact No.: ${quotation.mobile}`, 14, 85);
-   }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    if (quotation.mobile) {
+      doc.text(`Contact No.: ${quotation.mobile}`, 14, 85);
+    }
+    let customerInfoY = quotation.mobile ? 91 : 85;
+    if ((quotation as any).customer_email) {
+      doc.text(`Email: ${(quotation as any).customer_email}`, 14, customerInfoY);
+      customerInfoY += 6;
+    }
  
    // Calculate total quantity
    const totalQuantity = items.reduce((sum, item) => {

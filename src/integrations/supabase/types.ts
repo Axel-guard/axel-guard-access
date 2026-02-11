@@ -515,6 +515,7 @@ export type Database = {
           created_by: string | null
           created_role: string | null
           customer_code: string | null
+          customer_email: string | null
           customer_id: string | null
           customer_name: string
           grand_total: number
@@ -544,6 +545,7 @@ export type Database = {
           created_by?: string | null
           created_role?: string | null
           customer_code?: string | null
+          customer_email?: string | null
           customer_id?: string | null
           customer_name: string
           grand_total?: number
@@ -573,6 +575,7 @@ export type Database = {
           created_by?: string | null
           created_role?: string | null
           customer_code?: string | null
+          customer_email?: string | null
           customer_id?: string | null
           customer_name?: string
           grand_total?: number
@@ -720,6 +723,7 @@ export type Database = {
           created_at: string | null
           customer_code: string
           customer_contact: string | null
+          customer_email: string | null
           customer_id: string | null
           customer_name: string | null
           employee_name: string
@@ -743,6 +747,7 @@ export type Database = {
           created_at?: string | null
           customer_code: string
           customer_contact?: string | null
+          customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
           employee_name: string
@@ -766,6 +771,7 @@ export type Database = {
           created_at?: string | null
           customer_code?: string
           customer_contact?: string | null
+          customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
           employee_name?: string

@@ -172,6 +172,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     customerName: "",
     companyName: "",
     customerContact: "",
+    customerEmail: "",
     location: "",
     saleDate: new Date().toISOString().split("T")[0],
     employeeName: "",
@@ -221,7 +222,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     try {
       const { data, error } = await supabase
         .from("leads")
-        .select("customer_name, mobile_number, company_name, location")
+        .select("customer_name, mobile_number, company_name, location, email")
         .eq("customer_code", code.trim())
         .maybeSingle();
 
@@ -234,6 +235,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           customerContact: data.mobile_number || prev.customerContact,
           companyName: data.company_name || prev.companyName,
           location: data.location || prev.location,
+          customerEmail: data.email || prev.customerEmail,
         }));
         setCustomerNotFound(false);
       } else {
@@ -318,6 +320,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
         customer_name: formData.customerName,
         company_name: formData.companyName,
         customer_contact: formData.customerContact,
+        customer_email: formData.customerEmail,
         sale_date: new Date(formData.saleDate).toISOString(),
         employee_name: formData.employeeName,
         sale_type: saleTypeValue,
@@ -357,6 +360,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       customerName: "",
       companyName: "",
       customerContact: "",
+      customerEmail: "",
       location: "",
       saleDate: new Date().toISOString().split("T")[0],
       employeeName: "",
@@ -449,7 +453,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </div>
           </div>
 
-          {/* Row 2: Company Name, Location, Date of Sale */}
+          {/* Row 2: Company Name, Email, Location */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="companyName">
@@ -460,6 +464,20 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 value={formData.companyName}
                 onChange={(e) =>
                   setFormData({ ...formData, companyName: e.target.value })
+                }
+                placeholder="Will be auto-filled or enter manually"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerEmail">
+                Customer Email <AutoFillHint />
+              </Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                value={formData.customerEmail}
+                onChange={(e) =>
+                  setFormData({ ...formData, customerEmail: e.target.value })
                 }
                 placeholder="Will be auto-filled or enter manually"
               />
@@ -477,6 +495,10 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 placeholder="Will be auto-filled or enter manually"
               />
             </div>
+          </div>
+
+          {/* Row 3: Date of Sale, Employee, Sale Type */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="saleDate">Date of Sale *</Label>
               <Input
@@ -491,7 +513,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </div>
           </div>
 
-          {/* Row 3: Employee Name, Sale Type, Courier Cost */}
+          {/* Row 4: Courier Cost */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="employeeName">Employee Name *</Label>

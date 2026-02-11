@@ -107,6 +107,7 @@ interface SaleDetailsDialogProps {
     customer_code: string;
     customer_name?: string | null;
     customer_contact?: string | null;
+    customer_email?: string | null;
     company_name?: string | null;
     total_amount: number;
     amount_received?: number | null;
@@ -409,6 +410,9 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
               <p><span className="text-muted-foreground">Company:</span> <span className="font-medium">{sale.company_name}</span></p>
             )}
             <p><span className="text-muted-foreground">Contact:</span> <span className="font-medium">{sale.customer_contact || "-"}</span></p>
+            {sale.customer_email && (
+              <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{sale.customer_email}</span></p>
+            )}
           </div>
         </div>
         <div className="space-y-3 rounded-lg border border-border p-4">

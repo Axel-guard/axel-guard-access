@@ -636,36 +636,37 @@ const getEmailTemplate = (
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    let customerEmail: string | null = null;
-    let emailData: Record<string, unknown> = {};
+     let customerEmail: string | null = null;
+     let emailData: Record<string, unknown> = {};
 
-    // Handle quotation emails separately
-    if (type === "quotation") {
-      const { data: quotation, error: quotationError } = await supabase
-        .from("quotations")
-        .select("*")
-        .eq("id", quotationId)
-        .single();
+     // Handle quotation emails separately
+     if (type === "quotation") {
+       const { data: quotation, error: quotationError } = await supabase
+         .from("quotations")
+         .select("*")
+         .eq("id", quotationId)
+         .single();
 
-      if (quotationError || !quotation) {
-        throw new Error(`Quotation not found for ID: ${quotationId}`);
-      }
+       if (quotationError || !quotation) {
+         throw new Error(`Quotation not found for ID: ${quotationId}`);
+       }
 
-      // Get quotation items
-      const { data: qItems } = await supabase
-        .from("quotation_items")
-        .select("product_name, quantity, unit_price, amount")
-        .eq("quotation_id", quotationId);
+       // Get quotation items
+       const { data: qItems } = await supabase
+         .from("quotation_items")
+         .select("product_name, quantity, unit_price, amount")
+         .eq("quotation_id", quotationId);
 
-      // Get customer email
-      if (quotation.customer_code) {
-        const { data: lead } = await supabase
-          .from("leads")
-          .select("email")
-          .eq("customer_code", quotation.customer_code)
-          .single();
-        customerEmail = lead?.email || null;
-      }
+       // Use customer_email from quotation record first, fallback to leads
+       customerEmail = quotation.customer_email || null;
+       if (!customerEmail && quotation.customer_code) {
+         const { data: lead } = await supabase
+           .from("leads")
+           .select("email")
+           .eq("customer_code", quotation.customer_code)
+           .single();
+         customerEmail = lead?.email || null;
+       }
 
       if (!customerEmail) {
         throw new Error("Customer email not found. Please update customer details with email.");
@@ -693,14 +694,16 @@ const getEmailTemplate = (
         throw new Error(`Sale not found for order ID: ${orderId}`);
       }
 
-      if (sale.customer_code) {
-        const { data: lead } = await supabase
-          .from("leads")
-          .select("email")
-          .eq("customer_code", sale.customer_code)
-          .single();
-        customerEmail = lead?.email || null;
-      }
+       // Use customer_email from sale record first, fallback to leads
+       customerEmail = sale.customer_email || null;
+       if (!customerEmail && sale.customer_code) {
+         const { data: lead } = await supabase
+           .from("leads")
+           .select("email")
+           .eq("customer_code", sale.customer_code)
+           .single();
+         customerEmail = lead?.email || null;
+       }
 
       if (!customerEmail) {
         throw new Error("Customer email not found. Please update customer details with email.");

@@ -18,6 +18,7 @@ export interface Sale {
   customer_name?: string;
   company_name?: string;
   customer_contact?: string;
+  customer_email?: string;
   sale_date: string;
   employee_name: string;
   sale_type: "With" | "Without";

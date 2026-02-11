@@ -25,6 +25,7 @@ export interface Quotation {
   company_name: string;
   address: string;
   mobile: string;
+  customer_email?: string;
   gst_number: string;
   subtotal: number;
   apply_gst: boolean;
