@@ -8,6 +8,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications, Notification } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +37,12 @@ const NotificationItem = ({
   notification,
   onMarkAsRead,
   onDelete,
+  onNavigate,
 }: {
   notification: Notification;
   onMarkAsRead: (id: string) => void;
   onDelete: (id: string) => void;
+  onNavigate: (notification: Notification) => void;
 }) => {
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
     addSuffix: true,
@@ -49,8 +52,10 @@ const NotificationItem = ({
     <div
       className={cn(
         "flex items-start gap-3 p-3 border-b border-border/50 transition-colors hover:bg-muted/50",
-        !notification.is_read && "bg-primary/5"
+        !notification.is_read && "bg-primary/5",
+        notification.route && "cursor-pointer"
       )}
+      onClick={() => onNavigate(notification)}
     >
       <span className="text-xl mt-0.5">
         {getNotificationIcon(notification.type)}
@@ -107,6 +112,7 @@ const NotificationItem = ({
 
 export const NotificationPanel = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const {
     notifications,
     unreadCount,
@@ -178,6 +184,10 @@ export const NotificationPanel = () => {
                 notification={notification}
                 onMarkAsRead={(id) => markAsRead.mutate(id)}
                 onDelete={(id) => deleteNotification.mutate(id)}
+                onNavigate={(n) => {
+                  if (!n.is_read) markAsRead.mutate(n.id);
+                  if (n.route) navigate(n.route);
+                }}
               />
             ))
           )}

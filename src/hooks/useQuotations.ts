@@ -144,7 +144,9 @@ export const useCreateQuotation = () => {
           customer_name: newQuotation.customer_name,
           total_amount: newQuotation.grand_total,
           event: "quotation_pending_approval",
-        }
+        },
+        "/quotation-approvals",
+        newQuotation.quotation_no
       );
       
       toast({

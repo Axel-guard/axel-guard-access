@@ -119,7 +119,9 @@ export const ApproveQuotationButton = ({
           customer_name: data.customerName,
           total_amount: data.grandTotal,
           event: "quotation_approved",
-        }
+        },
+        "/quotations",
+        data.quotationNo
       );
 
       toast({

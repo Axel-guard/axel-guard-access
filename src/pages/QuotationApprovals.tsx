@@ -157,7 +157,9 @@ const QuotationApprovalsPage = () => {
           quotation_no: quotation.quotation_no,
           customer_name: quotation.customer_name,
           event: "quotation_approved",
-        }
+        },
+        "/quotations",
+        quotation.quotation_no
       );
 
       return quotation;
