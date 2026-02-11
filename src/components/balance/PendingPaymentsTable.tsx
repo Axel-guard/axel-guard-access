@@ -2,30 +2,29 @@ import { useState } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Upload, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PendingPaymentsUploadDialog } from "./PendingPaymentsUploadDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 
-type StatusFilter = "all" | "pending" | "partial" | "paid";
+type StatusFilter = "all" | "pending" | "partial";
 
-// Fetch ALL sales (not just current month) for balance tracking
-const useAllSalesForBalance = () => {
+const useUnpaidSales = () => {
   return useQuery({
     queryKey: ["all-sales-balance"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
         .select("*")
+        .gt("balance_amount", 0)
         .order("order_id", { ascending: false });
 
       if (error) throw error;
@@ -35,8 +34,8 @@ const useAllSalesForBalance = () => {
 };
 
 export const PendingPaymentsTable = () => {
-  const { data: sales, isLoading } = useAllSalesForBalance();
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const { data: sales, isLoading } = useUnpaidSales();
+  const [selectedSale, setSelectedSale] = useState<typeof sales extends (infer T)[] ? T : never | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -45,19 +44,14 @@ export const PendingPaymentsTable = () => {
   const getPaymentStatus = (sale: any) => {
     const total = Number(sale.total_amount) || 0;
     const received = Number(sale.amount_received) || 0;
-    if (received >= total && total > 0) return "paid";
-    if (received > 0) return "partial";
+    if (received > 0 && received < total) return "partial";
     return "pending";
   };
 
-  // Filter sales
   const filteredSales = sales?.filter((sale) => {
     const status = getPaymentStatus(sale);
-
-    // Status filter
     if (statusFilter !== "all" && status !== statusFilter) return false;
 
-    // Search filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const match =
@@ -68,22 +62,18 @@ export const PendingPaymentsTable = () => {
       if (!match) return false;
     }
 
-    // Date range filter
     if (dateFrom && sale.sale_date < dateFrom) return false;
     if (dateTo && sale.sale_date > dateTo + "T23:59:59") return false;
 
     return true;
   }) || [];
 
-  // Summary stats
   const totalBalance = filteredSales.reduce((sum, s) => sum + Math.max(0, Number(s.total_amount) - Number(s.amount_received || 0)), 0);
   const pendingCount = filteredSales.filter(s => getPaymentStatus(s) === "pending").length;
   const partialCount = filteredSales.filter(s => getPaymentStatus(s) === "partial").length;
-  const paidCount = filteredSales.filter(s => getPaymentStatus(s) === "paid").length;
 
   const getStatusBadge = (sale: any) => {
     const status = getPaymentStatus(sale);
-    if (status === "paid") return <Badge className="bg-success/10 text-success border-success/20">Paid</Badge>;
     if (status === "partial") return <Badge className="bg-warning/10 text-warning border-warning/20">Partial</Badge>;
     return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Pending</Badge>;
   };
@@ -101,7 +91,7 @@ export const PendingPaymentsTable = () => {
   return (
     <div>
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+      <div className="grid grid-cols-3 gap-3 p-4">
         <div className="bg-muted/50 rounded-lg p-3 text-center">
           <p className="text-xs text-muted-foreground">Total Balance</p>
           <p className="text-lg font-bold text-destructive">₹{totalBalance.toLocaleString()}</p>
@@ -113,10 +103,6 @@ export const PendingPaymentsTable = () => {
         <div className="bg-warning/10 rounded-lg p-3 text-center cursor-pointer" onClick={() => setStatusFilter("partial")}>
           <p className="text-xs text-muted-foreground">Partial</p>
           <p className="text-lg font-bold text-warning">{partialCount}</p>
-        </div>
-        <div className="bg-success/10 rounded-lg p-3 text-center cursor-pointer" onClick={() => setStatusFilter("paid")}>
-          <p className="text-xs text-muted-foreground">Paid</p>
-          <p className="text-lg font-bold text-success">{paidCount}</p>
         </div>
       </div>
 
@@ -140,23 +126,10 @@ export const PendingPaymentsTable = () => {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="w-full sm:w-40"
-          placeholder="From"
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="w-full sm:w-40"
-          placeholder="To"
-        />
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-40" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-40" />
         <PendingPaymentsUploadDialog />
       </div>
 
@@ -173,14 +146,17 @@ export const PendingPaymentsTable = () => {
               <TableHead className="font-semibold text-right">RECEIVED</TableHead>
               <TableHead className="font-semibold text-right">BALANCE</TableHead>
               <TableHead className="font-semibold text-center">STATUS</TableHead>
-              <TableHead className="font-semibold text-center">ACTION</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSales.map((sale) => {
               const balance = Math.max(0, Number(sale.total_amount) - Number(sale.amount_received || 0));
               return (
-                <TableRow key={sale.order_id}>
+                <TableRow
+                  key={sale.order_id}
+                  className="cursor-pointer hover:bg-primary/5 transition-colors"
+                  onClick={() => setSelectedSale(sale)}
+                >
                   <TableCell className="font-semibold text-primary">{sale.order_id}</TableCell>
                   <TableCell>{sale.customer_name || "-"}</TableCell>
                   <TableCell className="hidden md:table-cell text-primary font-medium">{sale.customer_code}</TableCell>
@@ -192,26 +168,13 @@ export const PendingPaymentsTable = () => {
                   <TableCell className="text-right text-success">₹{Number(sale.amount_received || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-destructive font-semibold">₹{balance.toLocaleString()}</TableCell>
                   <TableCell className="text-center">{getStatusBadge(sale)}</TableCell>
-                  <TableCell className="text-center">
-                    {balance > 0 ? (
-                      <Button
-                        size="sm"
-                        className="bg-primary hover:bg-primary/90"
-                        onClick={() => setSelectedOrder(sale.order_id)}
-                      >
-                        Update
-                      </Button>
-                    ) : (
-                      <span className="text-success text-xs font-medium">✓ Paid</span>
-                    )}
-                  </TableCell>
                 </TableRow>
               );
             })}
             {filteredSales.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                  No sales found matching filters
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  No pending payments found
                 </TableCell>
               </TableRow>
             )}
@@ -219,11 +182,11 @@ export const PendingPaymentsTable = () => {
         </Table>
       </div>
 
-      {selectedOrder && (
+      {selectedSale && (
         <BalancePaymentDialog
-          orderId={selectedOrder}
-          open={!!selectedOrder}
-          onOpenChange={(open) => !open && setSelectedOrder(null)}
+          open={!!selectedSale}
+          onOpenChange={(open) => !open && setSelectedSale(null)}
+          sale={selectedSale}
         />
       )}
     </div>
