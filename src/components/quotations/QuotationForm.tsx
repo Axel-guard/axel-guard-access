@@ -34,6 +34,8 @@ import { toast } from "sonner";
 import {
   useGenerateQuotationNo,
   useCreateQuotation,
+  useUpdateQuotation,
+  useQuotationWithItems,
   QuotationItem,
 } from "@/hooks/useQuotations";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,7 @@ import { useNavigate } from "react-router-dom";
 interface QuotationFormProps {
   onSuccess?: () => void;
   onConvertToSale?: (quotationId: string) => void;
+  editQuotationId?: string;
 }
 
 interface Lead {
@@ -54,10 +57,13 @@ interface Lead {
   gst_number: string | null;
 }
 
-export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps) => {
+export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: QuotationFormProps) => {
   const navigate = useNavigate();
   const { data: nextQuotationNo } = useGenerateQuotationNo();
   const createQuotation = useCreateQuotation();
+  const updateQuotation = useUpdateQuotation();
+  const { data: editQuotationData } = useQuotationWithItems(editQuotationId || null);
+  const isEditMode = !!editQuotationId;
 
   // Customer Code search with debounce
   const [customerCode, setCustomerCode] = useState("");
@@ -161,12 +167,45 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
     },
   });
 
-  // Set quotation number when loaded
+  // Set quotation number when loaded (only for new quotations)
   useEffect(() => {
-    if (nextQuotationNo) {
+    if (nextQuotationNo && !isEditMode) {
       setQuotationNo(nextQuotationNo);
     }
-  }, [nextQuotationNo]);
+  }, [nextQuotationNo, isEditMode]);
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editQuotationData && isEditMode) {
+      setQuotationNo(editQuotationData.quotation_no || "");
+      setQuotationDate(format(new Date(editQuotationData.quotation_date), "yyyy-MM-dd"));
+      setCustomerCode(editQuotationData.customer_code || "");
+      setCustomerId(editQuotationData.customer_id || null);
+      setCustomerName(editQuotationData.customer_name || "");
+      setCompanyName(editQuotationData.company_name || "");
+      setAddress(editQuotationData.address || "");
+      setMobile(editQuotationData.mobile || "");
+      setGstNumber(editQuotationData.gst_number || "");
+      setApplyGst(editQuotationData.apply_gst || false);
+      setCourierType(editQuotationData.courier_type || "");
+      setCourierCharge(Number(editQuotationData.courier_charge) || 0);
+      setCustomerFound(true);
+
+      if (editQuotationData.items && editQuotationData.items.length > 0) {
+        setItems(
+          editQuotationData.items.map((item: any) => ({
+            product_code: item.product_code || "",
+            product_name: item.product_name || "",
+            description: item.description || "",
+            unit: item.unit || "Pcs",
+            quantity: item.quantity?.toString() || "",
+            unit_price: item.unit_price?.toString() || "",
+            amount: Number(item.amount) || 0,
+          }))
+        );
+      }
+    }
+  }, [editQuotationData, isEditMode]);
 
   // Highlight fields animation
   const highlightField = useCallback((fields: string[]) => {
@@ -313,17 +352,28 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
       apply_courier_gst: false,
       courier_gst_amount: 0,
       grand_total: grandTotal,
-      status: "Pending Approval",
-      created_by: user?.id,
-      created_role: createdRole,
+      ...(!isEditMode && {
+        status: "Pending Approval",
+        created_by: user?.id,
+        created_role: createdRole,
+      }),
     };
 
     const validItems = items.filter((i) => i.product_code);
 
-    await createQuotation.mutateAsync({
-      quotation: quotationData,
-      items: validItems,
-    });
+    if (isEditMode && editQuotationId) {
+      console.log("Updating quotation:", editQuotationId);
+      await updateQuotation.mutateAsync({
+        quotationId: editQuotationId,
+        quotation: quotationData,
+        items: validItems,
+      });
+    } else {
+      await createQuotation.mutateAsync({
+        quotation: quotationData as any,
+        items: validItems,
+      });
+    }
 
     onSuccess?.();
   };
@@ -369,9 +419,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
             <FileText className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">New Quotation</h2>
+            <h2 className="text-xl font-bold">{isEditMode ? "Edit Quotation" : "New Quotation"}</h2>
             <p className="text-sm text-muted-foreground">
-              Create a quotation/estimate for your customer
+              {isEditMode ? "Edit and update this quotation" : "Create a quotation/estimate for your customer"}
             </p>
           </div>
         </div>
@@ -706,6 +756,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
           className="gap-2"
           disabled={
             createQuotation.isPending ||
+            updateQuotation.isPending ||
             !customerCode.trim() ||
             customerFound !== true ||
             !customerId ||
@@ -714,7 +765,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale }: QuotationFormProps
           }
         >
           <Save className="h-4 w-4" />
-          {createQuotation.isPending ? "Saving..." : "Save Quotation"}
+          {(createQuotation.isPending || updateQuotation.isPending)
+            ? "Saving..."
+            : isEditMode
+            ? "Update Quotation"
+            : "Save Quotation"}
         </Button>
       </div>
     </div>
