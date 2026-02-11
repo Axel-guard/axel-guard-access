@@ -2,6 +2,7 @@ import { CheckCircle, Clock, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface DispatchItemProps {
   label: string;
@@ -9,10 +10,19 @@ interface DispatchItemProps {
   icon: React.ElementType;
   colorClass: string;
   bgClass: string;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
-const DispatchItem = ({ label, count, icon: Icon, colorClass, bgClass }: DispatchItemProps) => (
-  <div className="flex items-center justify-between rounded-xl bg-muted/50 p-2 sm:p-3">
+const DispatchItem = ({ label, count, icon: Icon, colorClass, bgClass, onClick, isActive }: DispatchItemProps) => (
+  <div
+    onClick={onClick}
+    className={cn(
+      "flex items-center justify-between rounded-xl bg-muted/50 p-2 sm:p-3 cursor-pointer transition-all duration-200 hover:scale-[1.02]",
+      isActive && "ring-2 ring-offset-1 ring-primary/40 shadow-md",
+      onClick && "hover:shadow-sm"
+    )}
+  >
     <div className="flex items-center gap-2 sm:gap-3">
       <div className={cn("flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-lg", bgClass)}>
         <Icon className={cn("h-3 w-3 sm:h-4 sm:w-4", colorClass)} />
@@ -31,7 +41,6 @@ const useDispatchStatus = () => {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const today = now.toISOString().split("T")[0];
 
-      // Get all sales this month
       const { data: sales, error: salesError } = await supabase
         .from("sales")
         .select("order_id")
@@ -46,7 +55,6 @@ const useDispatchStatus = () => {
       const totalSales = sales.length;
       const orderIds = sales.map(s => s.order_id);
 
-      // Get shipments for these order IDs to find completed dispatches
       const { data: shipments, error: shipmentsError } = await supabase
         .from("shipments")
         .select("order_id")
@@ -65,6 +73,11 @@ const useDispatchStatus = () => {
 
 export const InventoryAlertCard = () => {
   const { data, isLoading } = useDispatchStatus();
+  const navigate = useNavigate();
+
+  const handleFilterClick = (filter: string) => {
+    navigate(`/dispatch?status=${filter}`);
+  };
 
   if (isLoading) {
     return (
@@ -110,6 +123,7 @@ export const InventoryAlertCard = () => {
             icon={CheckCircle}
             colorClass="text-success"
             bgClass="bg-success/10"
+            onClick={() => handleFilterClick("completed")}
           />
           <DispatchItem
             label="Dispatch Pending"
@@ -117,6 +131,7 @@ export const InventoryAlertCard = () => {
             icon={Clock}
             colorClass="text-warning"
             bgClass="bg-warning/10"
+            onClick={() => handleFilterClick("pending")}
           />
           <DispatchItem
             label="Total Dispatch"
@@ -124,6 +139,7 @@ export const InventoryAlertCard = () => {
             icon={Truck}
             colorClass="text-info"
             bgClass="bg-info/10"
+            onClick={() => handleFilterClick("all")}
           />
         </div>
       )}

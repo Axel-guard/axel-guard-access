@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,16 @@ import {
   FileSpreadsheet, 
   Plus, 
   X,
-  Calculator
+  Calculator,
+  CheckCircle,
+  Clock,
+  Filter
 } from "lucide-react";
 import { useShipments, Shipment } from "@/hooks/useShipments";
 import { useSales } from "@/hooks/useSales";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
 import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
@@ -30,6 +35,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 const DispatchPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
   const { data: sales, isLoading: salesLoading } = useSales();
@@ -74,6 +80,18 @@ const DispatchPage = () => {
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editShipment, setEditShipment] = useState<Shipment | null>(null);
 
+  // Read status filter from URL params
+  const statusFilter = searchParams.get("status") || "all";
+
+  const setStatusFilter = useCallback((filter: string) => {
+    if (filter === "all") {
+      searchParams.delete("status");
+    } else {
+      searchParams.set("status", filter);
+    }
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   // Calculate dispatch order stats
   const dispatchStats = useMemo(() => {
     if (!sales) return { completed: 0, pending: 0 };
@@ -86,7 +104,19 @@ const DispatchPage = () => {
     return { completed, pending };
   }, [sales, shipments]);
 
-  // Filter dispatch orders (sales data)
+  // Helper to compute dispatch status for an order
+  const getOrderStatus = useCallback((orderId: string) => {
+    const orderSaleItems = (allSaleItems || []).filter(item => item.order_id === orderId);
+    const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+    const dispatched = (dispatchedInventory || []).filter(item => item.order_id === orderId).length;
+    
+    if (dispatched === 0) return "Pending";
+    if (dispatched < totalItems) return "Partial";
+    if (dispatched >= totalItems && totalItems > 0) return "Completed";
+    return "Pending";
+  }, [allSaleItems, dispatchedInventory]);
+
+  // Filter dispatch orders (sales data) with status filter from URL
   const filteredOrders = useMemo(() => {
     if (!sales) return [];
     
@@ -97,9 +127,18 @@ const DispatchPage = () => {
         (sale.customer_name?.toLowerCase() || "").includes(customerSearch.toLowerCase()) ||
         (sale.customer_contact?.toLowerCase() || "").includes(customerSearch.toLowerCase());
       
-      return matchesOrderId && matchesCustomer;
+      // Apply status filter
+      let matchesStatus = true;
+      if (statusFilter === "completed") {
+        matchesStatus = getOrderStatus(sale.order_id) === "Completed";
+      } else if (statusFilter === "pending") {
+        const status = getOrderStatus(sale.order_id);
+        matchesStatus = status === "Pending" || status === "Partial";
+      }
+      
+      return matchesOrderId && matchesCustomer && matchesStatus;
     });
-  }, [sales, orderIdSearch, customerSearch]);
+  }, [sales, orderIdSearch, customerSearch, statusFilter, getOrderStatus]);
 
   // Filter tracking details (shipments data)
   const filteredShipments = useMemo(() => {
@@ -117,6 +156,7 @@ const DispatchPage = () => {
   const handleClearOrderSearch = () => {
     setOrderIdSearch("");
     setCustomerSearch("");
+    setStatusFilter("all");
   };
 
   const handleTrackingSuccess = () => {
@@ -207,6 +247,46 @@ const DispatchPage = () => {
 
         {/* Dispatch Orders Tab */}
         <TabsContent value="orders" className="space-y-4">
+          {/* Status Filter Chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Button
+              size="sm"
+              variant={statusFilter === "all" ? "default" : "outline"}
+              className={cn(
+                "gap-1.5 transition-all duration-200",
+                statusFilter === "all" && "shadow-md"
+              )}
+              onClick={() => setStatusFilter("all")}
+            >
+              <Truck className="h-3.5 w-3.5" />
+              All ({dispatchStats.completed + dispatchStats.pending})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "completed" ? "default" : "outline"}
+              className={cn(
+                "gap-1.5 transition-all duration-200",
+                statusFilter === "completed" && "bg-success hover:bg-success/90 shadow-md"
+              )}
+              onClick={() => setStatusFilter("completed")}
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
+              Completed ({dispatchStats.completed})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "pending" ? "default" : "outline"}
+              className={cn(
+                "gap-1.5 transition-all duration-200",
+                statusFilter === "pending" && "bg-warning hover:bg-warning/90 shadow-md"
+              )}
+              onClick={() => setStatusFilter("pending")}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Pending ({dispatchStats.pending})
+            </Button>
+          </div>
           {/* Search Bar */}
           <Card className="shadow-card">
             <CardContent className="p-4">
