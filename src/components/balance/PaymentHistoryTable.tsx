@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Table,
@@ -8,8 +9,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { Search } from "lucide-react";
 import { PaymentHistoryUploadDialog } from "./PaymentHistoryUploadDialog";
 
 interface PaymentWithSale {
@@ -25,6 +28,7 @@ interface PaymentWithSale {
 }
 
 export const PaymentHistoryTable = () => {
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: payments, isLoading } = useQuery({
     queryKey: ["payment-history-with-sales"],
     queryFn: async () => {
@@ -73,9 +77,31 @@ export const PaymentHistoryTable = () => {
     );
   }
 
+  const filteredPayments = payments?.filter((payment) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      payment.order_id.toLowerCase().includes(q) ||
+      (payment.customer_code && payment.customer_code.toLowerCase().includes(q)) ||
+      (payment.customer_name && payment.customer_name.toLowerCase().includes(q)) ||
+      (payment.company_name && payment.company_name.toLowerCase().includes(q)) ||
+      (payment.account_received && payment.account_received.toLowerCase().includes(q)) ||
+      (payment.payment_reference && payment.payment_reference.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div>
-      <div className="flex justify-end p-4 border-b border-border">
+      <div className="flex items-center justify-between gap-4 p-4 border-b border-border">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by Order ID, Customer, Company..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <PaymentHistoryUploadDialog />
       </div>
 
@@ -94,7 +120,7 @@ export const PaymentHistoryTable = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments?.map((payment) => (
+            {filteredPayments?.map((payment) => (
               <TableRow key={payment.id}>
                 <TableCell className="font-semibold">{payment.order_id}</TableCell>
                 <TableCell className="text-primary font-medium">
@@ -112,13 +138,13 @@ export const PaymentHistoryTable = () => {
                 <TableCell>{payment.payment_reference || "-"}</TableCell>
               </TableRow>
             ))}
-            {(!payments || payments.length === 0) && (
+            {(!filteredPayments || filteredPayments.length === 0) && (
               <TableRow>
                 <TableCell
                   colSpan={8}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No balance payments recorded this month
+                  {searchQuery.trim() ? "No matching payments found" : "No balance payments recorded this month"}
                 </TableCell>
               </TableRow>
             )}
