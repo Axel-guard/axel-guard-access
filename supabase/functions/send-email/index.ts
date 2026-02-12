@@ -207,15 +207,20 @@ const getEmailTemplate = (
      case "dispatch":
        const serialNumbersHtml = (data.serialNumbers as string[])?.length > 0
         ? `<div class="section-card">
-            <div class="section-title">🔢 Serial Numbers</div>
+            <div class="section-title">🔢 Dispatched Serial Numbers</div>
             <div style="text-align: center; padding: 10px 0;">
               ${(data.serialNumbers as string[]).map((sn: string) => `<span class="serial-badge">${sn}</span>`).join("")}
              </div>
            </div>`
          : "";
  
+       const totalOrderQty = Number(data.totalOrderItems) || 0;
+       const totalDispatchedSoFar = Number(data.totalDispatchedSoFar) || 0;
+       const remainingItems = Number(data.remainingItems) || 0;
+       const isPartialDispatch = remainingItems > 0;
+
        return {
-         subject: `Order Dispatched - ${data.orderId} | AxelGuard`,
+         subject: `${isPartialDispatch ? 'Partial ' : ''}Dispatch - Order ${data.orderId} | AxelGuard`,
          body: `<!DOCTYPE html>
  <html>
  <head>
@@ -224,17 +229,26 @@ const getEmailTemplate = (
   <style>${baseEmailStyles}
     .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
     .section-title { color: #059669; border-bottom-color: #10b981; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .summary-item { text-align: center; padding: 16px; border-radius: 10px; }
+    .summary-item.total { background: #f0f9ff; border: 1px solid #bae6fd; }
+    .summary-item.dispatched { background: #d1fae5; border: 1px solid #6ee7b7; }
+    .summary-item.remaining { background: #fef3c7; border: 1px solid #fcd34d; }
+    .summary-number { font-size: 24px; font-weight: 700; }
+    .summary-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
   </style>
  </head>
  <body>
   <div class="email-wrapper">
      <div class="header">
       <div class="header-logo">🚚 AxelGuard</div>
-      <div class="header-subtitle">Order Dispatched</div>
+      <div class="header-subtitle">${isPartialDispatch ? 'Partial Dispatch Notification' : 'Order Dispatched'}</div>
      </div>
      <div class="content">
       <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
-      <p class="intro-text">Great news! Your order has been dispatched and is on its way to you.</p>
+      <p class="intro-text">${isPartialDispatch 
+        ? 'A partial shipment for your order has been dispatched. The remaining items will follow in subsequent dispatches.'
+        : 'Great news! Your order has been fully dispatched and is on its way to you.'}</p>
        
       <div class="section-card">
         <div class="section-title">📦 Dispatch Information</div>
@@ -249,24 +263,40 @@ const getEmailTemplate = (
        </div>
        
       <div class="section-card">
-        <div class="section-title">📋 Packed Product Details</div>
-        <div class="info-row">
-          <span class="info-label">Product Name:</span>
-          <span class="info-value">${data.productName || "N/A"}</span>
+        <div class="section-title">📋 Dispatch Summary</div>
+        <div class="summary-grid">
+          <div class="summary-item total">
+            <div class="summary-number" style="color: #1e40af;">${totalOrderQty}</div>
+            <div class="summary-label">Total Order Items</div>
+          </div>
+          <div class="summary-item dispatched">
+            <div class="summary-number" style="color: #059669;">${totalDispatchedSoFar}</div>
+            <div class="summary-label">Total Dispatched</div>
+          </div>
+          <div class="summary-item remaining">
+            <div class="summary-number" style="color: #d97706;">${remainingItems}</div>
+            <div class="summary-label">Remaining</div>
+          </div>
         </div>
         <div class="info-row">
-          <span class="info-label">Quantity Dispatched:</span>
-          <span class="info-value">${data.totalQuantity || 0} units</span>
+          <span class="info-label">This Dispatch:</span>
+          <span class="info-value">${data.totalQuantity || 0} item(s)</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Products:</span>
+          <span class="info-value">${data.productName || "N/A"}</span>
         </div>
        </div>
        
        ${serialNumbersHtml}
        
       <div style="text-align: center; margin: 28px 0;">
-        <span class="status-badge success">✅ All devices passed quality checks</span>
+        <span class="status-badge ${isPartialDispatch ? 'transit' : 'success'}">${isPartialDispatch ? '📦 Partial Shipment Sent' : '✅ All Items Dispatched'}</span>
        </div>
        
-      <p class="closing-text">Courier & tracking details will be shared soon.</p>
+      <p class="closing-text">${isPartialDispatch 
+        ? 'The remaining items will be dispatched soon. Courier & tracking details will be shared separately.'
+        : 'Courier & tracking details will be shared soon.'}</p>
      </div>
      <div class="footer">
       <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
@@ -799,12 +829,28 @@ const getEmailTemplate = (
         const totalQuantity = dispatchData?.totalQuantity || 
           saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
         
+        // Calculate total order items, total dispatched so far, and remaining
+        const totalOrderItems = saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+        
+        // Count all dispatched inventory for this order
+        const { data: allDispatched } = await supabase
+          .from("inventory")
+          .select("id")
+          .eq("order_id", orderId)
+          .eq("status", "Dispatched");
+        
+        const totalDispatchedSoFar = allDispatched?.length || 0;
+        const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
+        
         emailData = {
           ...emailData,
           dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
           serialNumbers,
           productName,
           totalQuantity,
+          totalOrderItems,
+          totalDispatchedSoFar,
+          remainingItems,
         };
       }
       
