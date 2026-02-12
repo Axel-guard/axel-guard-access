@@ -454,10 +454,30 @@ const getEmailTemplate = (
           <span class="info-label">Date:</span>
           <span class="info-value">${data.quotationDate}</span>
         </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">👤 Customer Details</div>
         <div class="info-row">
-          <span class="info-label">Customer:</span>
+          <span class="info-label">Company:</span>
           <span class="info-value">${data.companyName || data.customerName || '-'}</span>
         </div>
+        ${data.companyName && data.customerName ? `<div class="info-row">
+          <span class="info-label">Contact Person:</span>
+          <span class="info-value">${data.customerName}</span>
+        </div>` : ''}
+        ${data.customerGst ? `<div class="info-row">
+          <span class="info-label">GST:</span>
+          <span class="info-value">${data.customerGst}</span>
+        </div>` : ''}
+        ${data.customerAddress ? `<div class="info-row">
+          <span class="info-label">Address:</span>
+          <span class="info-value">${data.customerAddress}</span>
+        </div>` : ''}
+        ${data.customerEmail ? `<div class="info-row">
+          <span class="info-label">Email:</span>
+          <span class="info-value">${data.customerEmail}</span>
+        </div>` : ''}
       </div>
       
       <div class="section-card">
@@ -511,11 +531,12 @@ const getEmailTemplate = (
       </div>
 
       <div class="section-card" style="margin-top: 20px;">
-        <div class="section-title">🏦 Bank Details</div>
+        <div class="section-title">🏦 Payment Details</div>
         <div class="info-row"><span class="info-label">Bank Name:</span><span class="info-value">IDFC FIRST BANK LTD, NOIDA</span></div>
         <div class="info-row"><span class="info-label">Account No.:</span><span class="info-value">10188344828</span></div>
         <div class="info-row"><span class="info-label">IFSC Code:</span><span class="info-value">IDFB0020158</span></div>
-        <div class="info-row"><span class="info-label">Account Holder:</span><span class="info-value">AxelGuard Tech</span></div>
+        <div class="info-row"><span class="info-label">Account Name:</span><span class="info-value">RealTrack Technology</span></div>
+        <div class="info-row"><span class="info-label">UPI ID:</span><span class="info-value">retrgy@idfcbank</span></div>
       </div>
       
       <p class="closing-text">We look forward to your positive response. Please feel free to reach out for any clarifications or to proceed with the order.</p>
@@ -748,6 +769,9 @@ const getEmailTemplate = (
         quotationDate: new Date(quotation.quotation_date).toLocaleDateString("en-IN"),
         customerName: quotation.customer_name,
         companyName: quotation.company_name || '',
+        customerGst: quotation.gst_number || '',
+        customerAddress: quotation.address || '',
+        customerEmail: customerEmail || '',
         courierType: quotation.courier_type || '',
         remarks: quotation.remarks || '',
         quotationItems: qItems || [],

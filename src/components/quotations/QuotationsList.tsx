@@ -237,13 +237,6 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
                           grandTotal={Number(quotation.grand_total)}
                         />
                         
-                        {/* Email Button */}
-                        <QuotationEmailButton
-                          quotationId={quotation.id}
-                          quotationNo={quotation.quotation_no}
-                          status={quotation.status}
-                        />
-                        
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
