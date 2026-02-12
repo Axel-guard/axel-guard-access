@@ -20,11 +20,7 @@ export const SalesChart = () => {
         name: name.split(" ")[0],
         sales: stats.revenue,
       }))
-    : [
-        { name: "Akash", sales: 0 },
-        { name: "Smruti", sales: 0 },
-        { name: "Mandeep", sales: 0 },
-      ];
+    : [];
 
   if (isLoading) {
     return (

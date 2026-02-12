@@ -95,6 +95,7 @@ const navItems: NavItem[] = [
       { icon: Package, label: "Products Database", path: "/products" },
     ],
   },
+  { icon: Users, label: "Employee Management", path: "/employee-management", masterAdminOnly: true },
   { icon: Shield, label: "User Management", path: "/user-management", masterAdminOnly: true },
   { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
 ];
