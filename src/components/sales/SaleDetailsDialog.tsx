@@ -173,22 +173,55 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     }
   }, [open, sale, initialEditMode, canEdit, role]);
 
-  // Fetch sale items when dialog opens (separate from edit mode logic)
+  // Fetch sale items when dialog opens, with quotation fallback
   useEffect(() => {
     if (sale && open) {
       setLoadingItems(true);
-      supabase
-        .from("sale_items")
-        .select("*")
-        .eq("order_id", sale.order_id)
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setSaleItems(data);
-          } else {
-            setSaleItems([]);
-          }
+      const fetchItems = async () => {
+        // 1. Try sale_items first
+        const { data: items, error } = await supabase
+          .from("sale_items")
+          .select("*")
+          .eq("order_id", sale.order_id);
+
+        if (!error && items && items.length > 0) {
+          setSaleItems(items);
           setLoadingItems(false);
-        });
+          return;
+        }
+
+        // 2. Fallback: try quotation items if this sale was converted from a quotation
+        const { data: quotation } = await supabase
+          .from("quotations")
+          .select("id")
+          .eq("converted_order_id", sale.order_id)
+          .maybeSingle();
+
+        if (quotation) {
+          const { data: qItems } = await supabase
+            .from("quotation_items")
+            .select("product_name, quantity, unit_price, amount")
+            .eq("quotation_id", quotation.id);
+
+          if (qItems && qItems.length > 0) {
+            // Map quotation items to sale item format and persist them
+            const saleItemsToInsert = qItems.map((qi) => ({
+              order_id: sale.order_id,
+              product_name: qi.product_name,
+              quantity: Number(qi.quantity),
+              unit_price: Number(qi.unit_price),
+            }));
+            await supabase.from("sale_items").insert(saleItemsToInsert);
+            setSaleItems(saleItemsToInsert);
+            setLoadingItems(false);
+            return;
+          }
+        }
+
+        setSaleItems([]);
+        setLoadingItems(false);
+      };
+      fetchItems();
     }
   }, [sale?.order_id, open]);
 
@@ -458,7 +491,12 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
             </Table>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground py-2">No product items found.</p>
+          <div className="rounded-lg border border-border p-4 text-center">
+            <p className="text-sm text-muted-foreground">Product line items were not recorded for this historical sale.</p>
+            {Number(sale.subtotal) > 0 && (
+              <p className="text-sm mt-1 text-muted-foreground">Sale subtotal: <span className="font-medium text-foreground">₹{Number(sale.subtotal).toLocaleString()}</span></p>
+            )}
+          </div>
         )}
       </div>
 

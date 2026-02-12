@@ -140,6 +140,7 @@ export const SaleDetailsDialog = ({
           {/* Products */}
           <div className="space-y-2">
             <h4 className="font-semibold text-foreground">Products</h4>
+            {items.length > 0 ? (
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted/50">
@@ -174,6 +175,14 @@ export const SaleDetailsDialog = ({
                 </tbody>
               </table>
             </div>
+            ) : (
+              <div className="rounded-lg border border-border p-4 text-center">
+                <p className="text-sm text-muted-foreground">Product line items were not recorded for this historical sale.</p>
+                {Number(sale.subtotal) > 0 && (
+                  <p className="text-sm mt-1 text-muted-foreground">Sale subtotal: <span className="font-medium text-foreground">₹{Number(sale.subtotal).toLocaleString()}</span></p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Totals */}
