@@ -208,7 +208,7 @@ export const generateQuotationPDF = async (
   // After table Y
   let finalY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Summary Section (Right)
+  // Summary Section (Right-aligned)
   const summaryX = pageWidth - 75;
 
   doc.setFontSize(9);
@@ -242,46 +242,47 @@ export const generateQuotationPDF = async (
   doc.setFontSize(10);
   doc.text("Total", summaryX, finalY + 3);
   doc.text(`Rs ${quotation.grand_total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pageWidth - 14, finalY + 3, { align: "right" });
-  finalY += 20;
+  finalY += 18;
 
-  // Bank Details (Left)
-  const bankY = finalY - 30;
+  // ===== PAYMENT SECTION: Bank Details (Left) + QR (Right) =====
+  const paymentY = finalY;
+
+  // Bank Details Box (Left)
   doc.setFillColor(...lightGray);
   doc.setDrawColor(...borderColor);
-  doc.roundedRect(14, bankY, 80, 38, 2, 2, "FD");
+  doc.roundedRect(14, paymentY, 85, 38, 2, 2, "FD");
 
   doc.setTextColor(...textColor);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Pay To:", 18, bankY + 8);
+  doc.text("Pay To:", 18, paymentY + 8);
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text("Bank Name : IDFC FIRST BANK LTD, NOIDA", 18, bankY + 15);
-  doc.text("Bank Account No. : 10188344828", 18, bankY + 21);
-  doc.text("Bank IFSC code : IDFB0020158", 18, bankY + 27);
-  doc.text("Account holder's name : RealTrack Technology", 18, bankY + 33);
+  doc.text("Bank Name : IDFC FIRST BANK LTD, NOIDA", 18, paymentY + 15);
+  doc.text("Bank Account No. : 10188344828", 18, paymentY + 21);
+  doc.text("Bank IFSC code : IDFB0020158", 18, paymentY + 27);
+  doc.text("Account holder's name : RealTrack Technology", 18, paymentY + 33);
 
-  // QR Section (right side, center-aligned)
-  const qrSectionX = pageWidth - 70;
+  // QR Section (Right side, vertically centered with bank box)
   const qrBase64 = await loadImageAsBase64("/images/idfc-qr-scanner.jpeg");
+  const qrCenterX = pageWidth - 45;
 
   doc.setTextColor(...primaryRed);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("Pay by UPI / Scan QR to Pay", qrSectionX + 18, bankY + 2, { align: "center" });
+  doc.text("Pay by UPI / Scan QR to Pay", qrCenterX, paymentY + 2, { align: "center" });
 
   if (qrBase64) {
-    doc.addImage(qrBase64, "JPEG", qrSectionX + 3, bankY + 5, 30, 30);
+    doc.addImage(qrBase64, "JPEG", qrCenterX - 15, paymentY + 5, 30, 28);
   }
 
   doc.setTextColor(...textColor);
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("UPI ID: retrgy@idfcbank", qrSectionX + 18, bankY + 38, { align: "center" });
+  doc.text("UPI ID: retrgy@idfcbank", qrCenterX, paymentY + 36, { align: "center" });
 
-  // Amount in Words
-  finalY = Math.max(finalY, bankY + 48);
+  finalY = paymentY + 46;
   doc.setTextColor(...primaryRed);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
