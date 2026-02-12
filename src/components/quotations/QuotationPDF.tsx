@@ -248,7 +248,7 @@ export const generateQuotationPDF = async (
   const bankY = finalY - 30;
   doc.setFillColor(...lightGray);
   doc.setDrawColor(...borderColor);
-  doc.roundedRect(14, bankY, 80, 45, 2, 2, "FD");
+  doc.roundedRect(14, bankY, 80, 38, 2, 2, "FD");
 
   doc.setTextColor(...textColor);
   doc.setFontSize(10);
@@ -262,20 +262,26 @@ export const generateQuotationPDF = async (
   doc.text("Bank IFSC code : IDFB0020158", 18, bankY + 27);
   doc.text("Account holder's name : RealTrack Technology", 18, bankY + 33);
 
-  // UPI Details
+  // QR Section (right side, center-aligned)
+  const qrSectionX = pageWidth - 70;
+  const qrBase64 = await loadImageAsBase64("/images/idfc-qr-scanner.jpeg");
+
+  doc.setTextColor(...primaryRed);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...textColor);
-  doc.text("UPI ID : retrgy@idfcbank", 18, bankY + 40);
+  doc.text("Pay by UPI / Scan QR to Pay", qrSectionX + 18, bankY + 2, { align: "center" });
 
-  // QR Code Image (right side of bank details)
-  const qrBase64 = await loadImageAsBase64("/images/idfc-qr-scanner.jpeg");
   if (qrBase64) {
-    doc.addImage(qrBase64, "JPEG", pageWidth - 55, bankY, 40, 50);
+    doc.addImage(qrBase64, "JPEG", qrSectionX + 3, bankY + 5, 30, 30);
   }
 
+  doc.setTextColor(...textColor);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("UPI ID: retrgy@idfcbank", qrSectionX + 18, bankY + 38, { align: "center" });
+
   // Amount in Words
-  finalY = Math.max(finalY, bankY + 55);
+  finalY = Math.max(finalY, bankY + 48);
   doc.setTextColor(...primaryRed);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
