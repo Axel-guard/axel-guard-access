@@ -526,6 +526,7 @@ export type Database = {
           quotation_date: string
           quotation_no: string
           rejected_reason: string | null
+          remarks: string | null
           status: string
           subtotal: number
           updated_at: string
@@ -556,6 +557,7 @@ export type Database = {
           quotation_date?: string
           quotation_no: string
           rejected_reason?: string | null
+          remarks?: string | null
           status?: string
           subtotal?: number
           updated_at?: string
@@ -586,6 +588,7 @@ export type Database = {
           quotation_date?: string
           quotation_no?: string
           rejected_reason?: string | null
+          remarks?: string | null
           status?: string
           subtotal?: number
           updated_at?: string

@@ -37,6 +37,7 @@ export interface Quotation {
   grand_total: number;
   status: string;
   converted_order_id?: string;
+  remarks?: string;
   items?: QuotationItem[];
 }
 
