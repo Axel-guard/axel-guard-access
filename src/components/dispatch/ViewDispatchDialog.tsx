@@ -6,7 +6,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { 
   Truck, 
@@ -17,7 +16,8 @@ import {
   Calendar,
   Box,
   Mail,
-  Loader2
+  Loader2,
+  Clock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -58,31 +58,40 @@ export const ViewDispatchDialog = ({
 }: ViewDispatchDialogProps) => {
   const [dispatchedDevices, setDispatchedDevices] = useState<DispatchedDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
   const { sendEmail, isLoading: isSendingEmail } = useEmail();
 
-  // Fetch dispatched devices for this order
+  // Fetch dispatched devices and total items for this order
   useEffect(() => {
-    const fetchDispatchedDevices = async () => {
+    const fetchData = async () => {
       if (!order || !open) return;
       
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("inventory")
-          .select("serial_number, product_name, category, dispatch_date")
-          .eq("order_id", order.order_id)
-          .eq("status", "Dispatched");
+        const [devicesRes, itemsRes] = await Promise.all([
+          supabase
+            .from("inventory")
+            .select("serial_number, product_name, category, dispatch_date")
+            .eq("order_id", order.order_id)
+            .eq("status", "Dispatched"),
+          supabase
+            .from("sale_items")
+            .select("quantity")
+            .eq("order_id", order.order_id),
+        ]);
 
-        if (error) throw error;
-        setDispatchedDevices(data || []);
+        setDispatchedDevices(devicesRes.data || []);
+        setTotalItems(
+          (itemsRes.data || []).reduce((sum, item) => sum + Number(item.quantity), 0)
+        );
       } catch (error) {
-        console.error("Error fetching dispatched devices:", error);
+        console.error("Error fetching dispatch data:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchDispatchedDevices();
+    fetchData();
   }, [order, open]);
 
   if (!order) return null;
@@ -93,19 +102,33 @@ export const ViewDispatchDialog = ({
     }
   };
 
-  // Get shipments for this order
-  const orderShipments = shipments.filter(
-    s => s.order_id === order.order_id || s.order_id === order.order_id.replace("ORD", "")
-  );
+  // Get shipments for this order, sorted by date
+  const orderShipments = shipments
+    .filter(s => s.order_id === order.order_id || s.order_id === order.order_id.replace("ORD", ""))
+    .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
-  // Group devices by product
-  const devicesByProduct = dispatchedDevices.reduce((acc, device) => {
-    if (!acc[device.product_name]) {
-      acc[device.product_name] = [];
-    }
-    acc[device.product_name].push(device);
+  const dispatched = dispatchedDevices.length;
+  const remaining = Math.max(0, totalItems - dispatched);
+  const isComplete = remaining === 0 && totalItems > 0;
+
+  // Group devices by dispatch_date for history view
+  const dispatchHistory = dispatchedDevices.reduce((acc, device) => {
+    const dateKey = device.dispatch_date 
+      ? format(new Date(device.dispatch_date), "yyyy-MM-dd")
+      : "Unknown";
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(device);
     return acc;
   }, {} as Record<string, DispatchedDevice[]>);
+
+  // Group devices within each date by product
+  const getDevicesByProduct = (devices: DispatchedDevice[]) => {
+    return devices.reduce((acc, device) => {
+      if (!acc[device.product_name]) acc[device.product_name] = [];
+      acc[device.product_name].push(device);
+      return acc;
+    }, {} as Record<string, DispatchedDevice[]>);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,7 +137,13 @@ export const ViewDispatchDialog = ({
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Truck className="h-6 w-6 text-success" />
             Dispatch Details
-            <Badge className="bg-success/10 text-success border-success/20 ml-2">Completed</Badge>
+            {isComplete ? (
+              <Badge className="bg-success/10 text-success border-success/20 ml-2">Completed</Badge>
+            ) : (
+              <Badge className="bg-info/10 text-info border-info/20 ml-2">
+                Partially Dispatched ({dispatched}/{totalItems})
+              </Badge>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -159,91 +188,103 @@ export const ViewDispatchDialog = ({
               </div>
             </div>
 
-            {/* Shipment Information */}
-            {orderShipments.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  Shipment Information
-                </h3>
-                <div className="grid gap-3">
-                  {orderShipments.map((shipment) => (
-                    <div
-                      key={shipment.id}
-                      className="p-4 rounded-lg border bg-card"
-                    >
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Courier Partner</p>
-                          <p className="font-medium">{shipment.courier_partner || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Mode</p>
-                          <p className="font-medium">{shipment.shipping_mode || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Tracking ID</p>
-                          <p className="font-medium text-primary">{shipment.tracking_id || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Shipping Cost</p>
-                          <p className="font-medium">₹{shipment.shipping_cost?.toLocaleString() || "0"}</p>
-                        </div>
-                      </div>
-                      {shipment.created_at && (
-                        <div className="mt-3 pt-3 border-t flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          Dispatched on {format(new Date(shipment.created_at), "dd MMM yyyy, hh:mm a")}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+            {/* Dispatch Summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-3 rounded-lg border bg-card">
+                <p className="text-2xl font-bold text-foreground">{totalItems}</p>
+                <p className="text-xs text-muted-foreground">Total Items</p>
               </div>
-            )}
+              <div className="text-center p-3 rounded-lg border bg-success/5 border-success/20">
+                <p className="text-2xl font-bold text-success">{dispatched}</p>
+                <p className="text-xs text-muted-foreground">Dispatched</p>
+              </div>
+              <div className="text-center p-3 rounded-lg border bg-warning/5 border-warning/20">
+                <p className="text-2xl font-bold text-warning">{remaining}</p>
+                <p className="text-xs text-muted-foreground">Remaining</p>
+              </div>
+            </div>
 
-            {/* Dispatched Products */}
+            {/* Dispatch History */}
             <div className="space-y-3">
               <h3 className="font-semibold flex items-center gap-2">
-                <Package className="h-5 w-5 text-success" />
-                Dispatched Products
-                <Badge className="bg-success text-white ml-2">{dispatchedDevices.length} Devices</Badge>
+                <Clock className="h-5 w-5 text-primary" />
+                Dispatch History
+                <Badge variant="secondary">{orderShipments.length} Shipment(s)</Badge>
               </h3>
+              
+              {orderShipments.map((shipment, idx) => {
+                const shipmentDate = shipment.created_at 
+                  ? format(new Date(shipment.created_at), "yyyy-MM-dd")
+                  : null;
+                // Find devices dispatched around this shipment date
+                const matchingDateKey = Object.keys(dispatchHistory).find(dk => dk === shipmentDate) || Object.keys(dispatchHistory)[idx];
+                const shipmentDevices = matchingDateKey ? (dispatchHistory[matchingDateKey] || []) : [];
+                const devicesByProduct = getDevicesByProduct(shipmentDevices);
 
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading...</div>
-              ) : dispatchedDevices.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                  No dispatched devices found for this order
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(devicesByProduct).map(([productName, devices]) => (
-                    <div key={productName} className="border rounded-lg overflow-hidden">
-                      <div className="bg-muted/50 px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Box className="h-4 w-4 text-primary" />
-                          <span className="font-medium">{productName}</span>
-                        </div>
-                        <Badge variant="secondary">{devices.length} units</Badge>
+                return (
+                  <div key={shipment.id} className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted/50 px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-primary" />
+                        <span className="font-semibold">Dispatch #{idx + 1}</span>
+                        {shipment.created_at && (
+                          <span className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(shipment.created_at), "dd MMM yyyy, hh:mm a")}
+                          </span>
+                        )}
                       </div>
-                      <div className="p-3">
-                        <div className="flex flex-wrap gap-2">
-                          {devices.map((device) => (
-                            <div
-                              key={device.serial_number}
-                              className="flex items-center gap-2 px-3 py-2 bg-success/10 rounded-lg border border-success/20"
-                            >
-                              <CheckCircle2 className="h-4 w-4 text-success" />
-                              <span className="font-mono text-sm">{device.serial_number}</span>
-                            </div>
-                          ))}
-                        </div>
+                      <Badge variant="secondary">{shipmentDevices.length} device(s)</Badge>
+                    </div>
+                    
+                    {/* Shipment courier info */}
+                    <div className="px-4 py-3 grid grid-cols-2 md:grid-cols-4 gap-3 border-b text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Courier</p>
+                        <p className="font-medium">{shipment.courier_partner || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Mode</p>
+                        <p className="font-medium">{shipment.shipping_mode || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Tracking ID</p>
+                        <p className="font-medium text-primary">{shipment.tracking_id || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Cost</p>
+                        <p className="font-medium">₹{shipment.shipping_cost?.toLocaleString() || "0"}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    {/* Devices in this dispatch */}
+                    {shipmentDevices.length > 0 && (
+                      <div className="p-4 space-y-3">
+                        {Object.entries(devicesByProduct).map(([productName, devices]) => (
+                          <div key={productName}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Box className="h-4 w-4 text-primary" />
+                              <span className="font-medium text-sm">{productName}</span>
+                              <Badge variant="secondary" className="text-xs">{devices.length} units</Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {devices.map((device) => (
+                                <div
+                                  key={device.serial_number}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-success/10 rounded-lg border border-success/20 text-xs"
+                                >
+                                  <CheckCircle2 className="h-3 w-3 text-success" />
+                                  <span className="font-mono">{device.serial_number}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Order Summary */}

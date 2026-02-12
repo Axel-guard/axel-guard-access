@@ -63,17 +63,15 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
     );
   };
 
-  // Calculate dispatch status for each order using sale_items for total and inventory for dispatched
+  // Calculate dispatch status for each order
   const getOrderDispatchInfo = (orderId: string) => {
     const orderSaleItems = saleItems.filter(item => item.order_id === orderId);
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
-    // Physical dispatched = count of inventory items with status "Dispatched"
     const physicalDispatched = dispatchedInventory.filter(
       item => item.order_id === orderId
     ).length;
 
-    // Service dispatched = if order has a shipment, count service product quantities as dispatched
     const orderHasShipment = shipments.some(s => s.order_id === orderId);
     const serviceDispatched = orderHasShipment
       ? orderSaleItems
@@ -86,7 +84,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
 
     let status = "Pending";
     if (dispatched === 0) status = "Pending";
-    else if (dispatched < totalItems) status = "Partial";
+    else if (dispatched < totalItems) status = "Partially Dispatched";
     else if (dispatched >= totalItems && totalItems > 0) status = "Completed";
     
     return { totalItems, dispatched, remaining, status };
@@ -96,14 +94,13 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
     if (status === "Completed") {
       return <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20">Completed</Badge>;
     }
-    if (status === "Partial") {
-      return <Badge className="bg-info/10 text-info border-info/20 hover:bg-info/20">Partial</Badge>;
+    if (status === "Partially Dispatched") {
+      return <Badge className="bg-info/10 text-info border-info/20 hover:bg-info/20">Partially Dispatched</Badge>;
     }
     return <Badge className="bg-warning/10 text-warning border-warning/20 hover:bg-warning/20">Pending</Badge>;
   };
 
   const handleDispatchClick = async (order: Sale) => {
-    // Fetch sale items for this order
     const { data: items, error } = await supabase
       .from("sale_items")
       .select("*")
@@ -165,6 +162,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
             <TableBody>
               {orders.map((order, index) => {
                 const dispatchInfo = getOrderDispatchInfo(order.order_id);
+                const hasDispatches = dispatchInfo.dispatched > 0;
                 
                 return (
                   <TableRow key={order.id} className="hover:bg-muted/50">
@@ -200,7 +198,8 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {dispatchInfo.status !== "Completed" ? (
+                        {/* Show Dispatch button if there are remaining items */}
+                        {dispatchInfo.remaining > 0 && (
                           <Button 
                             size="sm" 
                             className="gap-1 bg-primary hover:bg-primary/90"
@@ -209,28 +208,29 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                             <Truck className="h-3 w-3" />
                             Dispatch
                           </Button>
-                        ) : (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
-                              onClick={() => handleViewClick(order)}
-                            >
-                              <Eye className="h-3 w-3" />
-                              View
-                            </Button>
-                            {canDelete && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="gap-1 text-destructive border-destructive hover:bg-destructive hover:text-white"
-                                onClick={() => handleDeleteClick(order)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </>
+                        )}
+                        {/* Show View button if any dispatches have been done */}
+                        {hasDispatches && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
+                            onClick={() => handleViewClick(order)}
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </Button>
+                        )}
+                        {/* Show Delete for admins if dispatches exist */}
+                        {hasDispatches && canDelete && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-destructive border-destructive hover:bg-destructive hover:text-white"
+                            onClick={() => handleDeleteClick(order)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>

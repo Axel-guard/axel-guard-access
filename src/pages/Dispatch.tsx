@@ -127,7 +127,7 @@ const DispatchPage = () => {
     const dispatched = physicalDispatched + serviceDispatched;
     
     if (dispatched === 0) return "Pending";
-    if (dispatched < totalItems) return "Partial";
+    if (dispatched < totalItems) return "Partially Dispatched";
     if (dispatched >= totalItems && totalItems > 0) return "Completed";
     return "Pending";
   }, [allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
@@ -149,7 +149,7 @@ const DispatchPage = () => {
         matchesStatus = getOrderStatus(sale.order_id) === "Completed";
       } else if (statusFilter === "pending") {
         const status = getOrderStatus(sale.order_id);
-        matchesStatus = status === "Pending" || status === "Partial";
+        matchesStatus = status === "Pending" || status === "Partially Dispatched";
       }
       
       return matchesOrderId && matchesCustomer && matchesStatus;
