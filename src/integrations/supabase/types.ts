@@ -121,21 +121,33 @@ export type Database = {
       employees: {
         Row: {
           created_at: string | null
+          email: string | null
+          employee_role: string | null
           id: string
           is_active: boolean | null
+          mobile_number: string | null
           name: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          email?: string | null
+          employee_role?: string | null
           id?: string
           is_active?: boolean | null
+          mobile_number?: string | null
           name: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          email?: string | null
+          employee_role?: string | null
           id?: string
           is_active?: boolean | null
+          mobile_number?: string | null
           name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

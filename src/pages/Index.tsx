@@ -13,6 +13,7 @@ import { ShoppingCart, DollarSign, CheckCircle, Wallet, Package, Truck } from "l
 import { useDashboardSummary } from "@/hooks/useSales";
 import { useInventorySummary } from "@/hooks/useInventory";
 import { useShipmentsSummary } from "@/hooks/useShipments";
+import { useEmployees } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
@@ -20,12 +21,13 @@ const Index = () => {
   const { data: summary, isLoading } = useDashboardSummary();
   const { data: inventorySummary } = useInventorySummary();
   const { data: shipmentsSummary } = useShipmentsSummary();
+  const { data: activeEmployees = [] } = useEmployees();
 
-  const employeeColors: Record<string, "blue" | "emerald" | "amber"> = {
-    "Akash Parashar": "blue",
-    "Smruti Ranjan Nayak": "emerald",
-    "Mandeep Samal": "amber",
-  };
+  const colorPool: ("blue" | "emerald" | "amber")[] = ["blue", "emerald", "amber"];
+  const employeeColors: Record<string, "blue" | "emerald" | "amber"> = {};
+  activeEmployees.forEach((emp, i) => {
+    employeeColors[emp.name] = colorPool[i % colorPool.length];
+  });
 
   const formatCurrency = (value: number) => {
     if (value >= 100000) {
@@ -149,38 +151,19 @@ const Index = () => {
               />
             ))
           ) : (
-            <>
+            activeEmployees.map((emp, index) => (
               <EmployeePerformanceCard
-                name="Akash Parashar"
-                initials="AP"
+                key={emp.id}
+                name={emp.name}
+                initials={emp.name.split(" ").map((n) => n[0]).join("")}
                 revenue="₹0"
                 revenueNum={0}
                 sales={0}
                 balance="₹0"
                 target={550000}
-                color="blue"
+                color={colorPool[index % colorPool.length]}
               />
-              <EmployeePerformanceCard
-                name="Smruti Ranjan Nayak"
-                initials="SN"
-                revenue="₹0"
-                revenueNum={0}
-                sales={0}
-                balance="₹0"
-                target={550000}
-                color="emerald"
-              />
-              <EmployeePerformanceCard
-                name="Mandeep Samal"
-                initials="MS"
-                revenue="₹0"
-                revenueNum={0}
-                sales={0}
-                balance="₹0"
-                target={550000}
-                color="amber"
-              />
-            </>
+            ))
           )}
         </div>
       </div>

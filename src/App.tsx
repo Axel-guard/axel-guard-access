@@ -24,6 +24,7 @@ import RenewalPage from "./pages/Renewal";
 import QuotationsPage from "./pages/Quotations";
 import QuotationApprovalsPage from "./pages/QuotationApprovals";
 import CustomerDetailsPage from "./pages/CustomerDetails";
+import EmployeeManagementPage from "./pages/EmployeeManagement";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,14 @@ const App = () => (
               <Route path="pricing" element={<PricingPage />} />
               <Route path="products" element={<ProductsDatabase />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route
+                path="employee-management"
+                element={
+                  <ProtectedRoute requireMasterAdmin>
+                    <EmployeeManagementPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="user-management"
                 element={
