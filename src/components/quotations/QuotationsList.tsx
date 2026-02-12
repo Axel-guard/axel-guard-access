@@ -16,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -28,6 +29,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Search,
   MoreVertical,
   Eye,
@@ -37,6 +44,8 @@ import {
   FileText,
   User,
   Pencil,
+  Mail,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -51,6 +60,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { QuotationStatusBadge } from "./QuotationStatusBadge";
 import { QuotationEmailButton } from "./QuotationEmailButton";
 import { ApproveQuotationButton } from "./ApproveQuotationButton";
+import { QuotationPreviewDialog } from "./QuotationPreviewDialog";
 
 interface QuotationsListProps {
   onConvertToSale?: (quotationId: string) => void;
@@ -68,6 +78,7 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quotationToDelete, setQuotationToDelete] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [previewQuotationId, setPreviewQuotationId] = useState<string | null>(null);
 
   const { data: selectedQuotation } = useQuotationWithItems(selectedQuotationId);
 
@@ -86,21 +97,18 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
 
   const handleDownloadPDF = async (quotationId: string) => {
     setSelectedQuotationId(quotationId);
-    // Wait for data to load then download
-    setTimeout(() => {
+    setTimeout(async () => {
       if (selectedQuotation) {
-        // Map DB items to QuotationItem interface with backward compatibility
         const mappedItems = (selectedQuotation.items || []).map((item: any) => ({
           ...item,
           description: item.description || "",
           unit: item.unit || "Pcs",
         }));
-        // Cast quotation to expected type with mapped items
         const quotationWithItems = {
           ...selectedQuotation,
           items: mappedItems,
         } as Quotation;
-        const doc = generateQuotationPDF(quotationWithItems, mappedItems);
+        const doc = await generateQuotationPDF(quotationWithItems, mappedItems);
         doc.save(`Quotation-${selectedQuotation.quotation_no}.pdf`);
       }
     }, 500);
@@ -219,7 +227,7 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {/* Approve Button - Only visible to Master Admin for Pending Approval */}
+                        {/* Approve Button */}
                         <ApproveQuotationButton
                           quotationId={quotation.id}
                           quotationNo={quotation.quotation_no}
@@ -243,6 +251,14 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {/* View Quotation */}
+                            <DropdownMenuItem
+                              onClick={() => setPreviewQuotationId(quotation.id)}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Quotation
+                            </DropdownMenuItem>
+
                             {quotation.status !== "Converted" && onEditQuotation && (
                               <DropdownMenuItem
                                 onClick={() => onEditQuotation(quotation.id)}
@@ -257,7 +273,19 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
                               <FileDown className="mr-2 h-4 w-4" />
                               Download PDF
                             </DropdownMenuItem>
-                            {/* Convert to Sale - Only enabled after approval (Approved or Sent status) */}
+
+                            {/* Resend Email - for Approved or Sent */}
+                            {(quotation.status === "Approved" || quotation.status === "Sent") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                  <ResendEmailMenuItem quotationId={quotation.id} quotationNo={quotation.quotation_no} />
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
+                            <DropdownMenuSeparator />
+                            {/* Convert to Sale */}
                             {(quotation.status === "Approved" || quotation.status === "Sent") && onConvertToSale && (
                               <DropdownMenuItem
                                 onClick={() => handleConvertClick(quotation.id)}
@@ -305,6 +333,12 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
         </CardContent>
       </Card>
 
+      {/* View Quotation Preview Dialog */}
+      <QuotationPreviewDialog
+        quotationId={previewQuotationId}
+        onClose={() => setPreviewQuotationId(null)}
+      />
+
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -329,3 +363,47 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
     </div>
   );
 };
+
+// Resend Email menu item component
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import React from "react";
+
+const ResendEmailMenuItem = React.forwardRef<
+  HTMLDivElement,
+  { quotationId: string; quotationNo: string }
+>(({ quotationId, quotationNo, ...props }, ref) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const resendMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.functions.invoke("send-email", {
+        body: { type: "quotation", quotationId },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-logs", quotationId] });
+      toast({ title: "Email Resent", description: `Quotation #${quotationNo} email resent successfully.` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to Resend Email", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div
+      ref={ref}
+      {...props}
+      className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+      onClick={() => resendMutation.mutate()}
+    >
+      <RefreshCw className="mr-2 h-4 w-4" />
+      {resendMutation.isPending ? "Sending..." : "Resend Email"}
+    </div>
+  );
+});
+ResendEmailMenuItem.displayName = "ResendEmailMenuItem";

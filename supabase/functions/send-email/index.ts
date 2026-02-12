@@ -346,14 +346,19 @@ const getEmailTemplate = (
         quantity: number;
         unit_price: number;
         amount: number;
+        description?: string;
       }> || [];
       
-      const quotationTableRows = quotationItems.map(item => `
+      const quotationTableRows = quotationItems.map((item, idx) => `
         <tr>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #374151;">${item.product_name}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #374151;">${item.quantity}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #374151;">${formatCurrency(item.unit_price)}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${formatCurrency(item.amount)}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #374151;">${idx + 1}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; color: #374151;">
+            ${item.product_name}
+            ${item.description ? `<div style="font-size: 12px; color: #6b7280; font-style: italic; margin-top: 4px;">${item.description}</div>` : ''}
+          </td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #374151;">${item.quantity}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: right; color: #374151;">${formatCurrency(item.unit_price)}</td>
+          <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${formatCurrency(item.amount)}</td>
         </tr>
       `).join('');
 
@@ -361,9 +366,10 @@ const getEmailTemplate = (
       const qGstAmount = Number(data.gstAmount) || 0;
       const qCourierCharge = Number(data.courierCharge) || 0;
       const qShowGst = qGstAmount > 0;
+      const qRemarks = data.remarks as string || '';
 
       return {
-        subject: `Quotation ${data.quotationNo} | AxelGuard`,
+        subject: `Quotation ${data.quotationNo} | RealTrack Technology (AxelGuard)`,
         body: `<!DOCTYPE html>
 <html>
 <head>
@@ -373,9 +379,10 @@ const getEmailTemplate = (
     .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
     .section-title { color: #dc2626; border-bottom-color: #ef4444; }
     .product-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    .product-table th { background: #f3f4f6; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
-    .product-table th:nth-child(2), .product-table th:nth-child(3), .product-table th:nth-child(4) { text-align: right; }
-    .product-table th:nth-child(2) { text-align: center; }
+    .product-table th { background: #dc2626; color: white; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; border: 1px solid #b91c1c; }
+    .product-table th:nth-child(1) { text-align: center; width: 40px; }
+    .product-table th:nth-child(3) { text-align: center; }
+    .product-table th:nth-child(4), .product-table th:nth-child(5) { text-align: right; }
     .summary-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
     .summary-row:last-child { border-bottom: none; }
     .summary-row.total { background: #fef2f2; margin: 12px -20px -20px -20px; padding: 16px 20px; border-radius: 0 0 12px 12px; border-top: 2px solid #dc2626; }
@@ -383,17 +390,29 @@ const getEmailTemplate = (
     .summary-value { font-weight: 600; color: #111827; }
     .summary-row.total .summary-label, .summary-row.total .summary-value { color: #dc2626; font-size: 16px; }
     .validity-box { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin-top: 20px; text-align: center; }
+    .company-header { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .remarks-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-top: 16px; }
   </style>
 </head>
 <body>
   <div class="email-wrapper">
     <div class="header">
-      <div class="header-logo">📋 AxelGuard</div>
-      <div class="header-subtitle">Quotation</div>
+      <div class="header-logo">📋 RealTrack Technology</div>
+      <div class="header-subtitle">Quotation / Estimate</div>
     </div>
     <div class="content">
-      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
-      <p class="intro-text">Thank you for your interest in AxelGuard products. Please find below your quotation details.</p>
+      <!-- Company Details -->
+      <div class="company-header">
+        <div style="font-weight: 700; font-size: 15px; color: #111827; margin-bottom: 4px;">RealTrack Technology <span style="font-weight: 400; font-size: 13px; color: #6b7280;">(Brand: AxelGuard)</span></div>
+        <div style="font-size: 13px; color: #4b5563;">
+          GST: 09FSEPP6050C1ZQ<br>
+          📞 +91 8755311835 &nbsp;|&nbsp; ✉️ info@axel-guard.com<br>
+          📍 Office No 210, PC Chamber, Sector 66 Noida (UP) - 201301
+        </div>
+      </div>
+
+      <p class="greeting">Dear <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Thank you for your interest in our products. We are pleased to share the following quotation for your review and consideration.</p>
       
       <div class="section-card">
         <div class="section-title">📋 Quotation Details</div>
@@ -405,6 +424,10 @@ const getEmailTemplate = (
           <span class="info-label">Date:</span>
           <span class="info-value">${data.quotationDate}</span>
         </div>
+        <div class="info-row">
+          <span class="info-label">Customer:</span>
+          <span class="info-value">${data.companyName || data.customerName || '-'}</span>
+        </div>
       </div>
       
       <div class="section-card">
@@ -412,6 +435,7 @@ const getEmailTemplate = (
         <table class="product-table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Product Name</th>
               <th style="text-align: center;">Qty</th>
               <th style="text-align: right;">Unit Price</th>
@@ -432,29 +456,46 @@ const getEmailTemplate = (
         </div>
         ${qCourierCharge > 0 ? `
         <div class="summary-row">
-          <span class="summary-label">Courier Charges:</span>
+          <span class="summary-label">${data.courierType || 'Courier Charges'}:</span>
           <span class="summary-value">${formatCurrency(qCourierCharge)}</span>
         </div>` : ''}
+        ${qShowGst ? `
         <div class="summary-row">
-          <span class="summary-label">GST ${qShowGst ? '(18%)' : ''}:</span>
-          <span class="summary-value">${qShowGst ? formatCurrency(qGstAmount) : '₹0.00'}</span>
-        </div>
+          <span class="summary-label">GST (18%):</span>
+          <span class="summary-value">${formatCurrency(qGstAmount)}</span>
+        </div>` : ''}
         <div class="summary-row total">
           <span class="summary-label">Grand Total:</span>
           <span class="summary-value">${formatCurrency(data.grandTotal as number)}</span>
         </div>
       </div>
 
+      ${qRemarks ? `
+      <div class="remarks-box">
+        <div style="font-weight: 600; font-size: 14px; color: #166534; margin-bottom: 6px;">📝 Remarks</div>
+        <div style="font-size: 13px; color: #374151;">${qRemarks}</div>
+      </div>` : ''}
+
       <div class="validity-box">
-        <p style="margin: 0; font-weight: 600; color: #92400e;">⏰ This quotation is valid for 15 days</p>
+        <p style="margin: 0; font-weight: 600; color: #92400e;">⏰ This quotation is valid for 15 days from the date of issue</p>
+      </div>
+
+      <div class="section-card" style="margin-top: 20px;">
+        <div class="section-title">🏦 Bank Details</div>
+        <div class="info-row"><span class="info-label">Bank Name:</span><span class="info-value">IDFC FIRST BANK LTD, NOIDA</span></div>
+        <div class="info-row"><span class="info-label">Account No.:</span><span class="info-value">10188344828</span></div>
+        <div class="info-row"><span class="info-label">IFSC Code:</span><span class="info-value">IDFB0020158</span></div>
+        <div class="info-row"><span class="info-label">Account Holder:</span><span class="info-value">AxelGuard Tech</span></div>
       </div>
       
-      <p class="closing-text">For any queries or to proceed with this order, please contact us. We look forward to serving you!</p>
+      <p class="closing-text">We look forward to your positive response. Please feel free to reach out for any clarifications or to proceed with the order.</p>
     </div>
     <div class="footer">
-      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-brand">Warm regards,<br>RealTrack Technology (AxelGuard)</div>
       <div class="footer-contact">
-        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+        📞 +91 8755311835<br>
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a><br>
+        📍 Office No 210, PC Chamber, Sector 66 Noida (UP) - 201301
       </div>
     </div>
   </div>
@@ -651,10 +692,10 @@ const getEmailTemplate = (
          throw new Error(`Quotation not found for ID: ${quotationId}`);
        }
 
-       // Get quotation items
+       // Get quotation items with description
        const { data: qItems } = await supabase
          .from("quotation_items")
-         .select("product_name, quantity, unit_price, amount")
+         .select("product_name, quantity, unit_price, amount, description")
          .eq("quotation_id", quotationId);
 
        // Use customer_email from quotation record first, fallback to leads
@@ -676,6 +717,9 @@ const getEmailTemplate = (
         quotationNo: quotation.quotation_no,
         quotationDate: new Date(quotation.quotation_date).toLocaleDateString("en-IN"),
         customerName: quotation.customer_name,
+        companyName: quotation.company_name || '',
+        courierType: quotation.courier_type || '',
+        remarks: quotation.remarks || '',
         quotationItems: qItems || [],
         subtotal: Number(quotation.subtotal) || 0,
         gstAmount: Number(quotation.gst_amount) || 0,

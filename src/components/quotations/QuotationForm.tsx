@@ -80,6 +80,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   const [mobile, setMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [gstNumber, setGstNumber] = useState("");
+  const [remarks, setRemarks] = useState("");
 
   // Quotation Info
   const [quotationNo, setQuotationNo] = useState("");
@@ -192,6 +193,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       setMobile(editQuotationData.mobile || "");
       setCustomerEmail(editQuotationData.customer_email || "");
       setGstNumber(editQuotationData.gst_number || "");
+      setRemarks((editQuotationData as any).remarks || "");
       setApplyGst(editQuotationData.apply_gst || false);
       setCourierType(editQuotationData.courier_type || "");
       setCourierCharge(Number(editQuotationData.courier_charge) || 0);
@@ -351,6 +353,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       address,
       mobile,
       customer_email: customerEmail,
+      remarks,
       gst_number: gstNumber,
       subtotal,
       apply_gst: applyGst,
@@ -386,7 +389,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     onSuccess?.();
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const quotation = {
       quotation_no: quotationNo,
       quotation_date: quotationDate,
@@ -405,10 +408,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       courier_gst_amount: 0,
       grand_total: grandTotal,
       status: "Draft",
+      remarks,
     };
 
     const validItems = items.filter((i) => i.product_code);
-    const doc = generateQuotationPDF(quotation, validItems);
+    const doc = await generateQuotationPDF(quotation, validItems);
     doc.save(`Quotation-${quotationNo}.pdf`);
   };
 
@@ -717,6 +721,22 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                 ))}
               </tbody>
             </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Remarks */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <Label htmlFor="remarks">Remarks</Label>
+            <Textarea
+              id="remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Add any remarks or special notes for this quotation..."
+              rows={3}
+            />
           </div>
         </CardContent>
       </Card>
