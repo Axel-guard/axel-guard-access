@@ -256,8 +256,26 @@ export const CourierCalculator = () => {
                 <Input
                   type="number"
                   min={1}
-                  value={row.quantity}
-                  onChange={(e) => handleQuantityChange(row.id, parseInt(e.target.value) || 1)}
+                  step={1}
+                  placeholder="Enter quantity"
+                  value={row.quantity === 0 ? "" : row.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      handleQuantityChange(row.id, 0);
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num) && num >= 0) {
+                        handleQuantityChange(row.id, num);
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const num = parseInt(e.target.value);
+                    if (!num || num < 1) {
+                      handleQuantityChange(row.id, 1);
+                    }
+                  }}
                   className="text-center"
                 />
               </div>
