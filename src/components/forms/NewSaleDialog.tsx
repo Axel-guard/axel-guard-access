@@ -19,6 +19,7 @@ import {
 import { Plus, X, Loader2 } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
+import { useProductCategories } from "@/hooks/useProductCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEmail } from "@/hooks/useEmail";
@@ -35,131 +36,14 @@ interface ProductItem {
   unit_price: string;
 }
 
-const CATEGORIES = [
-  "MDVR",
-  "Monitor & Monitor Kit",
-  "Cameras",
-  "Dashcam",
-  "Storage",
-  "RFID Tags",
-  "RFID Reader",
-  "MDVR Accessories",
-  "Other product and Accessories",
-];
-
-const PRODUCTS_BY_CATEGORY: Record<string, string[]> = {
-  "MDVR": [
-    "4ch 1080p HDD MDVR (MR9704C)",
-    "4ch 1080p HDD, 4G, GPS MDVR (MR9704E)",
-    "4ch 1080p SD Card MDVR (MR9504EC)",
-    "4ch 1080p SD, 4G, GPS MDVR (MR9504E)",
-    "4ch 1080p SD, 4G, GPS MDVR (MR9504E-A3)",
-    "4ch 1080p SD, 4G, wifi, GPS MDVR (MA9504ED)",
-    "5ch MDVR HDD 4g + GPS + LAN + RS232 + RS485",
-    "5ch MDVR SD 4g + GPS + LAN + RS232 + RS485",
-    "8CH HDD MDVR",
-    "8ch 4G + GPS MDVR",
-    "AI MDVR with (DSM + ADAS) (SD+ 4g + GPS)",
-    "AI MDVR with (DSM + ADAS) (SD+HDD+ 4g + GPS)",
-    "TVS 4ch 1080p SD, 4G, GPS MDVR",
-  ],
-  "Monitor & Monitor Kit": [
-    "4 inch AV monitor",
-    "4k Recording monitor kit 2ch",
-    "4k Recording monitor kit 4ch",
-    "7\" AV Monitor",
-    "7 inch Heavy Duty VGA Monitor",
-    "7\" HDMI Monitor",
-    "7\" VGA Monitor",
-    "720 2ch Recording Monitor Kit",
-  ],
-  "Cameras": [
-    "2 MP Heavy Duty Bullet Camera",
-    "2 MP Heavy Duty Dome Camera",
-    "2 MP IP Camera",
-    "2 MP IR Outdoor Bullet Camera",
-    "2 MP IR indoor Dome Camera",
-    "2mp IP Dome Audio Camera",
-    "2mp IR Audio Camera",
-    "4k Monitor Camera",
-    "720 Heavy Duty Bullet Camera",
-    "ADAS Camera",
-    "BSD Camera",
-    "DFMS Camera",
-    "PTZ Camera",
-    "Replacement Bullet Camera 2mp",
-    "Replacement Dome Audio Camera",
-    "Replacement Dome Camera 2 mp",
-    "Reverse Camera",
-  ],
-  "Dashcam": [
-    "10 inch 2 Ch 4g, GPS, Android Dashcam",
-    "10 inch 2 Ch Full Touch Dashcam",
-    "2ch 4g Dashcam MT95L",
-    "2k 12 inch Dashcam",
-    "3ch 4g Dashcam with Rear Camera (MT95L-A3)",
-    "3ch AI Dashcam ADAS + DSM (MT95C)",
-    "4 Inch 2 Ch Dashcam",
-    "4 inch 3 camera Dash Cam",
-    "4 inch Android Dashcam",
-    "4k Dashcam 12 inch",
-    "wifi Dash Cam",
-  ],
-  "Storage": [
-    "HDD 1 TB",
-    "SD card Holder",
-    "Surveillance Grade 128GB SD Card",
-    "Surveillance Grade 256GB SD Card",
-    "Surveillance Grade 512GB SD Card",
-    "Surveillance Grade 64GB SD Card",
-  ],
-  "RFID Tags": [
-    "2.4G Active Tag (Card Type) HX607",
-    "2.4G RFID Animal Ear Tag",
-  ],
-  "RFID Reader": [
-    "2.4 GHZ RFID Active Reader (Bus)",
-    "2.4 GHZ RFID Active Reader (Campus)",
-    "2.4G IOT Smart RFID Reader (ZR7901P)",
-  ],
-  "MDVR Accessories": [
-    "10mt Cable",
-    "15mt Cable",
-    "1mt Cable",
-    "2 way Communication Device",
-    "3mt Cable",
-    "4g M2M Sim Card with Internet Pack of 1 Year",
-    "5mt Cable",
-    "Alcohol Tester",
-    "Cloud Storage Service",
-    "MDVR Maintenance Tool",
-    "MDVR Panic Button",
-    "MDVR Remote",
-    "MDVR Security Box",
-    "MDVR Server",
-    "MDVR Server Maintenance Charges",
-    "MDVR Software Licence Fee",
-    "RS 232 Adaptor",
-    "Rod Type Fuel Sensor",
-    "Ultra Sonic Fuel Sensor",
-  ],
-  "Other product and Accessories": [
-    "Annual Maintenance Charges",
-    "D link Wire Bundle",
-    "GPS Installation",
-    "Leaser Printer",
-    "MDVR Connector",
-    "MDVR Installation",
-    "Parking Sensor",
-    "Wireless Receiver Transmitter",
-  ],
-};
-
 const ACCOUNTS = ["IDFC4828", "IDFC7455", "Canara", "Cash"];
 const SALE_TYPES = ["With GST (18%)", "Without GST"];
 
 export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const { data: employees = [] } = useEmployees();
+  const { data: productData } = useProductCategories();
+  const categories = productData?.categories || [];
+  const productsByCategory = productData?.productsByCategory || {};
   const createSale = useCreateSale();
   const generateOrderId = useGenerateOrderId();
   const { sendSaleEmail } = useEmail();
@@ -666,7 +550,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((cat) => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
                       </SelectItem>
@@ -685,7 +569,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                     <SelectValue placeholder={product.category ? "Select Product" : "Select Category First"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(PRODUCTS_BY_CATEGORY[product.category] || []).map((p) => (
+                    {(productsByCategory[product.category] || []).map((p) => (
                       <SelectItem key={p} value={p}>
                         {p}
                       </SelectItem>
