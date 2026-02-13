@@ -7,6 +7,7 @@ export interface Product {
   product_name: string;
   category: string;
   weight_kg: number;
+  product_type: string;
   created_at: string;
 }
 

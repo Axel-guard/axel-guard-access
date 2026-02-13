@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface Product {
   product_name: string;
   category: string;
+  product_type: string;
 }
 
 export const useProductCategories = () => {
@@ -12,7 +13,7 @@ export const useProductCategories = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("product_name, category")
+        .select("product_name, category, product_type")
         .order("category", { ascending: true })
         .order("product_name", { ascending: true });
 
@@ -21,6 +22,7 @@ export const useProductCategories = () => {
       const products = data as Product[];
       const categories: string[] = [];
       const productsByCategory: Record<string, string[]> = {};
+      const productTypes: Record<string, string> = {};
 
       products.forEach((p) => {
         const cat = p.category || "Uncategorized";
@@ -29,9 +31,10 @@ export const useProductCategories = () => {
           categories.push(cat);
         }
         productsByCategory[cat].push(p.product_name);
+        productTypes[p.product_name] = p.product_type || "physical";
       });
 
-      return { categories: categories.sort(), productsByCategory };
+      return { categories: categories.sort(), productsByCategory, productTypes };
     },
   });
 };

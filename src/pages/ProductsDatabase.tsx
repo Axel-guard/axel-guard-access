@@ -13,6 +13,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -48,6 +49,7 @@ interface Product {
   product_name: string;
   category: string;
   weight_kg: number | null;
+  product_type: string;
 }
 
 const useProductsDatabase = () => {
@@ -56,7 +58,7 @@ const useProductsDatabase = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, product_code, product_name, category, weight_kg")
+        .select("id, product_code, product_name, category, weight_kg, product_type")
         .order("category", { ascending: true })
         .order("product_code", { ascending: true });
 
@@ -281,9 +283,18 @@ const ProductsDatabase = () => {
                             <TableCell className="font-medium">
                               {product.product_code}
                             </TableCell>
-                            <TableCell>{product.product_name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {product.product_name}
+                                {product.product_type === "service" && (
+                                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                                    Service
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-center">
-                              {product.weight_kg ?? 0}
+                              {product.product_type === "service" ? "—" : (product.weight_kg ?? 0)}
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">

@@ -104,11 +104,24 @@ const DispatchPage = () => {
     return { completed, pending };
   }, [sales, shipments]);
 
+  // Fetch product types from DB for service detection
+  const { data: productTypesData } = useQuery({
+    queryKey: ["product-types-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("product_name, product_type");
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach(p => { map[p.product_name] = p.product_type || "physical"; });
+      return map;
+    },
+  });
+
   // Service products that don't require physical inventory
   const isServiceProduct = useCallback((productName: string): boolean => {
-    const lowerName = productName.toLowerCase();
-    return ["server", "cloud", "sim"].some(kw => lowerName.includes(kw));
-  }, []);
+    return (productTypesData || {})[productName] === "service";
+  }, [productTypesData]);
 
   // Helper to compute dispatch status for an order
   const getOrderStatus = useCallback((orderId: string) => {
