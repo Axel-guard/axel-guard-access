@@ -19,6 +19,7 @@ import { DeleteDispatchDialog } from "./DeleteDispatchDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 interface Shipment {
   id: string;
@@ -53,14 +54,22 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
 
   const canDelete = isAdmin || isMasterAdmin;
 
-  // Service products that don't require physical inventory
-  const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
+  // Fetch product types from DB for service detection
+  const { data: productTypesMap } = useQuery({
+    queryKey: ["product-types-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("product_name, product_type");
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach(p => { map[p.product_name] = p.product_type || "physical"; });
+      return map;
+    },
+  });
+
   const isServiceProduct = (productName: string): boolean => {
-    const lowerName = productName.toLowerCase();
-    return SERVICE_PRODUCTS.some(sp => 
-      lowerName.includes(sp.toLowerCase().replace(" charges", "").trim()) ||
-      lowerName.includes(sp.toLowerCase())
-    );
+    return (productTypesMap || {})[productName] === "service";
   };
 
   // Calculate dispatch status for each order

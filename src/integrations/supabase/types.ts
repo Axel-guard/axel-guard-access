@@ -438,6 +438,7 @@ export type Database = {
           id: string
           product_code: string
           product_name: string
+          product_type: string
           updated_at: string | null
           weight_kg: number | null
         }
@@ -447,6 +448,7 @@ export type Database = {
           id?: string
           product_code: string
           product_name: string
+          product_type?: string
           updated_at?: string | null
           weight_kg?: number | null
         }
@@ -456,6 +458,7 @@ export type Database = {
           id?: string
           product_code?: string
           product_name?: string
+          product_type?: string
           updated_at?: string | null
           weight_kg?: number | null
         }

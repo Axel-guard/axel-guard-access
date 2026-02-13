@@ -49,18 +49,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createNotification } from "@/hooks/useNotifications";
 import { useEmail } from "@/hooks/useEmail";
 
-// Service products that don't require inventory (digital products)
-const SERVICE_PRODUCTS = ["Server Charges", "Cloud Charges", "SIM Charges"];
+// Check if a product is a service/digital product using product_type from DB
+const isServiceProduct = async (productName: string): Promise<boolean> => {
+  const { data } = await supabase
+    .from("products")
+    .select("product_type")
+    .eq("product_name", productName)
+    .maybeSingle();
+  return data?.product_type === "service";
+};
 
-// Check if a product is a service/digital product
-const isServiceProduct = (productName: string): boolean => {
-  const lowerName = productName.toLowerCase();
-  return SERVICE_PRODUCTS.some(sp => 
-    lowerName.includes(sp.toLowerCase().replace(" charges", "").trim()) ||
-    lowerName.includes("server charges") ||
-    lowerName.includes("cloud charges") ||
-    lowerName.includes("sim charges")
-  );
+// Sync version using a preloaded map
+const isServiceProductSync = (productName: string, serviceMap: Record<string, boolean>): boolean => {
+  return serviceMap[productName] ?? false;
 };
 
 interface ProductToDispatch {
@@ -119,6 +120,18 @@ export const CreateDispatchDialog = ({
     const initProducts = async () => {
       if (!order || orderItems.length === 0 || !open) return;
 
+      // Preload product types from DB
+      const productNames = orderItems.map(item => item.product_name);
+      const { data: productTypeData } = await supabase
+        .from("products")
+        .select("product_name, product_type")
+        .in("product_name", productNames);
+      
+      const serviceMap: Record<string, boolean> = {};
+      (productTypeData || []).forEach(p => {
+        serviceMap[p.product_name] = p.product_type === "service";
+      });
+
       // Fetch already dispatched inventory for this order
       const { data: dispatchedItems } = await supabase
         .from("inventory")
@@ -141,7 +154,7 @@ export const CreateDispatchDialog = ({
       const hasExistingShipment = (existingShipments || []).length > 0;
 
       const products = orderItems.map(item => {
-        const isService = isServiceProduct(item.product_name);
+        const isService = isServiceProductSync(item.product_name, serviceMap);
         const alreadyDispatched = isService 
           ? (hasExistingShipment ? item.quantity : 0)
           : (dispatchedCounts[item.product_name] || 0);

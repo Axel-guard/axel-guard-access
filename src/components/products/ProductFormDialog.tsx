@@ -78,11 +78,13 @@ export const ProductFormDialog = ({
     setIsSubmitting(true);
 
     try {
+      const category = formData.category.trim() || "General";
       const data = {
         product_code: formData.product_code.trim(),
         product_name: formData.product_name.trim(),
-        category: formData.category.trim() || "General",
+        category,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : 0,
+        product_type: category.toLowerCase() === "services" ? "service" : "physical",
         updated_at: new Date().toISOString(),
       };
 
