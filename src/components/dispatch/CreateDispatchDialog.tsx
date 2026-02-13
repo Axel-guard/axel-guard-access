@@ -120,11 +120,11 @@ export const CreateDispatchDialog = ({
     const initProducts = async () => {
       if (!order || orderItems.length === 0 || !open) return;
 
-      // Preload product types from DB
+      // Preload product types and renewal flags from DB
       const productNames = orderItems.map(item => item.product_name);
       const { data: productTypeData } = await supabase
         .from("products")
-        .select("product_name, product_type")
+        .select("product_name, product_type, renewal_applicable")
         .in("product_name", productNames);
       
       const serviceMap: Record<string, boolean> = {};
@@ -449,8 +449,15 @@ export const CreateDispatchDialog = ({
 
       if (shipmentError) throw shipmentError;
 
-      // Check for renewal products (service products not yet activated)
-      const renewalProducts = serviceProducts.filter(p => !p.serviceAlreadyActivated);
+      // Check for renewal-applicable products (using DB flag, not hardcoded)
+      const { data: renewalFlagData } = await supabase
+        .from("products")
+        .select("product_name, renewal_applicable")
+        .in("product_name", serviceProducts.map(p => p.product_name))
+        .eq("renewal_applicable", true);
+
+      const renewalApplicableNames = new Set((renewalFlagData || []).map(p => p.product_name));
+      const renewalProducts = serviceProducts.filter(p => !p.serviceAlreadyActivated && renewalApplicableNames.has(p.product_name));
 
       if (renewalProducts.length > 0) {
         const dispatchDateObj = new Date(dispatchDate);
@@ -461,11 +468,7 @@ export const CreateDispatchDialog = ({
           customer_code: order.customer_code || null,
           customer_name: order.customer_name || null,
           company_name: order.company_name || null,
-          product_type: product.product_name.toLowerCase().includes("server") 
-            ? "Server Charges" 
-            : product.product_name.toLowerCase().includes("cloud")
-            ? "Cloud Charges"
-            : "SIM Charges",
+          product_type: product.product_name,
           product_name: product.product_name,
           dispatch_date: dispatchDateObj.toISOString(),
           renewal_start_date: dispatchDateObj.toISOString(),
