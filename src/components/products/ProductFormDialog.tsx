@@ -40,6 +40,7 @@ export const ProductFormDialog = ({
     product_name: "",
     category: "",
     weight_kg: "",
+    renewal_applicable: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -47,11 +48,15 @@ export const ProductFormDialog = ({
 
   useEffect(() => {
     if (mode === "edit" && product) {
-      setFormData({
-        product_code: product.product_code || "",
-        product_name: product.product_name || "",
-        category: product.category || "",
-        weight_kg: product.weight_kg?.toString() || "",
+      // Fetch renewal_applicable from DB for this product
+      supabase.from("products").select("renewal_applicable").eq("id", product.id).maybeSingle().then(({ data }) => {
+        setFormData({
+          product_code: product.product_code || "",
+          product_name: product.product_name || "",
+          category: product.category || "",
+          weight_kg: product.weight_kg?.toString() || "",
+          renewal_applicable: data?.renewal_applicable ?? false,
+        });
       });
     } else {
       setFormData({
@@ -59,6 +64,7 @@ export const ProductFormDialog = ({
         product_name: "",
         category: "",
         weight_kg: "",
+        renewal_applicable: false,
       });
     }
   }, [mode, product, open]);
@@ -79,12 +85,14 @@ export const ProductFormDialog = ({
 
     try {
       const category = formData.category.trim() || "General";
+      const isService = category.toLowerCase() === "services";
       const data = {
         product_code: formData.product_code.trim(),
         product_name: formData.product_name.trim(),
         category,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : 0,
-        product_type: category.toLowerCase() === "services" ? "service" : "physical",
+        product_type: isService ? "service" : "physical",
+        renewal_applicable: isService ? formData.renewal_applicable : false,
         updated_at: new Date().toISOString(),
       };
 
@@ -187,6 +195,23 @@ export const ProductFormDialog = ({
               placeholder="e.g., 0.5"
             />
           </div>
+
+          {formData.category.toLowerCase() === "services" && (
+            <div className="flex items-center gap-3 rounded-lg border border-border p-3">
+              <input
+                type="checkbox"
+                id="renewal_applicable"
+                checked={formData.renewal_applicable}
+                onChange={(e) =>
+                  setFormData({ ...formData, renewal_applicable: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-border"
+              />
+              <Label htmlFor="renewal_applicable" className="cursor-pointer text-sm">
+                Renewal Applicable <span className="text-muted-foreground">(enables expiry tracking & renewal reminders)</span>
+              </Label>
+            </div>
+          )}
 
           <DialogFooter>
             <Button

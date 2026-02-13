@@ -50,6 +50,7 @@ interface Product {
   category: string;
   weight_kg: number | null;
   product_type: string;
+  renewal_applicable: boolean;
 }
 
 const useProductsDatabase = () => {
@@ -58,7 +59,7 @@ const useProductsDatabase = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, product_code, product_name, category, weight_kg, product_type")
+        .select("id, product_code, product_name, category, weight_kg, product_type, renewal_applicable")
         .order("category", { ascending: true })
         .order("product_code", { ascending: true });
 
@@ -289,6 +290,11 @@ const ProductsDatabase = () => {
                                 {product.product_type === "service" && (
                                   <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                                     Service
+                                  </Badge>
+                                )}
+                                {product.renewal_applicable && (
+                                  <Badge variant="outline" className="text-xs border-warning/30 text-warning">
+                                    Renewal
                                   </Badge>
                                 )}
                               </div>

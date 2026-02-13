@@ -439,6 +439,7 @@ export type Database = {
           product_code: string
           product_name: string
           product_type: string
+          renewal_applicable: boolean
           updated_at: string | null
           weight_kg: number | null
         }
@@ -449,6 +450,7 @@ export type Database = {
           product_code: string
           product_name: string
           product_type?: string
+          renewal_applicable?: boolean
           updated_at?: string | null
           weight_kg?: number | null
         }
@@ -459,6 +461,7 @@ export type Database = {
           product_code?: string
           product_name?: string
           product_type?: string
+          renewal_applicable?: boolean
           updated_at?: string | null
           weight_kg?: number | null
         }

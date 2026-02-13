@@ -19,18 +19,14 @@ export interface Renewal {
   updated_at: string;
 }
 
-// Renewal products that trigger renewal tracking
-export const RENEWAL_PRODUCTS = [
-  "Server Charges",
-  "Cloud Charges", 
-  "SIM Charges"
-];
-
-// Check if a product is a renewal product
-export const isRenewalProduct = (productName: string): boolean => {
-  return RENEWAL_PRODUCTS.some(rp => 
-    productName.toLowerCase().includes(rp.toLowerCase().replace(" Charges", "").trim())
-  );
+// Check if a product is renewal-applicable using the DB flag
+export const checkRenewalApplicable = async (productName: string): Promise<boolean> => {
+  const { data } = await supabase
+    .from("products")
+    .select("renewal_applicable")
+    .eq("product_name", productName)
+    .maybeSingle();
+  return data?.renewal_applicable === true;
 };
 
 // Calculate days remaining
