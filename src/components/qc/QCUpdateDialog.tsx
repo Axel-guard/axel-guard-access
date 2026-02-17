@@ -294,39 +294,32 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
         updated_at: new Date().toISOString(),
       };
 
+      let saveError: any = null;
+
       if (item?.id) {
-        // Update existing record
         const { error } = await supabase
           .from("inventory")
           .update(updateData)
           .eq("id", item.id);
-
-        if (error) throw error;
+        saveError = error;
       } else {
-        // Create new record or upsert based on serial number
+        const upsertData = {
+          ...updateData,
+          serial_number: formData.serial_number,
+          status: "In Stock",
+        };
         const { error } = await supabase
           .from("inventory")
-          .upsert({
-            ...updateData,
-            serial_number: formData.serial_number,
-            status: "In Stock",
-          }, {
+          .upsert(upsertData, {
             onConflict: "serial_number"
           });
-
-        if (error) throw error;
+        saveError = error;
       }
 
-      // Refresh data
-      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-
-      // Create notification for admins
-      createNotification(
-        "QC Updated",
-        `QC ${formData.qc_result} for serial ${formData.serial_number} (${formData.product_name || "Unknown product"}).`,
-        "qc",
-        { serial_number: formData.serial_number, qc_result: formData.qc_result }
-      );
+      if (saveError) {
+        console.error("Supabase save error:", saveError);
+        throw new Error(saveError.message || "Database save failed");
+      }
 
       toast({
         title: "QC Saved Successfully",
@@ -334,11 +327,23 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
       });
 
       onOpenChange(false);
+
+      // Fire-and-forget: refresh data & notify (don't block save success)
+      queryClient.invalidateQueries({ queryKey: ["inventory"] }).catch(console.error);
+      createNotification(
+        "QC Updated",
+        `QC ${formData.qc_result} for serial ${formData.serial_number} (${formData.product_name || "Unknown product"}).`,
+        "qc",
+        { serial_number: formData.serial_number, qc_result: formData.qc_result }
+      ).catch(console.error);
     } catch (error: any) {
-      console.error("Update error:", error);
+      console.error("QC save error details:", error);
+      const message = error?.message || "Unknown error";
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to save QC record",
+        description: message.includes("Failed to fetch") 
+          ? "Network error — please check your connection and try again." 
+          : message,
         variant: "destructive",
       });
     } finally {
