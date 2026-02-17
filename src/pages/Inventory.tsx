@@ -77,6 +77,7 @@ const InventoryPage = () => {
   };
 
   const handleClearFilters = () => {
+    setSearchTerm("");
     setStatusFilter("all");
     setQcFilter("all");
     setProductFilter("all");

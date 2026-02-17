@@ -41,8 +41,8 @@ export const InventoryFilters = ({
           <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="In Stock">In Stock</SelectItem>
           <SelectItem value="Dispatched">Dispatched</SelectItem>
-          <SelectItem value="QC Pending">QC Pending</SelectItem>
-          <SelectItem value="Defective">Defective</SelectItem>
+          <SelectItem value="Quality Check">Quality Check</SelectItem>
+          <SelectItem value="Returned">Returned</SelectItem>
         </SelectContent>
       </Select>
 
@@ -53,6 +53,7 @@ export const InventoryFilters = ({
         <SelectContent>
           <SelectItem value="all">All QC</SelectItem>
           <SelectItem value="Pass">Pass</SelectItem>
+          <SelectItem value="QC Pass">QC Pass</SelectItem>
           <SelectItem value="Fail">Fail</SelectItem>
           <SelectItem value="Pending">Pending</SelectItem>
         </SelectContent>
