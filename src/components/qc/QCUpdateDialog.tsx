@@ -52,6 +52,7 @@ const QC_OPTIONS = [
 const TEST_OPTIONS = [
   { value: "OK", label: "OK" },
   { value: "Fail", label: "Fail" },
+  { value: "N/A", label: "Not Applicable" },
 ];
 
 // Calculate final QC status based on individual test results
@@ -74,14 +75,14 @@ const calculateFinalStatus = (formData: Record<string, string>): string => {
     return "QC Fail";
   }
   
-  // If all tests are "ok" or "pass", final is PASS
-  const completedTests = testValues.filter((v) => v === "ok" || v === "pass");
-  if (completedTests.length === testFields.length) {
+  // If all filled tests are "ok"/"pass" or "n/a"/"not applicable", final is PASS
+  const filledTests = testValues.filter((v) => v !== "");
+  if (filledTests.length > 0 && filledTests.every((v) => v === "ok" || v === "pass" || v === "n/a" || v === "not applicable")) {
     return "QC Pass";
   }
   
-  // Otherwise, it's pending
-  return "Pending";
+  // If no tests filled, return whatever the user manually set (allow direct override)
+  return "";
 };
 
 // Component for test select with status icon
@@ -102,6 +103,9 @@ const TestSelect = ({
     if (value.toLowerCase() === "fail") {
       return <XCircle className="h-4 w-4 text-destructive" />;
     }
+    if (value.toLowerCase() === "n/a" || value.toLowerCase() === "not applicable") {
+      return <span className="h-4 w-4 text-muted-foreground text-xs font-bold">N/A</span>;
+    }
     return null;
   };
 
@@ -115,7 +119,8 @@ const TestSelect = ({
         <SelectTrigger className={cn(
           "rounded-lg transition-colors",
           value?.toLowerCase() === "ok" && "border-success/50 bg-success/5",
-          value?.toLowerCase() === "fail" && "border-destructive/50 bg-destructive/5"
+          value?.toLowerCase() === "fail" && "border-destructive/50 bg-destructive/5",
+          (value?.toLowerCase() === "n/a" || value?.toLowerCase() === "not applicable") && "border-muted-foreground/30 bg-muted/30"
         )}>
           <SelectValue placeholder="-- Select --" />
         </SelectTrigger>
@@ -125,6 +130,7 @@ const TestSelect = ({
               <span className="flex items-center gap-2">
                 {opt.value === "OK" && <CheckCircle2 className="h-3 w-3 text-success" />}
                 {opt.value === "Fail" && <XCircle className="h-3 w-3 text-destructive" />}
+                {opt.value === "N/A" && <span className="h-3 w-3 text-muted-foreground text-[10px] font-bold">N/A</span>}
                 {opt.label}
               </span>
             </SelectItem>
@@ -206,15 +212,20 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
     }
   }, [item, open]);
 
-  // Auto-calculate final status when tests change
+  // Track if user manually overrode the final QC status
+  const [manualOverride, setManualOverride] = useState(false);
+
+  // Auto-calculate final status when tests change (unless manually overridden)
   useEffect(() => {
-    if (!open) return;
+    if (!open || manualOverride) return;
     const calculatedStatus = calculateFinalStatus(formData);
-    if (calculatedStatus !== formData.qc_result) {
+    // Only auto-set if there's a meaningful result from test fields
+    if (calculatedStatus && calculatedStatus !== formData.qc_result) {
       setFormData((prev) => ({ ...prev, qc_result: calculatedStatus }));
     }
   }, [
     open,
+    manualOverride,
     formData.sd_connect,
     formData.all_channels,
     formData.network_test,
@@ -224,6 +235,11 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
     formData.camera_quality,
     formData.monitor_test,
   ]);
+
+  // Reset manual override when dialog opens
+  useEffect(() => {
+    if (open) setManualOverride(false);
+  }, [open]);
 
   // Get unique categories from products
   const categories = products
@@ -522,17 +538,34 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Final QC Status</Label>
-                <div className={cn(
-                  "h-10 px-3 rounded-lg border flex items-center gap-2 font-semibold",
-                  formData.qc_result?.toLowerCase().includes("pass") && "bg-success/10 border-success/30 text-success",
-                  formData.qc_result?.toLowerCase().includes("fail") && "bg-destructive/10 border-destructive/30 text-destructive",
-                  formData.qc_result === "Pending" && "bg-warning/10 border-warning/30 text-warning"
-                )}>
-                  {formData.qc_result?.toLowerCase().includes("pass") && <CheckCircle2 className="h-4 w-4" />}
-                  {formData.qc_result?.toLowerCase().includes("fail") && <XCircle className="h-4 w-4" />}
-                  {formData.qc_result === "Pending" && <AlertTriangle className="h-4 w-4" />}
-                  {formData.qc_result || "Pending"}
-                </div>
+                <Select
+                  value={formData.qc_result || "Pending"}
+                  onValueChange={(value) => {
+                    setManualOverride(true);
+                    setFormData((prev) => ({ ...prev, qc_result: value }));
+                  }}
+                >
+                  <SelectTrigger className={cn(
+                    "rounded-lg font-semibold",
+                    formData.qc_result?.toLowerCase().includes("pass") && "bg-success/10 border-success/30 text-success",
+                    formData.qc_result?.toLowerCase().includes("fail") && "bg-destructive/10 border-destructive/30 text-destructive",
+                    formData.qc_result === "Pending" && "bg-warning/10 border-warning/30 text-warning"
+                  )}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QC_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="flex items-center gap-2">
+                          {opt.value === "QC Pass" && <CheckCircle2 className="h-3 w-3 text-success" />}
+                          {opt.value === "QC Fail" && <XCircle className="h-3 w-3 text-destructive" />}
+                          {opt.value === "Pending" && <AlertTriangle className="h-3 w-3 text-warning" />}
+                          {opt.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ip_address">IP Address</Label>
