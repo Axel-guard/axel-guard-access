@@ -9,18 +9,14 @@ import { SalesTable } from "@/components/dashboard/SalesTable";
 import { InventoryAlertCard } from "@/components/dashboard/InventoryAlertCard";
 import { CourierChart } from "@/components/dashboard/CourierChart";
 import { ProductCategoryChart } from "@/components/dashboard/ProductCategoryChart";
-import { ShoppingCart, DollarSign, CheckCircle, Wallet, Package, Truck } from "lucide-react";
+import { ShoppingCart, IndianRupee, CheckCircle, Wallet } from "lucide-react";
 import { useDashboardSummary } from "@/hooks/useSales";
-import { useInventorySummary } from "@/hooks/useInventory";
-import { useShipmentsSummary } from "@/hooks/useShipments";
 import { useEmployees } from "@/hooks/useEmployees";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const [dateFilter, setDateFilter] = useState("this-month");
   const { data: summary, isLoading } = useDashboardSummary();
-  const { data: inventorySummary } = useInventorySummary();
-  const { data: shipmentsSummary } = useShipmentsSummary();
   const { data: activeEmployees = [] } = useEmployees();
 
   const colorPool: ("blue" | "emerald" | "amber")[] = ["blue", "emerald", "amber"];
@@ -81,8 +77,8 @@ const Index = () => {
       {/* Quick Actions */}
       <QuickActionsBar />
 
-      {/* Stats Grid - Responsive: 2 cols mobile, 3 tablet, 6 desktop */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {/* Stats Grid - Responsive: 2 cols mobile, 4 desktop */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <PremiumStatCard
           title="Total Sales"
           value={String(summary?.totalSales || 0)}
@@ -93,7 +89,7 @@ const Index = () => {
         <PremiumStatCard
           title="Total Revenue"
           value={formatCurrency(summary?.totalRevenue || 0)}
-          icon={DollarSign}
+          icon={IndianRupee}
           variant="info"
           trend={{ value: 8, positive: true }}
         />
@@ -110,20 +106,6 @@ const Index = () => {
           icon={Wallet}
           variant="warning"
           trend={{ value: 5, positive: false }}
-        />
-        <PremiumStatCard
-          title="In Stock"
-          value={String(inventorySummary?.inStock || 0)}
-          icon={Package}
-          variant="info"
-          subtitle="Live inventory"
-        />
-        <PremiumStatCard
-          title="Shipments"
-          value={String(shipmentsSummary?.totalShipments || 0)}
-          icon={Truck}
-          variant="success"
-          subtitle="This month"
         />
       </div>
 
