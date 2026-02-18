@@ -31,7 +31,7 @@ type SortDirection = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [50, 100, 200];
 
 export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
-  const [sortField, setSortField] = useState<SortField>("serial_number");
+  const [sortField, setSortField] = useState<SortField | "">("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
@@ -45,6 +45,7 @@ export const InventoryTable = ({ data, onEdit }: InventoryTableProps) => {
   }
 
   const sortedData = useMemo(() => {
+    if (!sortField) return data; // preserve backend order (newest first)
     return [...data].sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
