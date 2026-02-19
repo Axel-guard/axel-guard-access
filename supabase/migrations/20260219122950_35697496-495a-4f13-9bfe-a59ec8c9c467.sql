@@ -1,0 +1,5 @@
+
+ALTER TABLE public.quotation_items 
+  ADD COLUMN IF NOT EXISTS serial_no TEXT,
+  ADD COLUMN IF NOT EXISTS model_no TEXT,
+  ADD COLUMN IF NOT EXISTS tax_percent NUMERIC DEFAULT 0;

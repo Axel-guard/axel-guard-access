@@ -8,10 +8,13 @@ export interface QuotationItem {
   product_code: string;
   product_name: string;
   hsn_sac?: string; // Legacy field - kept for backward compatibility
+  serial_no?: string;
   description: string;
+  model_no?: string;
   unit: string;
   quantity: number | string;
   unit_price: number | string;
+  tax_percent?: number;
   amount: number;
 }
 

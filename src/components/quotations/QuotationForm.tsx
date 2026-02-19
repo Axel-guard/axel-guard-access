@@ -98,10 +98,13 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     {
       product_code: "",
       product_name: "",
+      serial_no: "",
       description: "",
+      model_no: "",
       unit: "Pcs",
       quantity: "",
       unit_price: "",
+      tax_percent: 0,
       amount: 0,
     },
   ]);
@@ -204,10 +207,13 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
           editQuotationData.items.map((item: any) => ({
             product_code: item.product_code || "",
             product_name: item.product_name || "",
+            serial_no: item.serial_no || "",
             description: item.description || "",
+            model_no: item.model_no || "",
             unit: item.unit || "Pcs",
             quantity: item.quantity?.toString() || "",
             unit_price: item.unit_price?.toString() || "",
+            tax_percent: item.tax_percent ?? 0,
             amount: Number(item.amount) || 0,
           }))
         );
@@ -275,10 +281,16 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     };
   }, []);
 
-  // Calculate totals
+  // Calculate totals with per-item tax
+  const getNum = (v: number | string): number =>
+    typeof v === "string" ? parseFloat(v) || 0 : v || 0;
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  // Single GST on (Subtotal + Courier)
-  const gstAmount = applyGst ? (subtotal + courierCharge) * 0.18 : 0;
+  const totalItemTax = items.reduce((sum, item) => {
+    const lineAmt = getNum(item.quantity) * getNum(item.unit_price);
+    return sum + lineAmt * ((item.tax_percent ?? 0) / 100);
+  }, 0);
+  // GST amount = total per-item taxes (Apply GST toggle syncs per-item tax_percent)
+  const gstAmount = totalItemTax;
   const grandTotal = subtotal + courierCharge + gstAmount;
 
   const handleUpdateItem = (
@@ -296,24 +308,42 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   };
 
   const handleAddItem = () => {
-    setItems([
-      ...items,
+    setItems((prev) => [
+      ...prev,
       {
         product_code: "",
         product_name: "",
+        serial_no: "",
         description: "",
+        model_no: "",
         unit: "Pcs",
         quantity: "",
         unit_price: "",
+        tax_percent: applyGst ? 18 : 0,
         amount: 0,
       },
     ]);
+    // Focus new row after render
+    setTimeout(() => {
+      const rows = document.querySelectorAll("table tbody tr");
+      const lastRow = rows[rows.length - 1];
+      const firstInput = lastRow?.querySelector("input");
+      firstInput?.focus();
+    }, 50);
   };
 
   const handleRemoveItem = (index: number) => {
     if (items.length > 1) {
       setItems(items.filter((_, i) => i !== index));
     }
+  };
+
+  // Sync Apply GST toggle with per-item tax_percent
+  const handleGstToggle = (checked: boolean) => {
+    setApplyGst(checked);
+    setItems((prev) =>
+      prev.map((item) => ({ ...item, tax_percent: checked ? 18 : 0 }))
+    );
   };
 
   const handleSave = async () => {
@@ -635,7 +665,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-sm font-medium ${!applyGst ? 'text-primary' : 'text-muted-foreground'}`}>OFF</span>
-                <Switch checked={applyGst} onCheckedChange={setApplyGst} />
+                <Switch checked={applyGst} onCheckedChange={handleGstToggle} />
                 <span className={`text-sm font-medium ${applyGst ? 'text-primary' : 'text-muted-foreground'}`}>ON</span>
               </div>
             </div>
@@ -678,33 +708,26 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
 
       {/* Products Table */}
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Products</CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddItem}
-              className="gap-1"
-            >
-              <Plus className="h-4 w-4" />
-              Add Row
-            </Button>
-          </div>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Products</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50 text-sm">
-                <tr>
-                  <th className="p-3 text-center font-medium">#</th>
-                  <th className="p-3 text-left font-medium">Item Name</th>
-                  <th className="p-3 text-center font-medium">Quantity</th>
-                  <th className="p-3 text-center font-medium">Unit</th>
-                  <th className="p-3 text-right font-medium">Price/Unit</th>
-                  <th className="p-3 text-right font-medium">Amount</th>
-                  <th className="p-3 text-center font-medium">Action</th>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-10">#</th>
+                  <th className="px-2 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[180px]">Item</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[100px]">Serial No.</th>
+                  <th className="px-2 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[140px]">Description</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[110px]">Model No.</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[80px]">Qty</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[90px]">Unit</th>
+                  <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Price/Unit</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[90px]">Tax %</th>
+                  <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Tax Amt</th>
+                  <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[110px]">Amount</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -720,6 +743,35 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                   />
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="border-t border-border bg-muted/30">
+                  <td colSpan={5} className="px-2 py-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddItem}
+                      className="gap-1 text-primary border-primary/30 hover:bg-primary/5"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Row
+                    </Button>
+                  </td>
+                  <td className="px-2 py-2 text-center text-sm font-semibold">
+                    {items.reduce((s, i) => s + (parseFloat(String(i.quantity)) || 0), 0)}
+                  </td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td className="px-2 py-2 text-right text-sm font-semibold text-muted-foreground">
+                    ₹{totalItemTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-2 py-2 text-right text-sm font-bold">
+                    ₹{(subtotal + totalItemTax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </CardContent>
@@ -759,9 +811,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                 </span>
               </div>
             )}
-            {applyGst && (
+            {totalItemTax > 0 && (
               <div className="flex w-full max-w-xs justify-between text-sm">
-                <span className="text-muted-foreground">GST (18%):</span>
+                <span className="text-muted-foreground">Tax Total:</span>
                 <span className="font-medium text-primary">
                   ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>

@@ -474,10 +474,13 @@ export type Database = {
           description: string | null
           hsn_sac: string | null
           id: string
+          model_no: string | null
           product_code: string
           product_name: string
           quantity: number
           quotation_id: string
+          serial_no: string | null
+          tax_percent: number | null
           unit: string | null
           unit_price: number
         }
@@ -487,10 +490,13 @@ export type Database = {
           description?: string | null
           hsn_sac?: string | null
           id?: string
+          model_no?: string | null
           product_code: string
           product_name: string
           quantity?: number
           quotation_id: string
+          serial_no?: string | null
+          tax_percent?: number | null
           unit?: string | null
           unit_price?: number
         }
@@ -500,10 +506,13 @@ export type Database = {
           description?: string | null
           hsn_sac?: string | null
           id?: string
+          model_no?: string | null
           product_code?: string
           product_name?: string
           quantity?: number
           quotation_id?: string
+          serial_no?: string | null
+          tax_percent?: number | null
           unit?: string | null
           unit_price?: number
         }
