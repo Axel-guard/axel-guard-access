@@ -72,8 +72,7 @@ export const QuickActionsBar = () => {
             className={`gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium shadow-sm transition-all hover:scale-[1.02] hover:shadow-md whitespace-nowrap min-h-[40px] sm:min-h-[44px] ${variantStyles[action.variant]}`}
           >
             <action.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline sm:inline">{action.label}</span>
-            <span className="xs:hidden">{action.label.split(' ')[0]}</span>
+            {action.label}
           </Button>
         ))}
       </div>
