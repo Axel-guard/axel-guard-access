@@ -233,15 +233,15 @@ export const QuotationProductRow = ({
       </td>
 
       {/* Qty */}
-      <td className="px-2 py-2 w-[80px]">
+      <td className="px-2 py-2 min-w-[90px] w-[90px]">
         <Input
           type="number"
           min="1"
           step="1"
-          value={item.quantity}
+          value={item.quantity ?? ""}
           onChange={(e) => handleQuantityChange(e.target.value)}
           placeholder="Qty"
-          className="h-9 text-sm text-center border-muted"
+          className="h-9 text-sm text-center border-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </td>
 
