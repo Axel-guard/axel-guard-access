@@ -2,15 +2,19 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Trash2 } from "lucide-react";
 import { QuotationItem } from "@/hooks/useQuotations";
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -47,10 +51,21 @@ export const QuotationProductRow = ({
   canRemove,
 }: QuotationProductRowProps) => {
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const [productOpen, setProductOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
 
-  const productsByCategory = useMemo(() => {
+  const filteredByCategory = useMemo(() => {
+    const q = productSearch.toLowerCase().trim();
+    const filtered = q
+      ? products.filter(
+          (p) =>
+            p.product_name.toLowerCase().includes(q) ||
+            p.product_code.toLowerCase().includes(q)
+        )
+      : products;
+
     const grouped: Record<string, Product[]> = {};
-    products.forEach((product) => {
+    filtered.forEach((product) => {
       const category = product.category || "Other";
       if (!grouped[category]) grouped[category] = [];
       grouped[category].push(product);
@@ -63,7 +78,7 @@ export const QuotationProductRow = ({
           a.product_name.localeCompare(b.product_name)
         ),
       }));
-  }, [products]);
+  }, [products, productSearch]);
 
   const getNum = (v: number | string): number =>
     typeof v === "string" ? parseFloat(v) || 0 : v || 0;
@@ -79,11 +94,12 @@ export const QuotationProductRow = ({
       if (product) {
         onUpdate(index, "product_code", product.product_code);
         onUpdate(index, "product_name", product.product_name);
-        // Recalculate amount
         const qty = getNum(item.quantity);
         const price = getNum(item.unit_price);
         onUpdate(index, "amount", qty * price);
       }
+      setProductOpen(false);
+      setProductSearch("");
     },
     [products, index, onUpdate, item.quantity, item.unit_price]
   );
@@ -119,33 +135,70 @@ export const QuotationProductRow = ({
         {index + 1}
       </td>
 
-      {/* Item (Product Select) */}
-      <td className="px-2 py-2 min-w-[180px]">
-        <Select value={item.product_code} onValueChange={handleProductChange}>
-          <SelectTrigger className="h-9 text-sm border-muted">
-            <SelectValue placeholder="Select item">
-              {selectedProduct?.product_name || "Select item"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px]">
-            {productsByCategory.map(({ category, products: catProducts }) => (
-              <SelectGroup key={category}>
-                <SelectLabel className="font-semibold text-primary bg-muted/50 px-2 py-1">
-                  {category}
-                </SelectLabel>
-                {catProducts.map((product) => (
-                  <SelectItem
-                    key={product.id}
-                    value={product.product_code}
-                    className="pl-6 text-sm"
-                  >
-                    {product.product_name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Item (Searchable Product Combobox) */}
+      <td className="px-2 py-2 min-w-[200px]">
+        <Popover open={productOpen} onOpenChange={(open) => { setProductOpen(open); if (!open) setProductSearch(""); }}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              role="combobox"
+              aria-expanded={productOpen}
+              className={cn(
+                "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                !selectedProduct && "text-muted-foreground"
+              )}
+            >
+              <span className="truncate">
+                {selectedProduct?.product_name || "Search product..."}
+              </span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[280px] p-0 z-50" align="start">
+            <div className="flex flex-col">
+              <div className="flex items-center border-b border-border px-3">
+                <Input
+                  placeholder="Search product..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="h-9 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-[250px] overflow-y-auto p-1">
+                {filteredByCategory.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">No products found</p>
+                ) : (
+                  filteredByCategory.map(({ category, products: catProducts }) => (
+                    <div key={category}>
+                      <p className="px-2 py-1.5 text-xs font-semibold text-primary bg-muted/50 rounded-sm">
+                        {category}
+                      </p>
+                      {catProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => handleProductChange(product.product_code)}
+                          className={cn(
+                            "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                            item.product_code === product.product_code && "bg-accent"
+                          )}
+                        >
+                          <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                            {item.product_code === product.product_code && (
+                              <Check className="h-4 w-4" />
+                            )}
+                          </span>
+                          {product.product_name}
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </td>
 
       {/* Serial No */}
