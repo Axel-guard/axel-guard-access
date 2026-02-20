@@ -154,7 +154,7 @@ export const QuotationProductRow = ({
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-[280px] p-0 z-50" align="start">
+          <PopoverContent className="w-[320px] p-0 z-50" align="start">
             <div className="flex flex-col">
               <div className="flex items-center border-b border-border px-3">
                 <Input
@@ -171,7 +171,7 @@ export const QuotationProductRow = ({
                 ) : (
                   filteredByCategory.map(({ category, products: catProducts }) => (
                     <div key={category}>
-                      <p className="px-2 py-1.5 text-xs font-semibold text-primary bg-muted/50 rounded-sm">
+                      <p className="px-2 py-1.5 text-xs font-semibold text-primary bg-muted/50 rounded-sm sticky top-0 z-10">
                         {category}
                       </p>
                       {catProducts.map((product) => (
@@ -180,7 +180,7 @@ export const QuotationProductRow = ({
                           type="button"
                           onClick={() => handleProductChange(product.product_code)}
                           className={cn(
-                            "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                            "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left",
                             item.product_code === product.product_code && "bg-accent"
                           )}
                         >
@@ -189,7 +189,7 @@ export const QuotationProductRow = ({
                               <Check className="h-4 w-4" />
                             )}
                           </span>
-                          {product.product_name}
+                          <span className="truncate">{product.product_name}</span>
                         </button>
                       ))}
                     </div>
