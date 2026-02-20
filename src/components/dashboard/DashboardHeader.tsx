@@ -103,7 +103,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
         setBalancePaymentOpen(true);
         break;
       case "quotation":
-        // Navigate to quotation or open dialog
+        navigate("/quotations");
         break;
       case "inventory":
         navigate("/inventory");
