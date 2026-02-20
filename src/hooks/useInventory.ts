@@ -41,7 +41,7 @@ export const useInventory = () => {
         const { data, error } = await supabase
           .from("inventory")
           .select("*")
-          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
