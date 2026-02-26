@@ -41,6 +41,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_qc_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          product_name: string
+          qc_value: string
+          rejected_reason: string | null
+          requested_by: string
+          status: string
+          total_devices: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          product_name: string
+          qc_value: string
+          rejected_reason?: string | null
+          requested_by: string
+          status?: string
+          total_devices?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          product_name?: string
+          qc_value?: string
+          rejected_reason?: string | null
+          requested_by?: string
+          status?: string
+          total_devices?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           company_name: string | null

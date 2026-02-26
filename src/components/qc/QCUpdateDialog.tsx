@@ -1,10 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,15 +37,19 @@ import {
   ClipboardCheck,
   AlertTriangle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { InventoryItem } from "@/hooks/useInventory";
+import { useInventory } from "@/hooks/useInventory";
 import { useProducts } from "@/hooks/useProducts";
 import { cn } from "@/lib/utils";
 import { createNotification } from "@/hooks/useNotifications";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateBulkQCRequest, useMasterAdminBulkApply } from "@/hooks/useBulkQCRequests";
 
 interface QCUpdateDialogProps {
   item: InventoryItem | null;
@@ -46,6 +60,7 @@ interface QCUpdateDialogProps {
 const QC_OPTIONS = [
   { value: "QC Pass", label: "QC Pass" },
   { value: "QC Fail", label: "QC Fail" },
+  { value: "N/A", label: "Not Applicable" },
   { value: "Pending", label: "Pending" },
 ];
 
@@ -145,7 +160,12 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: products } = useProducts();
+  const { data: inventory } = useInventory();
+  const { isMasterAdmin } = useAuth();
+  const createBulkRequest = useCreateBulkQCRequest();
+  const masterBulkApply = useMasterAdminBulkApply();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     qc_date: new Date().toISOString().split("T")[0],
@@ -606,6 +626,45 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
             </div>
           </div>
 
+          {/* Bulk QC Section */}
+          {(() => {
+            const qcVal = formData.qc_result;
+            const isBulkEligible = qcVal === "QC Pass" || qcVal === "N/A";
+            const productName = formData.product_name;
+            const pendingCount = productName && inventory
+              ? inventory.filter(
+                  (i) =>
+                    i.product_name === productName &&
+                    (i.qc_result === "Pending" || !i.qc_result) &&
+                    i.id !== item?.id
+                ).length
+              : 0;
+
+            if (!isBulkEligible || pendingCount <= 0 || !hasValidItem) return null;
+
+            return (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-primary">
+                  <Zap className="h-5 w-5" />
+                  <span className="font-semibold text-sm">Smart Bulk QC</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {pendingCount} more <strong>{productName}</strong> devices have pending QC.
+                  Apply <strong>{qcVal}</strong> to all of them.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-primary/30 text-primary hover:bg-primary/10 rounded-lg gap-2"
+                  onClick={() => setBulkConfirmOpen(true)}
+                >
+                  <Zap className="h-4 w-4" />
+                  Apply to remaining {pendingCount} devices
+                </Button>
+              </div>
+            );
+          })()}
+
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
@@ -632,6 +691,51 @@ export const QCUpdateDialog = ({ item, open, onOpenChange }: QCUpdateDialogProps
             </Button>
           </div>
         </form>
+
+        {/* Bulk Confirm Dialog */}
+        <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Bulk QC Update</AlertDialogTitle>
+              <AlertDialogDescription>
+                {isMasterAdmin
+                  ? `This will immediately apply "${formData.qc_result}" to all remaining pending ${formData.product_name} devices.`
+                  : `This will send a request to the Master Admin to apply "${formData.qc_result}" to all remaining pending ${formData.product_name} devices.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const pendingCount = formData.product_name && inventory
+                    ? inventory.filter(
+                        (i) =>
+                          i.product_name === formData.product_name &&
+                          (i.qc_result === "Pending" || !i.qc_result) &&
+                          i.id !== item?.id
+                      ).length
+                    : 0;
+
+                  if (isMasterAdmin) {
+                    masterBulkApply.mutate({
+                      product_name: formData.product_name,
+                      qc_value: formData.qc_result,
+                    });
+                  } else {
+                    createBulkRequest.mutate({
+                      product_name: formData.product_name,
+                      qc_value: formData.qc_result,
+                      total_devices: pendingCount,
+                    });
+                  }
+                  setBulkConfirmOpen(false);
+                }}
+              >
+                {isMasterAdmin ? "Apply Now" : "Send for Approval"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
