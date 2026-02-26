@@ -86,6 +86,7 @@ const navItems: NavItem[] = [
       { icon: FileText, label: "Reports", path: "/reports?tab=inventory" },
     ],
   },
+  { icon: ClipboardCheck, label: "Bulk QC Approvals", path: "/bulk-qc-approvals", masterAdminOnly: true },
   { icon: Tag, label: "Pricing", path: "/pricing" },
   {
     icon: Database,

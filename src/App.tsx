@@ -25,6 +25,7 @@ import QuotationsPage from "./pages/Quotations";
 import QuotationApprovalsPage from "./pages/QuotationApprovals";
 import CustomerDetailsPage from "./pages/CustomerDetails";
 import EmployeeManagementPage from "./pages/EmployeeManagement";
+import BulkQCApprovalsPage from "./pages/BulkQCApprovals";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requireMasterAdmin>
                     <EmployeeManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="bulk-qc-approvals"
+                element={
+                  <ProtectedRoute requireMasterAdmin>
+                    <BulkQCApprovalsPage />
                   </ProtectedRoute>
                 }
               />
