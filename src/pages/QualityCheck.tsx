@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CheckCircle, XCircle, Clock, ClipboardCheck, Plus } from "lucide-react";
+import { Search, CheckCircle, XCircle, Clock, ClipboardCheck, Plus, Zap } from "lucide-react";
 import { useInventory } from "@/hooks/useInventory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClickableStatCard } from "@/components/dashboard/ClickableStatCard";
@@ -10,6 +10,7 @@ import { QCReportUploadDialog } from "@/components/inventory/QCReportUploadDialo
 import { QCTable } from "@/components/qc/QCTable";
 import { QCFilters } from "@/components/qc/QCFilters";
 import { QCExport } from "@/components/qc/QCExport";
+import { BulkQCUpdateDialog } from "@/components/qc/BulkQCUpdateDialog";
 import { QCUpdateDialog } from "@/components/qc/QCUpdateDialog";
 import type { InventoryItem } from "@/hooks/useInventory";
 
@@ -161,6 +162,7 @@ const QualityCheckPage = () => {
             <Plus className="h-4 w-4" />
             Add QC Report
           </Button>
+          <BulkQCUpdateDialog />
           <QCReportUploadDialog />
           {filteredQCData.length > 0 && (
             <QCExport data={filteredQCData} />
