@@ -40,7 +40,6 @@ const Auth = () => {
     e.preventDefault();
     setError(null);
     
-    // Validate input
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
       setError(validation.error.errors[0].message);
@@ -49,17 +48,21 @@ const Auth = () => {
 
     setSubmitting(true);
 
+    // Fail-safe: force stop after 12 seconds
+    const timeoutId = setTimeout(() => {
+      setSubmitting(false);
+      setError("Login timeout. Server is not responding. Please try again.");
+    }, 12000);
+
     try {
       // Check if email is in the allowed list
       const isAllowed = await checkEmailAllowed(email);
       if (!isAllowed) {
         setError("Access denied. Your email is not in the approved list. Please contact your administrator.");
-        setSubmitting(false);
         return;
       }
 
       if (isSignUp) {
-        // Sign up flow
         const { error: signUpError } = await supabase.auth.signUp({
           email: email.toLowerCase().trim(),
           password,
@@ -74,14 +77,12 @@ const Auth = () => {
           } else {
             setError(signUpError.message);
           }
-          setSubmitting(false);
           return;
         }
 
         toast.success("Account created successfully! Please check your email to verify your account.");
         setIsSignUp(false);
       } else {
-        // Sign in flow
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.toLowerCase().trim(),
           password,
@@ -92,20 +93,27 @@ const Auth = () => {
             setError("Invalid email or password. Please try again.");
           } else if (signInError.message.includes("Email not confirmed")) {
             setError("Please verify your email address before signing in.");
+          } else if (signInError.message.includes("Failed to fetch")) {
+            setError("Network error. Unable to reach the server. Please check your connection and try again.");
           } else {
             setError(signInError.message);
           }
-          setSubmitting(false);
           return;
         }
 
         toast.success("Welcome back!");
         navigate("/", { replace: true });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Auth error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      const msg = err?.message || "";
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+        setError("Network error. Unable to reach the server. Please check your connection.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setSubmitting(false);
     }
   };
