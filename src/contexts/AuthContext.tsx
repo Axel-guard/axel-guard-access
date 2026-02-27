@@ -74,11 +74,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("[Auth] onAuthStateChange:", event);
+
+        // If token refresh failed, clear corrupt session
+        if (event === "TOKEN_REFRESHED" && !session) {
+          console.warn("[Auth] Token refresh returned no session — clearing");
+          supabase.auth.signOut().catch(() => {});
+          setUser(null);
+          setSession(null);
+          setRole(null);
+          setIsLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer role fetch to avoid deadlock
           setTimeout(() => {
             fetchUserRole(session.user.id).then(setRole);
           }, 0);
@@ -106,6 +119,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       })
       .catch((err) => {
         console.error("[Auth] getSession failed:", err);
+        // Clear potentially corrupt session data
+        const msg = String(err?.message || "");
+        if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("refresh_token")) {
+          console.warn("[Auth] Clearing stale session due to network/token error");
+          supabase.auth.signOut().catch(() => {});
+        }
+        setUser(null);
+        setSession(null);
+        setRole(null);
         setIsLoading(false);
         clearTimeout(timeoutId);
       });
