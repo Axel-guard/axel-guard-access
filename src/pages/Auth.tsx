@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
+import { LoadingTimeout } from "@/components/ui/LoadingTimeout";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -111,9 +112,11 @@ const Auth = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <LoadingTimeout isLoading={isLoading}>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </LoadingTimeout>
     );
   }
 

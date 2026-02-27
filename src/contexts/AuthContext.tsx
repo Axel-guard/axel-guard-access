@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,6 +17,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_TIMEOUT_MS = 15000; // 15 seconds max for auth loading
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const initializedRef = useRef(false);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -41,13 +44,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching role:", error);
         return null;
       }
-      return data?.role as AppRole;
+      return data?.role as AppRole | null;
     } catch (err) {
       console.error("Error in fetchUserRole:", err);
       return null;
@@ -55,14 +58,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    // FAIL-SAFE: Force stop loading after timeout
+    const timeoutId = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn("[Auth] Loading timed out after", AUTH_TIMEOUT_MS, "ms — forcing stop");
+        }
+        return false;
+      });
+    }, AUTH_TIMEOUT_MS);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer role fetch with setTimeout to avoid deadlock
         if (session?.user) {
+          // Defer role fetch to avoid deadlock
           setTimeout(() => {
             fetchUserRole(session.user.id).then(setRole);
           }, 0);
@@ -71,27 +87,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
         
         setIsLoading(false);
+        clearTimeout(timeoutId);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id).then(setRole);
-      }
-      
-      setIsLoading(false);
-    });
+    // THEN check for existing session with try/catch
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          fetchUserRole(session.user.id).then(setRole);
+        }
+        
+        setIsLoading(false);
+        clearTimeout(timeoutId);
+      })
+      .catch((err) => {
+        console.error("[Auth] getSession failed:", err);
+        setIsLoading(false);
+        clearTimeout(timeoutId);
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const checkEmailAllowed = async (email: string): Promise<boolean> => {
     try {
-      // First check if the allowed_emails table is empty (first-time setup)
       const { count, error: countError } = await supabase
         .from("allowed_emails")
         .select("*", { count: "exact", head: true });
@@ -101,13 +127,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return true;
       }
 
-      // If no emails in the list and this is master admin - auto-approve
       if (count === 0 && email.toLowerCase() === "info@axel-guard.com") {
-        console.log("First-time setup - master admin will be auto-approved");
         return true;
       }
 
-      // Check if this specific email is in the allowed list
       const { data, error } = await supabase
         .from("allowed_emails")
         .select("id")
@@ -115,8 +138,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .maybeSingle();
 
       if (error) {
-        console.error("Error checking email:", error);
-        // Fallback to RPC function
         const { data: rpcResult, error: rpcError } = await supabase
           .rpc("is_email_allowed", { _email: email });
         

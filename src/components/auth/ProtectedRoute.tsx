@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingTimeout } from "@/components/ui/LoadingTimeout";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,9 +19,11 @@ export const ProtectedRoute = ({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <LoadingTimeout isLoading={isLoading}>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </LoadingTimeout>
     );
   }
 
