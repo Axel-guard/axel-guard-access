@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { hardResetSession } from "@/lib/authUtils";
+import { toast } from "sonner";
 
 type AppRole = "master_admin" | "admin" | "user";
 
@@ -17,7 +19,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_TIMEOUT_MS = 15000; // 15 seconds max for auth loading
+const AUTH_TIMEOUT_MS = 15000;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -57,6 +59,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  /** Detect if an error is a network / fetch failure */
+  const isNetworkError = (err: unknown): boolean => {
+    const msg = String((err as any)?.message || err || "");
+    return (
+      msg.includes("Failed to fetch") ||
+      msg.includes("NetworkError") ||
+      msg.includes("refresh_token") ||
+      msg.includes("AuthRetryableFetchError")
+    );
+  };
+
+  /** Clear auth state (does NOT reload) */
+  const clearAuthState = () => {
+    setUser(null);
+    setSession(null);
+    setRole(null);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -66,6 +87,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setIsLoading((prev) => {
         if (prev) {
           console.warn("[Auth] Loading timed out after", AUTH_TIMEOUT_MS, "ms — forcing stop");
+          // If still loading after timeout, clear stale tokens
+          hardResetSession();
         }
         return false;
       });
@@ -73,62 +96,72 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (event, currentSession) => {
         console.log("[Auth] onAuthStateChange:", event);
 
-        // If token refresh failed, clear corrupt session
-        if (event === "TOKEN_REFRESHED" && !session) {
-          console.warn("[Auth] Token refresh returned no session — clearing");
-          supabase.auth.signOut().catch(() => {});
-          setUser(null);
-          setSession(null);
-          setRole(null);
-          setIsLoading(false);
+        // 2️⃣ GLOBAL TOKEN REFRESH FAILURE HANDLER
+        if (event === "TOKEN_REFRESHED" && !currentSession) {
+          console.warn("[Auth] Token refresh returned no session — hard resetting");
+          hardResetSession().then(() => {
+            clearAuthState();
+            clearTimeout(timeoutId);
+            toast.error("Session expired. Please login again.");
+          });
+          return;
+        }
+
+        // Handle SIGNED_OUT explicitly
+        if (event === "SIGNED_OUT") {
+          clearAuthState();
           clearTimeout(timeoutId);
           return;
         }
 
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
           setTimeout(() => {
-            fetchUserRole(session.user.id).then(setRole);
+            fetchUserRole(currentSession.user.id).then(setRole);
           }, 0);
         } else {
           setRole(null);
         }
-        
+
         setIsLoading(false);
         clearTimeout(timeoutId);
       }
     );
 
-    // THEN check for existing session with try/catch
+    // 1️⃣ HARD SESSION VALIDATION ON APP START
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          fetchUserRole(session.user.id).then(setRole);
+      .then(({ data: { session: existingSession } }) => {
+        if (!existingSession) {
+          // No session — just stop loading, let login page show
+          clearAuthState();
+          clearTimeout(timeoutId);
+          return;
         }
-        
+
+        setSession(existingSession);
+        setUser(existingSession.user);
+
+        fetchUserRole(existingSession.user.id).then(setRole);
+
         setIsLoading(false);
         clearTimeout(timeoutId);
       })
       .catch((err) => {
         console.error("[Auth] getSession failed:", err);
-        // Clear potentially corrupt session data
-        const msg = String(err?.message || "");
-        if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("refresh_token")) {
+
+        // 3️⃣ NETWORK FAILURE GUARD — don't retry, just clear
+        if (isNetworkError(err)) {
           console.warn("[Auth] Clearing stale session due to network/token error");
-          supabase.auth.signOut().catch(() => {});
+          hardResetSession();
+          toast.error("Network error. Session cleared. Please login again.");
         }
-        setUser(null);
-        setSession(null);
-        setRole(null);
-        setIsLoading(false);
+
+        clearAuthState();
         clearTimeout(timeoutId);
       });
 
@@ -162,15 +195,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (error) {
         const { data: rpcResult, error: rpcError } = await supabase
           .rpc("is_email_allowed", { _email: email });
-        
+
         if (rpcError) {
           console.error("Error in RPC check:", rpcError);
           return false;
         }
-        
+
         return rpcResult as boolean;
       }
-      
+
       return !!data;
     } catch (err) {
       console.error("Error in checkEmailAllowed:", err);

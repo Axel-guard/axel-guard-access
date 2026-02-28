@@ -12,6 +12,7 @@ import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { LoadingTimeout } from "@/components/ui/LoadingTimeout";
 import { toast } from "sonner";
 import { z } from "zod";
+import { hardResetAndReload } from "@/lib/authUtils";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -246,6 +247,16 @@ const Auth = () => {
             }}
           >
             {isSignUp ? "Sign in instead" : "Create an account"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground hover:text-destructive"
+            onClick={hardResetAndReload}
+          >
+            Reset Session (if stuck)
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
