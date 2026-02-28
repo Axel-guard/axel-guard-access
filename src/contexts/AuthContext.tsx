@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { hardResetSession } from "@/lib/authUtils";
+import { hardResetSession, redirectToAuth } from "@/lib/authUtils";
+import { checkAuthServerHealth, isAuthNetworkError, validateAuthConfig } from "@/lib/authNetwork";
 import { toast } from "sonner";
 
 type AppRole = "master_admin" | "admin" | "user";
@@ -59,17 +60,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  /** Detect if an error is a network / fetch failure */
-  const isNetworkError = (err: unknown): boolean => {
-    const msg = String((err as any)?.message || err || "");
-    return (
-      msg.includes("Failed to fetch") ||
-      msg.includes("NetworkError") ||
-      msg.includes("refresh_token") ||
-      msg.includes("AuthRetryableFetchError")
-    );
-  };
-
   /** Clear auth state (does NOT reload) */
   const clearAuthState = () => {
     setUser(null);
@@ -82,64 +72,92 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
+    const configValidation = validateAuthConfig();
+    if (!configValidation.ok) {
+      console.error("[Auth] Invalid auth configuration:", configValidation.message);
+      toast.error(configValidation.message);
+      hardResetSession().finally(() => {
+        clearAuthState();
+        redirectToAuth();
+      });
+      return;
+    }
+
     // FAIL-SAFE: Force stop loading after timeout
     const timeoutId = setTimeout(() => {
       setIsLoading((prev) => {
         if (prev) {
           console.warn("[Auth] Loading timed out after", AUTH_TIMEOUT_MS, "ms — forcing stop");
-          // If still loading after timeout, clear stale tokens
-          hardResetSession();
+          hardResetSession().finally(() => {
+            clearAuthState();
+            toast.error("Session check timed out. Please login again.");
+            redirectToAuth();
+          });
         }
         return false;
       });
     }, AUTH_TIMEOUT_MS);
 
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log("[Auth] onAuthStateChange:", event);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("[Auth] onAuthStateChange:", event);
 
-        // 2️⃣ GLOBAL TOKEN REFRESH FAILURE HANDLER
-        if (event === "TOKEN_REFRESHED" && !currentSession) {
-          console.warn("[Auth] Token refresh returned no session — hard resetting");
-          hardResetSession().then(() => {
-            clearAuthState();
-            clearTimeout(timeoutId);
-            toast.error("Session expired. Please login again.");
-          });
-          return;
-        }
+      const eventName = event as string;
+      const isTokenRefreshFailure =
+        eventName === "TOKEN_REFRESH_FAILED" || (event === "TOKEN_REFRESHED" && !currentSession);
 
-        // Handle SIGNED_OUT explicitly
-        if (event === "SIGNED_OUT") {
+      if (isTokenRefreshFailure) {
+        console.warn("[Auth] Token refresh failed — hard resetting session");
+        hardResetSession().then(() => {
           clearAuthState();
           clearTimeout(timeoutId);
-          return;
-        }
-
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-
-        if (currentSession?.user) {
-          setTimeout(() => {
-            fetchUserRole(currentSession.user.id).then(setRole);
-          }, 0);
-        } else {
-          setRole(null);
-        }
-
-        setIsLoading(false);
-        clearTimeout(timeoutId);
+          toast.error("Session expired. Please login again.");
+          redirectToAuth();
+        });
+        return;
       }
-    );
 
-    // 1️⃣ HARD SESSION VALIDATION ON APP START
-    supabase.auth.getSession()
+      // Handle SIGNED_OUT explicitly
+      if (event === "SIGNED_OUT") {
+        clearAuthState();
+        clearTimeout(timeoutId);
+        redirectToAuth();
+        return;
+      }
+
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+
+      if (currentSession?.user) {
+        setTimeout(() => {
+          fetchUserRole(currentSession.user.id).then(setRole);
+        }, 0);
+      } else {
+        setRole(null);
+      }
+
+      setIsLoading(false);
+      clearTimeout(timeoutId);
+    });
+
+    // Hard session validation on app start
+    checkAuthServerHealth(6000)
+      .then((healthCheck) => {
+        if (!healthCheck.ok) {
+          throw new Error(healthCheck.message);
+        }
+
+        return supabase.auth.getSession();
+      })
       .then(({ data: { session: existingSession } }) => {
         if (!existingSession) {
-          // No session — just stop loading, let login page show
-          clearAuthState();
-          clearTimeout(timeoutId);
+          hardResetSession().finally(() => {
+            clearAuthState();
+            clearTimeout(timeoutId);
+            redirectToAuth();
+          });
           return;
         }
 
@@ -154,15 +172,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       .catch((err) => {
         console.error("[Auth] getSession failed:", err);
 
-        // 3️⃣ NETWORK FAILURE GUARD — don't retry, just clear
-        if (isNetworkError(err)) {
+        if (isAuthNetworkError(err)) {
           console.warn("[Auth] Clearing stale session due to network/token error");
-          hardResetSession();
-          toast.error("Network error. Session cleared. Please login again.");
+          toast.error("Network issue. Please check connection.");
         }
 
-        clearAuthState();
-        clearTimeout(timeoutId);
+        hardResetSession().finally(() => {
+          clearAuthState();
+          clearTimeout(timeoutId);
+          redirectToAuth();
+        });
       });
 
     return () => {
@@ -178,6 +197,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .select("*", { count: "exact", head: true });
 
       if (countError) {
+        if (isAuthNetworkError(countError)) {
+          throw countError;
+        }
+
         console.error("Error checking email count:", countError);
         return true;
       }
@@ -193,10 +216,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .maybeSingle();
 
       if (error) {
-        const { data: rpcResult, error: rpcError } = await supabase
-          .rpc("is_email_allowed", { _email: email });
+        const { data: rpcResult, error: rpcError } = await supabase.rpc("is_email_allowed", { _email: email });
 
         if (rpcError) {
+          if (isAuthNetworkError(rpcError)) {
+            throw rpcError;
+          }
+
           console.error("Error in RPC check:", rpcError);
           return false;
         }
@@ -206,6 +232,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return !!data;
     } catch (err) {
+      if (isAuthNetworkError(err)) {
+        throw err;
+      }
+
       console.error("Error in checkEmailAllowed:", err);
       return false;
     }

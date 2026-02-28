@@ -13,16 +13,26 @@ import { LoadingTimeout } from "@/components/ui/LoadingTimeout";
 import { toast } from "sonner";
 import { z } from "zod";
 import { hardResetAndReload } from "@/lib/authUtils";
+import {
+  AuthTimeoutError,
+  checkAuthServerHealth,
+  isAuthNetworkError,
+  validateAuthConfig,
+  withTimeout,
+} from "@/lib/authNetwork";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+const LOGIN_TIMEOUT_MS = 12000;
+const HEALTH_CHECK_TIMEOUT_MS = 6000;
+
 const Auth = () => {
   const navigate = useNavigate();
   const { user, checkEmailAllowed, isLoading } = useAuth();
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -39,42 +49,64 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+
     setError(null);
-    
+
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
       setError(validation.error.errors[0].message);
       return;
     }
 
+    const configValidation = validateAuthConfig();
+    if (!configValidation.ok) {
+      setError(configValidation.message);
+      toast.error(configValidation.message);
+      return;
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
     setSubmitting(true);
 
-    // Fail-safe: force stop after 12 seconds
-    const timeoutId = setTimeout(() => {
-      setSubmitting(false);
-      setError("Login timeout. Server is not responding. Please try again.");
-    }, 12000);
-
     try {
-      // Check if email is in the allowed list
-      const isAllowed = await checkEmailAllowed(email);
+      const healthCheck = await checkAuthServerHealth(HEALTH_CHECK_TIMEOUT_MS);
+      if (!healthCheck.ok) {
+        setError(healthCheck.message);
+        toast.error("Network issue. Please check connection.");
+        return;
+      }
+
+      const isAllowed = await withTimeout(
+        checkEmailAllowed(normalizedEmail),
+        8000,
+        "Email access check timed out"
+      );
+
       if (!isAllowed) {
         setError("Access denied. Your email is not in the approved list. Please contact your administrator.");
         return;
       }
 
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: email.toLowerCase().trim(),
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
+        const { error: signUpError } = await withTimeout(
+          supabase.auth.signUp({
+            email: normalizedEmail,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`,
+            },
+          }),
+          LOGIN_TIMEOUT_MS,
+          "Sign up request timed out"
+        );
 
         if (signUpError) {
           if (signUpError.message.includes("already registered")) {
             setError("This email is already registered. Please sign in instead.");
+          } else if (isAuthNetworkError(signUpError)) {
+            setError("Network issue. Please check connection.");
+            toast.error("Network issue. Please check connection.");
           } else {
             setError(signUpError.message);
           }
@@ -84,18 +116,23 @@ const Auth = () => {
         toast.success("Account created successfully! Please check your email to verify your account.");
         setIsSignUp(false);
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.toLowerCase().trim(),
-          password,
-        });
+        const { error: signInError } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          }),
+          LOGIN_TIMEOUT_MS,
+          "Login request timed out"
+        );
 
         if (signInError) {
           if (signInError.message.includes("Invalid login credentials")) {
             setError("Invalid email or password. Please try again.");
           } else if (signInError.message.includes("Email not confirmed")) {
             setError("Please verify your email address before signing in.");
-          } else if (signInError.message.includes("Failed to fetch")) {
-            setError("Network error. Unable to reach the server. Please check your connection and try again.");
+          } else if (isAuthNetworkError(signInError)) {
+            setError("Network issue. Please check connection.");
+            toast.error("Network issue. Please check connection.");
           } else {
             setError(signInError.message);
           }
@@ -107,14 +144,16 @@ const Auth = () => {
       }
     } catch (err: any) {
       console.error("Auth error:", err);
-      const msg = err?.message || "";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        setError("Network error. Unable to reach the server. Please check your connection.");
+
+      if (err instanceof AuthTimeoutError) {
+        setError("Login timeout. Server is not responding. Please try again.");
+      } else if (isAuthNetworkError(err)) {
+        setError("Network issue. Please check connection.");
+        toast.error("Network issue. Please check connection.");
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
     } finally {
-      clearTimeout(timeoutId);
       setSubmitting(false);
     }
   };
@@ -143,7 +182,7 @@ const Auth = () => {
             </CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {error && (
             <Alert variant="destructive" className="animate-in fade-in-50">
@@ -209,8 +248,8 @@ const Auth = () => {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full h-11 text-base font-medium"
               disabled={submitting || !email || !password}
             >
@@ -256,7 +295,7 @@ const Auth = () => {
             className="w-full text-xs text-muted-foreground hover:text-destructive"
             onClick={hardResetAndReload}
           >
-            Reset Session (if stuck)
+            Reset Session
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
@@ -271,3 +310,4 @@ const Auth = () => {
 };
 
 export default Auth;
+
