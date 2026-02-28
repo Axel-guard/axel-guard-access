@@ -184,43 +184,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const checkEmailAllowed = async (email: string): Promise<boolean> => {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Bootstrap safety for master admin account
+    if (normalizedEmail === "info@axel-guard.com") {
+      return true;
+    }
+
     try {
-      const { count, error: countError } = await supabase
-        .from("allowed_emails")
-        .select("*", { count: "exact", head: true });
+      const { data: rpcResult, error: rpcError } = await supabase.rpc("is_email_allowed", {
+        _email: normalizedEmail,
+      });
 
-      if (countError) {
-        if (isAuthNetworkError(countError)) {
-          throw countError;
-        }
-
-        console.error("Error checking email count:", countError);
-        return true;
+      if (!rpcError) {
+        return Boolean(rpcResult);
       }
 
-      if (count === 0 && email.toLowerCase() === "info@axel-guard.com") {
-        return true;
+      if (isAuthNetworkError(rpcError)) {
+        throw rpcError;
       }
 
+      console.error("Error in RPC check:", rpcError);
+
+      // Fallback to table query if RPC is not available
       const { data, error } = await supabase
         .from("allowed_emails")
         .select("id")
-        .ilike("email", email)
+        .ilike("email", normalizedEmail)
         .maybeSingle();
 
       if (error) {
-        const { data: rpcResult, error: rpcError } = await supabase.rpc("is_email_allowed", { _email: email });
-
-        if (rpcError) {
-          if (isAuthNetworkError(rpcError)) {
-            throw rpcError;
-          }
-
-          console.error("Error in RPC check:", rpcError);
-          return false;
+        if (isAuthNetworkError(error)) {
+          throw error;
         }
 
-        return rpcResult as boolean;
+        console.error("Error in table fallback check:", error);
+        return false;
       }
 
       return !!data;

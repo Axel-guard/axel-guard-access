@@ -25,7 +25,7 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-const LOGIN_TIMEOUT_MS = 12000;
+const LOGIN_TIMEOUT_MS = 20000;
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -68,11 +68,7 @@ const Auth = () => {
     setSubmitting(true);
 
     try {
-      const isAllowed = await withTimeout(
-        checkEmailAllowed(normalizedEmail),
-        8000,
-        "Email access check timed out"
-      );
+      const isAllowed = await checkEmailAllowed(normalizedEmail);
 
       if (!isAllowed) {
         setError("Access denied. Your email is not in the approved list. Please contact your administrator.");
@@ -137,7 +133,7 @@ const Auth = () => {
       console.error("Auth error:", err);
 
       if (err instanceof AuthTimeoutError) {
-        setError("Login timeout. Server is not responding. Please try again.");
+        setError("Network is slow or server is temporarily unreachable. Please try again.");
       } else if (isAuthNetworkError(err)) {
         setError("Network issue. Please check connection.");
         toast.error("Network issue. Please check connection.");
