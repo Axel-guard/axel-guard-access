@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { hardResetSession, redirectToAuth } from "@/lib/authUtils";
-import { checkAuthServerHealth, isAuthNetworkError, validateAuthConfig } from "@/lib/authNetwork";
+import { AuthTimeoutError, isAuthNetworkError, validateAuthConfig, withTimeout } from "@/lib/authNetwork";
 import { toast } from "sonner";
 
 type AppRole = "master_admin" | "admin" | "user";
@@ -142,15 +142,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       clearTimeout(timeoutId);
     });
 
-    // Hard session validation on app start
-    checkAuthServerHealth(6000)
-      .then((healthCheck) => {
-        if (!healthCheck.ok) {
-          throw new Error(healthCheck.message);
-        }
-
-        return supabase.auth.getSession();
-      })
+    // Hard session validation on app start (without blocking health endpoint pre-check)
+    withTimeout(supabase.auth.getSession(), 12000, "Session check timed out")
       .then(({ data: { session: existingSession } }) => {
         if (!existingSession) {
           hardResetSession().finally(() => {
@@ -172,8 +165,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       .catch((err) => {
         console.error("[Auth] getSession failed:", err);
 
-        if (isAuthNetworkError(err)) {
-          console.warn("[Auth] Clearing stale session due to network/token error");
+        if (err instanceof AuthTimeoutError || isAuthNetworkError(err)) {
+          console.warn("[Auth] Network/timeout while checking session");
           toast.error("Network issue. Please check connection.");
         }
 

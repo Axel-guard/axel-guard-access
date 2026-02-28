@@ -15,7 +15,6 @@ import { z } from "zod";
 import { hardResetAndReload } from "@/lib/authUtils";
 import {
   AuthTimeoutError,
-  checkAuthServerHealth,
   isAuthNetworkError,
   validateAuthConfig,
   withTimeout,
@@ -27,7 +26,6 @@ const loginSchema = z.object({
 });
 
 const LOGIN_TIMEOUT_MS = 12000;
-const HEALTH_CHECK_TIMEOUT_MS = 6000;
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -70,13 +68,6 @@ const Auth = () => {
     setSubmitting(true);
 
     try {
-      const healthCheck = await checkAuthServerHealth(HEALTH_CHECK_TIMEOUT_MS);
-      if (!healthCheck.ok) {
-        setError(healthCheck.message);
-        toast.error("Network issue. Please check connection.");
-        return;
-      }
-
       const isAllowed = await withTimeout(
         checkEmailAllowed(normalizedEmail),
         8000,
