@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { createNotification } from "@/hooks/useNotifications";
 import { toast } from "sonner";
-import { Pencil, Plus, X, Loader2 } from "lucide-react";
+import { Pencil, Plus, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const CATEGORIES = [
@@ -109,12 +109,15 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [customerLookupStatus, setCustomerLookupStatus] = useState<"idle" | "loading" | "found" | "not-found">("idle");
+  const lookupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState({
     customerCode: "",
     customerName: "",
     companyName: "",
     customerContact: "",
+    customerEmail: "",
     saleDate: "",
     employeeName: "",
     saleType: "",
@@ -127,6 +130,48 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
     { category: "", product_name: "", quantity: "", unit_price: "" },
   ]);
 
+  // Lookup customer from leads DB by customer code
+  const lookupCustomer = useCallback(async (code: string) => {
+    if (!code || code.length < 1) {
+      setCustomerLookupStatus("idle");
+      return;
+    }
+    setCustomerLookupStatus("loading");
+    try {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("customer_name, company_name, mobile_number, email")
+        .eq("customer_code", code)
+        .maybeSingle();
+
+      if (!error && data) {
+        setFormData(prev => ({
+          ...prev,
+          customerName: data.customer_name || prev.customerName,
+          companyName: data.company_name || prev.companyName,
+          customerContact: data.mobile_number || prev.customerContact,
+          customerEmail: data.email || prev.customerEmail,
+        }));
+        setCustomerLookupStatus("found");
+      } else {
+        setCustomerLookupStatus("not-found");
+      }
+    } catch {
+      setCustomerLookupStatus("not-found");
+    }
+  }, []);
+
+  // Debounced customer code change handler
+  const handleCustomerCodeChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, customerCode: value }));
+    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    if (value.length >= 1) {
+      lookupTimerRef.current = setTimeout(() => lookupCustomer(value), 800);
+    } else {
+      setCustomerLookupStatus("idle");
+    }
+  }, [lookupCustomer]);
+
   // Load sale data + items when dialog opens
   useEffect(() => {
     if (sale && open) {
@@ -136,6 +181,7 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
         customerName: sale.customer_name || "",
         companyName: sale.company_name || "",
         customerContact: sale.customer_contact || "",
+        customerEmail: sale.customer_email || "",
         saleDate: sale.sale_date ? new Date(sale.sale_date).toISOString().split("T")[0] : "",
         employeeName: sale.employee_name || "",
         saleType: saleTypeDisplay,
@@ -143,6 +189,7 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
         amountReceived: Number(sale.amount_received) || 0,
         remarks: sale.remarks || "",
       });
+      setCustomerLookupStatus("idle");
 
       // Fetch sale items
       setIsLoadingItems(true);
@@ -270,6 +317,7 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
       customer_name: formData.customerName,
       company_name: formData.companyName,
       customer_contact: formData.customerContact,
+      customer_email: formData.customerEmail,
       remarks: formData.remarks,
     };
 
@@ -331,11 +379,17 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
             {/* Customer Details */}
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label>Customer Code *</Label>
+                <Label className="flex items-center gap-2">
+                  Customer Code *
+                  {customerLookupStatus === "loading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  {customerLookupStatus === "found" && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                  {customerLookupStatus === "not-found" && <AlertCircle className="h-3 w-3 text-destructive" />}
+                </Label>
                 <Input
                   value={formData.customerCode}
-                  onChange={(e) => setFormData({ ...formData, customerCode: e.target.value })}
+                  onChange={(e) => handleCustomerCodeChange(e.target.value)}
                   required
+                  className={customerLookupStatus === "found" ? "border-green-500" : customerLookupStatus === "not-found" ? "border-destructive" : ""}
                 />
               </div>
               <div className="space-y-2">
