@@ -40,37 +40,76 @@ const DispatchPage = () => {
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
   const { data: sales, isLoading: salesLoading } = useSales();
 
-  // Fetch sale_items for all current month orders to get total quantities
-  const { data: allSaleItems, isLoading: saleItemsLoading } = useQuery({
-    queryKey: ["dispatch-sale-items"],
+  // Fetch older (pre-current-month) sales that may have pending dispatch
+  const { data: olderPendingSales, isLoading: olderSalesLoading } = useQuery({
+    queryKey: ["older-dispatch-sales"],
     queryFn: async () => {
-      if (!sales || sales.length === 0) return [];
-      const orderIds = sales.map(s => s.order_id);
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
       const { data, error } = await supabase
-        .from("sale_items")
+        .from("sales")
         .select("*")
-        .in("order_id", orderIds);
+        .lt("sale_date", startOfMonth.toISOString())
+        .order("order_id", { ascending: false });
+
       if (error) throw error;
-      return data || [];
+      return data as any[];
     },
-    enabled: !!sales && sales.length > 0,
   });
 
-  // Fetch dispatched inventory items for current month orders
-  const { data: dispatchedInventory, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["dispatch-inventory-status"],
+  // Combine all order IDs for fetching related data
+  const allOrderIds = useMemo(() => {
+    const ids = new Set<string>();
+    (sales || []).forEach(s => ids.add(s.order_id));
+    (olderPendingSales || []).forEach(s => ids.add(s.order_id));
+    return Array.from(ids);
+  }, [sales, olderPendingSales]);
+
+  // Fetch sale_items for all dispatch orders
+  const { data: allSaleItems, isLoading: saleItemsLoading } = useQuery({
+    queryKey: ["dispatch-sale-items", allOrderIds.length],
     queryFn: async () => {
-      if (!sales || sales.length === 0) return [];
-      const orderIds = sales.map(s => s.order_id);
-      const { data, error } = await supabase
-        .from("inventory")
-        .select("order_id")
-        .eq("status", "Dispatched")
-        .in("order_id", orderIds);
-      if (error) throw error;
-      return data || [];
+      if (allOrderIds.length === 0) return [];
+      const chunks: string[][] = [];
+      for (let i = 0; i < allOrderIds.length; i += 500) {
+        chunks.push(allOrderIds.slice(i, i + 500));
+      }
+      const results = await Promise.all(chunks.map(async chunk => {
+        const { data, error } = await supabase
+          .from("sale_items")
+          .select("*")
+          .in("order_id", chunk);
+        if (error) throw error;
+        return data || [];
+      }));
+      return results.flat();
     },
-    enabled: !!sales && sales.length > 0,
+    enabled: allOrderIds.length > 0,
+  });
+
+  // Fetch dispatched inventory items for all dispatch orders
+  const { data: dispatchedInventory, isLoading: inventoryLoading } = useQuery({
+    queryKey: ["dispatch-inventory-status", allOrderIds.length],
+    queryFn: async () => {
+      if (allOrderIds.length === 0) return [];
+      const chunks: string[][] = [];
+      for (let i = 0; i < allOrderIds.length; i += 500) {
+        chunks.push(allOrderIds.slice(i, i + 500));
+      }
+      const results = await Promise.all(chunks.map(async chunk => {
+        const { data, error } = await supabase
+          .from("inventory")
+          .select("order_id")
+          .eq("status", "Dispatched")
+          .in("order_id", chunk);
+        if (error) throw error;
+        return data || [];
+      }));
+      return results.flat();
+    },
+    enabled: allOrderIds.length > 0,
   });
   
   const [activeTab, setActiveTab] = useState("orders");
@@ -91,18 +130,6 @@ const DispatchPage = () => {
     }
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams]);
-
-  // Calculate dispatch order stats
-  const dispatchStats = useMemo(() => {
-    if (!sales) return { completed: 0, pending: 0 };
-    
-    // For now, assume orders with shipments are completed
-    const orderIdsWithShipments = new Set(shipments?.map(s => s.order_id) || []);
-    const completed = sales.filter(s => orderIdsWithShipments.has(s.order_id)).length;
-    const pending = sales.length - completed;
-    
-    return { completed, pending };
-  }, [sales, shipments]);
 
   // Fetch product types from DB for service detection
   const { data: productTypesData } = useQuery({
@@ -129,7 +156,6 @@ const DispatchPage = () => {
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
     const physicalDispatched = (dispatchedInventory || []).filter(item => item.order_id === orderId).length;
     
-    // Count service product quantities as dispatched if order has a shipment
     const orderHasShipment = (shipments || []).some(s => s.order_id === orderId);
     const serviceDispatched = orderHasShipment
       ? orderSaleItems
@@ -145,18 +171,52 @@ const DispatchPage = () => {
     return "Pending";
   }, [allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
 
-  // Filter dispatch orders (sales data) with status filter from URL
-  const filteredOrders = useMemo(() => {
-    if (!sales) return [];
+  // Combine current month sales + older sales with pending dispatch only
+  const allDispatchOrders = useMemo(() => {
+    const currentMonthOrders = sales || [];
+    const olderOrders = olderPendingSales || [];
     
-    return sales.filter(sale => {
+    const orderMap = new Map<string, any>();
+    currentMonthOrders.forEach(s => orderMap.set(s.order_id, s));
+    // Only include older orders if dispatch is NOT completed
+    olderOrders.forEach(s => {
+      if (!orderMap.has(s.order_id)) {
+        const status = getOrderStatus(s.order_id);
+        if (status !== "Completed") {
+          orderMap.set(s.order_id, s);
+        }
+      }
+    });
+    
+    return Array.from(orderMap.values());
+  }, [sales, olderPendingSales, getOrderStatus]);
+
+  // Calculate dispatch order stats
+  const dispatchStats = useMemo(() => {
+    if (!allDispatchOrders.length) return { completed: 0, pending: 0 };
+    
+    let completed = 0;
+    let pending = 0;
+    allDispatchOrders.forEach(s => {
+      const status = getOrderStatus(s.order_id);
+      if (status === "Completed") completed++;
+      else pending++;
+    });
+    
+    return { completed, pending };
+  }, [allDispatchOrders, getOrderStatus]);
+
+  // Filter dispatch orders with status filter from URL
+  const filteredOrders = useMemo(() => {
+    if (!allDispatchOrders.length) return [];
+    
+    return allDispatchOrders.filter(sale => {
       const matchesOrderId = orderIdSearch === "" || 
         sale.order_id.toLowerCase().includes(orderIdSearch.toLowerCase());
       const matchesCustomer = customerSearch === "" || 
         (sale.customer_name?.toLowerCase() || "").includes(customerSearch.toLowerCase()) ||
         (sale.customer_contact?.toLowerCase() || "").includes(customerSearch.toLowerCase());
       
-      // Apply status filter
       let matchesStatus = true;
       if (statusFilter === "completed") {
         matchesStatus = getOrderStatus(sale.order_id) === "Completed";
@@ -167,7 +227,7 @@ const DispatchPage = () => {
       
       return matchesOrderId && matchesCustomer && matchesStatus;
     });
-  }, [sales, orderIdSearch, customerSearch, statusFilter, getOrderStatus]);
+  }, [allDispatchOrders, orderIdSearch, customerSearch, statusFilter, getOrderStatus]);
 
   // Filter tracking details (shipments data)
   const filteredShipments = useMemo(() => {
@@ -203,7 +263,7 @@ const DispatchPage = () => {
     setTrackingDialogOpen(true);
   };
 
-  const isLoading = shipmentsLoading || salesLoading || saleItemsLoading || inventoryLoading;
+  const isLoading = shipmentsLoading || salesLoading || olderSalesLoading || saleItemsLoading || inventoryLoading;
 
   if (isLoading) {
     return (
@@ -450,4 +510,3 @@ const DispatchPage = () => {
 };
 
 export default DispatchPage;
-
