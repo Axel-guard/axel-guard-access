@@ -31,6 +31,8 @@ import { DeleteRenewalDialog } from "@/components/renewal/DeleteRenewalDialog";
 const Renewal = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editRenewal, setEditRenewal] = useState<RenewalType | null>(null);
+  const [deleteRenewal, setDeleteRenewal] = useState<RenewalType | null>(null);
   
   const { data: renewals = [], isLoading } = useRenewals();
   const { data: summary } = useRenewalsSummary();
