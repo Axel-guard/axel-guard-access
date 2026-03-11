@@ -293,6 +293,17 @@ const Renewal = () => {
           )}
         </CardContent>
       </Card>
+
+      <EditRenewalDialog
+        renewal={editRenewal}
+        open={!!editRenewal}
+        onOpenChange={(open) => !open && setEditRenewal(null)}
+      />
+      <DeleteRenewalDialog
+        renewal={deleteRenewal}
+        open={!!deleteRenewal}
+        onOpenChange={(open) => !open && setDeleteRenewal(null)}
+      />
     </div>
   );
 };
