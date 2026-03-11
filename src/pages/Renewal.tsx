@@ -19,10 +19,14 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
-import { useRenewals, useRenewalsSummary, useRenewSubscription, getDaysRemaining, getRenewalStatus } from "@/hooks/useRenewals";
+import { useRenewals, useRenewalsSummary, useRenewSubscription, getDaysRemaining, getRenewalStatus, Renewal as RenewalType } from "@/hooks/useRenewals";
+import { EditRenewalDialog } from "@/components/renewal/EditRenewalDialog";
+import { DeleteRenewalDialog } from "@/components/renewal/DeleteRenewalDialog";
 
 const Renewal = () => {
   const [searchTerm, setSearchTerm] = useState("");
