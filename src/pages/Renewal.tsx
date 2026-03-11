@@ -19,14 +19,20 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
-import { useRenewals, useRenewalsSummary, useRenewSubscription, getDaysRemaining, getRenewalStatus } from "@/hooks/useRenewals";
+import { useRenewals, useRenewalsSummary, useRenewSubscription, getDaysRemaining, getRenewalStatus, Renewal as RenewalType } from "@/hooks/useRenewals";
+import { EditRenewalDialog } from "@/components/renewal/EditRenewalDialog";
+import { DeleteRenewalDialog } from "@/components/renewal/DeleteRenewalDialog";
 
 const Renewal = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editRenewal, setEditRenewal] = useState<RenewalType | null>(null);
+  const [deleteRenewal, setDeleteRenewal] = useState<RenewalType | null>(null);
   
   const { data: renewals = [], isLoading } = useRenewals();
   const { data: summary } = useRenewalsSummary();
@@ -249,16 +255,33 @@ const Renewal = () => {
                           {getStatusBadge(renewal.renewal_end_date)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
-                            onClick={() => handleRenew(renewal.id)}
-                            disabled={renewMutation.isPending}
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                            Renew
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 text-primary border-primary hover:bg-primary hover:text-white"
+                              onClick={() => handleRenew(renewal.id)}
+                              disabled={renewMutation.isPending}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              Renew
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditRenewal(renewal)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/50 hover:bg-destructive hover:text-white"
+                              onClick={() => setDeleteRenewal(renewal)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -270,6 +293,17 @@ const Renewal = () => {
           )}
         </CardContent>
       </Card>
+
+      <EditRenewalDialog
+        renewal={editRenewal}
+        open={!!editRenewal}
+        onOpenChange={(open) => !open && setEditRenewal(null)}
+      />
+      <DeleteRenewalDialog
+        renewal={deleteRenewal}
+        open={!!deleteRenewal}
+        onOpenChange={(open) => !open && setDeleteRenewal(null)}
+      />
     </div>
   );
 };
