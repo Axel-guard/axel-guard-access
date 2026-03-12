@@ -175,6 +175,7 @@ export const CreateDispatchDialog = ({
           scanned_qty: 0,
           scanned_serials: [] as string[],
           isServiceProduct: isService,
+          isAccessory: accessoryMap[item.product_name] ?? false,
           serviceAlreadyActivated: isService && hasExistingShipment,
         };
       });
