@@ -73,6 +73,7 @@ interface ProductToDispatch {
   scanned_qty: number;
   scanned_serials: string[];
   isServiceProduct: boolean;
+  isAccessory: boolean;
   serviceAlreadyActivated: boolean;
 }
 
@@ -128,10 +129,12 @@ export const CreateDispatchDialog = ({
         .in("product_name", productNames);
       
       const serviceMap: Record<string, boolean> = {};
+      const accessoryMap: Record<string, boolean> = {};
       (productTypeData || []).forEach(p => {
         // Treat service products AND accessories (no serial tracking) as "service" for dispatch
         const isAccessory = (p.category || "").toLowerCase().includes("accessor") || 
                            (p.category || "").toLowerCase().includes("other product");
+        accessoryMap[p.product_name] = isAccessory;
         serviceMap[p.product_name] = p.product_type === "service" || isAccessory;
       });
 
@@ -172,6 +175,7 @@ export const CreateDispatchDialog = ({
           scanned_qty: 0,
           scanned_serials: [] as string[],
           isServiceProduct: isService,
+          isAccessory: accessoryMap[item.product_name] ?? false,
           serviceAlreadyActivated: isService && hasExistingShipment,
         };
       });
@@ -641,12 +645,12 @@ export const CreateDispatchDialog = ({
                 </div>
               )}
 
-              {/* Service Products (Digital) - only if not yet activated */}
+              {/* Service Products & Accessories - only if not yet activated */}
               {serviceProducts.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-semibold flex items-center gap-2 text-primary">
                     <CheckCircle2 className="h-5 w-5" />
-                    Digital Service Products
+                    {serviceProducts.some(p => !p.isAccessory) ? "Digital Services & Accessories" : "Accessories"}
                     <Badge className="bg-primary/10 text-primary border-primary/20">No Stock Required</Badge>
                   </h3>
                   <div className="space-y-3">
@@ -659,14 +663,16 @@ export const CreateDispatchDialog = ({
                           <div>
                             <p className="font-medium">{product.product_name}</p>
                             <Badge className="mt-1 bg-primary/10 text-primary border-primary/20 text-xs">
-                              Digital Service Product
+                              {product.isAccessory ? "Accessory" : "Digital Service Product"}
                             </Badge>
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-bold text-primary">
                               {product.remaining_qty} unit(s)
                             </p>
-                            <p className="text-sm text-primary">Will be activated</p>
+                            <p className="text-sm text-primary">
+                              {product.isAccessory ? "Will be included" : "Will be activated"}
+                            </p>
                           </div>
                         </div>
                       </div>
