@@ -59,7 +59,7 @@ const isServiceProduct = async (productName: string): Promise<boolean> => {
   return data?.product_type === "service";
 };
 
-// Sync version using a preloaded map
+// Sync version using a preloaded map (includes service products AND accessories that skip dispatch tracking)
 const isServiceProductSync = (productName: string, serviceMap: Record<string, boolean>): boolean => {
   return serviceMap[productName] ?? false;
 };
