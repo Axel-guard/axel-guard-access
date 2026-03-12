@@ -137,15 +137,19 @@ const DispatchPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("product_name, product_type");
+        .select("product_name, product_type, category");
       if (error) throw error;
       const map: Record<string, string> = {};
-      (data || []).forEach(p => { map[p.product_name] = p.product_type || "physical"; });
+      (data || []).forEach(p => {
+        const cat = (p.category || "").toLowerCase();
+        const isAccessory = cat.includes("accessor") || cat.includes("other product");
+        map[p.product_name] = isAccessory ? "service" : (p.product_type || "physical");
+      });
       return map;
     },
   });
 
-  // Service products that don't require physical inventory
+  // Service products and accessories that don't require physical inventory tracking
   const isServiceProduct = useCallback((productName: string): boolean => {
     return (productTypesData || {})[productName] === "service";
   }, [productTypesData]);
