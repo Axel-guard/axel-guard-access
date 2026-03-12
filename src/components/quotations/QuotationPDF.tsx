@@ -126,86 +126,133 @@ export const generateQuotationPDF = async (
   // ===== CUSTOMER DETAILS + ESTIMATE INFO =====
   let y = 62;
 
-  // Left: Estimate For
+  // --- LEFT SIDE: Estimate For (60% width) ---
   doc.setTextColor(...red);
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("Estimate For:", 14, y);
 
-  // Company / Customer name
+  // Company / Customer name - bold, larger
   doc.setTextColor(...dark);
-  doc.setFontSize(12);
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
   const displayName = quotation.company_name || quotation.customer_name || "-";
-  doc.text(displayName, 14, y + 7);
+  doc.text(displayName, 14, y + 10);
 
+  // Address block - separated from contact info
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...dark);
-  let infoY = y + 16;
+  let infoY = y + 20;
 
-  // Sanitized address
   if (quotation.address) {
     const addressLines = sanitizeAddress(quotation.address);
     addressLines.forEach((line) => {
       doc.text(line, 14, infoY);
-      infoY += 6;
+      infoY += 5.5;
     });
+    infoY += 3; // gap between address and contact details
   }
 
-  // Contact person (if company name exists and is different)
+  // Contact person (separated from address)
   if (quotation.company_name && quotation.customer_name && quotation.company_name !== quotation.customer_name) {
-    doc.text(`Contact Person: ${quotation.customer_name}`, 14, infoY);
-    infoY += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...muted);
+    doc.text("Contact Person:", 14, infoY);
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "bold");
+    doc.text(quotation.customer_name, 50, infoY);
+    doc.setFont("helvetica", "normal");
+    infoY += 7;
   }
 
   if (quotation.mobile) {
-    doc.text(`Contact No.: ${quotation.mobile}`, 14, infoY);
-    infoY += 6;
+    doc.setTextColor(...muted);
+    doc.text("Contact No.:", 14, infoY);
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "bold");
+    doc.text(quotation.mobile, 50, infoY);
+    doc.setFont("helvetica", "normal");
+    infoY += 7;
+  }
+
+  if (quotation.customer_email) {
+    doc.setTextColor(...muted);
+    doc.text("Email:", 14, infoY);
+    doc.setTextColor(...dark);
+    doc.text(quotation.customer_email, 50, infoY);
+    infoY += 7;
   }
 
   if (quotation.gst_number) {
-    doc.text(`GSTIN Number: ${quotation.gst_number}`, 14, infoY);
-    infoY += 6;
+    doc.setTextColor(...muted);
+    doc.text("GSTIN:", 14, infoY);
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "bold");
+    doc.text(quotation.gst_number, 50, infoY);
+    doc.setFont("helvetica", "normal");
+    infoY += 7;
   }
 
-  // Derive state from GST number (first 2 digits)
   if (quotation.gst_number && quotation.gst_number.length >= 2) {
     const stateCode = quotation.gst_number.substring(0, 2);
     const stateName = getStateName(stateCode);
     if (stateName) {
-      doc.text(`State: ${stateCode}-${stateName}`, 14, infoY);
-      infoY += 6;
+      doc.setTextColor(...muted);
+      doc.text("State:", 14, infoY);
+      doc.setTextColor(...dark);
+      doc.text(`${stateCode}-${stateName}`, 50, infoY);
+      infoY += 7;
     }
   }
 
-  // Right: Estimate No & Date box
-  doc.setDrawColor(...border);
-  doc.setFillColor(248, 248, 248);
-  doc.roundedRect(pw - 78, y - 4, 68, 30, 2, 2, "FD");
+  // --- RIGHT SIDE: Estimate Info Card (40% width) ---
+  const cardX = pw - 82;
+  const cardW = 72;
+  const cardY = y - 6;
 
-  doc.setTextColor(...muted);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Estimate No.:", pw - 74, y + 4);
-  doc.text("Date:", pw - 74, y + 12);
-
-  // Determine supply place from customer GST
+  // Determine if we need Place of Supply row
   const isInterState = quotation.gst_number && quotation.gst_number.length >= 2 &&
     quotation.gst_number.substring(0, 2) !== "09";
-  if (isInterState) {
-    const custStateCode = quotation.gst_number!.substring(0, 2);
-    const custStateName = getStateName(custStateCode);
-    doc.text("Place of Supply:", pw - 74, y + 20);
-    doc.setTextColor(...dark);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${custStateCode}-${custStateName || ""}`, pw - 14, y + 20, { align: "right" });
-  }
+  const cardH = isInterState ? 42 : 32;
 
+  // Card background
+  doc.setDrawColor(...border);
+  doc.setFillColor(248, 248, 248);
+  doc.roundedRect(cardX, cardY, cardW, cardH, 3, 3, "FD");
+
+  // Labels column
+  const labelX = cardX + 6;
+  const valueX = cardX + cardW - 6;
+  let rowY = cardY + 10;
+
+  doc.setFontSize(9);
+  doc.setTextColor(...muted);
+  doc.setFont("helvetica", "normal");
+  doc.text("Estimate No.:", labelX, rowY);
   doc.setTextColor(...dark);
   doc.setFont("helvetica", "bold");
-  doc.text(quotation.quotation_no, pw - 14, y + 4, { align: "right" });
-  doc.text(format(new Date(quotation.quotation_date), "dd/MM/yyyy"), pw - 14, y + 12, { align: "right" });
+  doc.text(quotation.quotation_no, valueX, rowY, { align: "right" });
+
+  rowY += 10;
+  doc.setTextColor(...muted);
+  doc.setFont("helvetica", "normal");
+  doc.text("Date:", labelX, rowY);
+  doc.setTextColor(...dark);
+  doc.setFont("helvetica", "bold");
+  doc.text(format(new Date(quotation.quotation_date), "dd/MM/yyyy"), valueX, rowY, { align: "right" });
+
+  if (isInterState) {
+    rowY += 10;
+    const custStateCode = quotation.gst_number!.substring(0, 2);
+    const custStateName = getStateName(custStateCode);
+    doc.setTextColor(...muted);
+    doc.setFont("helvetica", "normal");
+    doc.text("Place of Supply:", labelX, rowY);
+    doc.setTextColor(...dark);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${custStateCode}-${custStateName || ""}`, valueX, rowY, { align: "right" });
+  }
 
   // ===== ITEM TABLE =====
   const tableStartY = Math.max(infoY + 8, y + 34);
