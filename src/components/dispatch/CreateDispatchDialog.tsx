@@ -131,11 +131,10 @@ export const CreateDispatchDialog = ({
       const serviceMap: Record<string, boolean> = {};
       const accessoryMap: Record<string, boolean> = {};
       (productTypeData || []).forEach(p => {
-        // Treat service products AND accessories (no serial tracking) as "service" for dispatch
-        const isAccessory = (p.category || "").toLowerCase().includes("accessor") || 
-                           (p.category || "").toLowerCase().includes("other product");
-        accessoryMap[p.product_name] = isAccessory;
-        serviceMap[p.product_name] = p.product_type === "service" || isAccessory;
+        // Only "MDVR Connector" skips dispatch tracking (no serial scanning needed)
+        const isSkipDispatch = p.product_name === "MDVR Connector";
+        accessoryMap[p.product_name] = isSkipDispatch;
+        serviceMap[p.product_name] = p.product_type === "service" || isSkipDispatch;
       });
 
       // Fetch already dispatched inventory for this order
