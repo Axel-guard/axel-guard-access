@@ -73,6 +73,7 @@ interface ProductToDispatch {
   scanned_qty: number;
   scanned_serials: string[];
   isServiceProduct: boolean;
+  isAccessory: boolean;
   serviceAlreadyActivated: boolean;
 }
 
