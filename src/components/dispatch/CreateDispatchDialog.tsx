@@ -124,7 +124,7 @@ export const CreateDispatchDialog = ({
       const productNames = orderItems.map(item => item.product_name);
       const { data: productTypeData } = await supabase
         .from("products")
-        .select("product_name, product_type, renewal_applicable")
+        .select("product_name, product_type, renewal_applicable, category")
         .in("product_name", productNames);
       
       const serviceMap: Record<string, boolean> = {};
