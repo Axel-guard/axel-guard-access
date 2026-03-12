@@ -129,7 +129,10 @@ export const CreateDispatchDialog = ({
       
       const serviceMap: Record<string, boolean> = {};
       (productTypeData || []).forEach(p => {
-        serviceMap[p.product_name] = p.product_type === "service";
+        // Treat service products AND accessories (no serial tracking) as "service" for dispatch
+        const isAccessory = (p.category || "").toLowerCase().includes("accessor") || 
+                           (p.category || "").toLowerCase().includes("other product");
+        serviceMap[p.product_name] = p.product_type === "service" || isAccessory;
       });
 
       // Fetch already dispatched inventory for this order
