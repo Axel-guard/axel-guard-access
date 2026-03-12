@@ -137,13 +137,13 @@ const DispatchPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("product_name, product_type, category");
+        .select("product_name, product_type");
       if (error) throw error;
       const map: Record<string, string> = {};
       (data || []).forEach(p => {
-        const cat = (p.category || "").toLowerCase();
-        const isAccessory = cat.includes("accessor") || cat.includes("other product");
-        map[p.product_name] = isAccessory ? "service" : (p.product_type || "physical");
+        // Only "MDVR Connector" skips dispatch tracking
+        const isSkipDispatch = p.product_name === "MDVR Connector";
+        map[p.product_name] = isSkipDispatch ? "service" : (p.product_type || "physical");
       });
       return map;
     },
