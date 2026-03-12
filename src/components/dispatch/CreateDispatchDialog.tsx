@@ -59,7 +59,7 @@ const isServiceProduct = async (productName: string): Promise<boolean> => {
   return data?.product_type === "service";
 };
 
-// Sync version using a preloaded map
+// Sync version using a preloaded map (includes service products AND accessories that skip dispatch tracking)
 const isServiceProductSync = (productName: string, serviceMap: Record<string, boolean>): boolean => {
   return serviceMap[productName] ?? false;
 };
@@ -124,12 +124,15 @@ export const CreateDispatchDialog = ({
       const productNames = orderItems.map(item => item.product_name);
       const { data: productTypeData } = await supabase
         .from("products")
-        .select("product_name, product_type, renewal_applicable")
+        .select("product_name, product_type, renewal_applicable, category")
         .in("product_name", productNames);
       
       const serviceMap: Record<string, boolean> = {};
       (productTypeData || []).forEach(p => {
-        serviceMap[p.product_name] = p.product_type === "service";
+        // Treat service products AND accessories (no serial tracking) as "service" for dispatch
+        const isAccessory = (p.category || "").toLowerCase().includes("accessor") || 
+                           (p.category || "").toLowerCase().includes("other product");
+        serviceMap[p.product_name] = p.product_type === "service" || isAccessory;
       });
 
       // Fetch already dispatched inventory for this order
