@@ -142,31 +142,31 @@ export const generateQuotationPDF = async (
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...dark);
-  let infoY = y + 14;
+  let infoY = y + 16;
 
   // Sanitized address
   if (quotation.address) {
     const addressLines = sanitizeAddress(quotation.address);
     addressLines.forEach((line) => {
       doc.text(line, 14, infoY);
-      infoY += 5;
+      infoY += 6;
     });
   }
 
   // Contact person (if company name exists and is different)
   if (quotation.company_name && quotation.customer_name && quotation.company_name !== quotation.customer_name) {
     doc.text(`Contact Person: ${quotation.customer_name}`, 14, infoY);
-    infoY += 5;
+    infoY += 6;
   }
 
   if (quotation.mobile) {
     doc.text(`Contact No.: ${quotation.mobile}`, 14, infoY);
-    infoY += 5;
+    infoY += 6;
   }
 
   if (quotation.gst_number) {
     doc.text(`GSTIN Number: ${quotation.gst_number}`, 14, infoY);
-    infoY += 5;
+    infoY += 6;
   }
 
   // Derive state from GST number (first 2 digits)
@@ -175,7 +175,7 @@ export const generateQuotationPDF = async (
     const stateName = getStateName(stateCode);
     if (stateName) {
       doc.text(`State: ${stateCode}-${stateName}`, 14, infoY);
-      infoY += 5;
+      infoY += 6;
     }
   }
 
