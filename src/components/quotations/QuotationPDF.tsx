@@ -166,7 +166,7 @@ export const generateQuotationPDF = async (
 
   if (quotation.gst_number) {
     doc.text(`GSTIN Number: ${quotation.gst_number}`, 14, infoY);
-    infoY += 5;
+    infoY += 6;
   }
 
   // Derive state from GST number (first 2 digits)
@@ -175,7 +175,7 @@ export const generateQuotationPDF = async (
     const stateName = getStateName(stateCode);
     if (stateName) {
       doc.text(`State: ${stateCode}-${stateName}`, 14, infoY);
-      infoY += 5;
+      infoY += 6;
     }
   }
 
