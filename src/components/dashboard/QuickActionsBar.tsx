@@ -90,6 +90,7 @@ export const QuickActionsBar = () => {
 
       <NewSaleDialog open={newSaleOpen} onOpenChange={setNewSaleOpen} />
       <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
+      <AddTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
     </>
   );
 };
