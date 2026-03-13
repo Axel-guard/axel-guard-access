@@ -31,6 +31,12 @@ const quickActions = [
     action: "dispatch",
     variant: "success" as const,
   },
+  {
+    label: "New Task",
+    icon: ListTodo,
+    action: "newTask",
+    variant: "primary" as const,
+  },
 ];
 
 const variantStyles = {
