@@ -178,7 +178,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
             </TableHeader>
             <TableBody>
               {orders.map((order, index) => {
-                const dispatchInfo = getOrderDispatchInfo(order.order_id);
+                const dispatchInfo = getOrderDispatchInfo(order);
                 const hasDispatches = dispatchInfo.dispatched > 0;
                 
                 return (
