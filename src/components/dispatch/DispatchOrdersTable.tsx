@@ -177,7 +177,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                 return (
                   <TableRow key={order.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium text-primary">
-                      {index + 1}
+                      {pageOffset + index + 1}
                     </TableCell>
                     <TableCell>
                       {order.sale_date 
