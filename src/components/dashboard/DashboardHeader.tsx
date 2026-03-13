@@ -255,6 +255,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
       <NewSaleDialog open={newSaleOpen} onOpenChange={setNewSaleOpen} />
       <BalancePaymentDialog open={balancePaymentOpen} onOpenChange={setBalancePaymentOpen} />
       <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
+      <AddTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
     </>
   );
 };
