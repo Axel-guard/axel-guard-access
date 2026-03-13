@@ -121,6 +121,9 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
       case "dispatch":
         navigate("/dispatch");
         break;
+      case "newTask":
+        setNewTaskOpen(true);
+        break;
     }
   };
 
