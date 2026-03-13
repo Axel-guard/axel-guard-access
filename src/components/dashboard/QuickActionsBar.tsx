@@ -66,6 +66,9 @@ export const QuickActionsBar = () => {
       case "dispatch":
         navigate("/dispatch");
         break;
+      case "newTask":
+        setNewTaskOpen(true);
+        break;
     }
   };
 
