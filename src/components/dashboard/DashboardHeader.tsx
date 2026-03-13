@@ -82,6 +82,13 @@ const menuItems = [
     bgColor: "bg-destructive/10",
     action: "dispatch",
   },
+  {
+    label: "New Task",
+    icon: ListTodo,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    action: "newTask",
+  },
 ];
 
 export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
