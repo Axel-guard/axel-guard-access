@@ -50,6 +50,7 @@ export const QuickActionsBar = () => {
   const navigate = useNavigate();
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
 
   const handleAction = (action: string) => {
     switch (action) {
