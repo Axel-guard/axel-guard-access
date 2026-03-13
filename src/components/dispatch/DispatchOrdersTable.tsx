@@ -74,15 +74,22 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
   };
 
   // Calculate dispatch status for each order
-  const getOrderDispatchInfo = (orderId: string) => {
-    const orderSaleItems = saleItems.filter(item => item.order_id === orderId);
+  const getOrderDispatchInfo = (order: Sale) => {
+    // Check for manual override first
+    if ((order as any).dispatch_status_override === "Done") {
+      const orderSaleItems = saleItems.filter(item => item.order_id === order.order_id);
+      const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+      return { totalItems, dispatched: totalItems, remaining: 0, status: "Completed" };
+    }
+
+    const orderSaleItems = saleItems.filter(item => item.order_id === order.order_id);
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
     const physicalDispatched = dispatchedInventory.filter(
-      item => item.order_id === orderId
+      item => item.order_id === order.order_id
     ).length;
 
-    const orderHasShipment = shipments.some(s => s.order_id === orderId);
+    const orderHasShipment = shipments.some(s => s.order_id === order.order_id);
     const serviceDispatched = orderHasShipment
       ? orderSaleItems
           .filter(item => isServiceProduct(item.product_name))

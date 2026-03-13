@@ -158,6 +158,10 @@ const DispatchPage = () => {
 
   // Helper to compute dispatch status for an order
   const getOrderStatus = useCallback((orderId: string) => {
+    // Check for manual override first (e.g. pre-2026 records marked as Done)
+    const sale = (allSales || []).find(s => s.order_id === orderId);
+    if (sale && (sale as any).dispatch_status_override === "Done") return "Completed";
+
     const orderSaleItems = (allSaleItems || []).filter(item => item.order_id === orderId);
     const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
     const physicalDispatched = (dispatchedInventory || []).filter(item => item.order_id === orderId).length;
@@ -175,7 +179,7 @@ const DispatchPage = () => {
     if (dispatched < totalItems) return "Partially Dispatched";
     if (dispatched >= totalItems && totalItems > 0) return "Completed";
     return "Pending";
-  }, [allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
+  }, [allSales, allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
 
   // Get date range for filtering
   const getDateRange = useCallback((filter: string): { start: Date | null; end: Date | null } => {
