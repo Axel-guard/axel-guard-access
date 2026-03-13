@@ -907,6 +907,98 @@ export type Database = {
         }
         Relationships: []
       }
+      task_updates: {
+        Row: {
+          created_at: string
+          id: string
+          remarks: string
+          status_change: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          remarks: string
+          status_change?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          remarks?: string
+          status_change?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_updates_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string
+          company_name: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          customer_code: string | null
+          customer_location: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          deadline: string
+          description: string | null
+          email_thread_id: string | null
+          id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          customer_code?: string | null
+          customer_location?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deadline: string
+          description?: string | null
+          email_thread_id?: string | null
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          customer_code?: string | null
+          customer_location?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deadline?: string
+          description?: string | null
+          email_thread_id?: string | null
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tickets: {
         Row: {
           assigned_to: string | null
