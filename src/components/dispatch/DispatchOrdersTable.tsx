@@ -42,9 +42,10 @@ interface DispatchOrdersTableProps {
   shipments: Shipment[];
   saleItems: SaleItem[];
   dispatchedInventory: DispatchedInventoryItem[];
+  pageOffset?: number;
 }
 
-export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory }: DispatchOrdersTableProps) => {
+export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory, pageOffset = 0 }: DispatchOrdersTableProps) => {
   const { isAdmin, isMasterAdmin } = useAuth();
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -176,7 +177,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                 return (
                   <TableRow key={order.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium text-primary">
-                      {index + 1}
+                      {pageOffset + index + 1}
                     </TableCell>
                     <TableCell>
                       {order.sale_date 

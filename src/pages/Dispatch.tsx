@@ -17,7 +17,7 @@ import {
   Filter
 } from "lucide-react";
 import { useShipments, Shipment } from "@/hooks/useShipments";
-import { useSales } from "@/hooks/useSales";
+import { useAllDispatchSales } from "@/hooks/useAllDispatchSales";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -26,46 +26,37 @@ import { DispatchOrdersTable } from "@/components/dispatch/DispatchOrdersTable";
 import { TrackingDetailsTable } from "@/components/dispatch/TrackingDetailsTable";
 import { TrackingDetailsDialog } from "@/components/dispatch/TrackingDetailsDialog";
 import { CourierCalculator } from "@/components/dispatch/CourierCalculator";
+import { DispatchDateFilter } from "@/components/dispatch/DispatchDateFilter";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 import { useQueryClient } from "@tanstack/react-query";
+import { startOfDay, startOfMonth, startOfQuarter, startOfYear, subMonths, endOfMonth } from "date-fns";
+
+const ITEMS_PER_PAGE = 50;
 
 const DispatchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
-  const { data: sales, isLoading: salesLoading } = useSales();
-
-  // Fetch older (pre-current-month) sales that may have pending dispatch
-  const { data: olderPendingSales, isLoading: olderSalesLoading } = useQuery({
-    queryKey: ["older-dispatch-sales"],
-    queryFn: async () => {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*")
-        .lt("sale_date", startOfMonth.toISOString())
-        .order("order_id", { ascending: false });
-
-      if (error) throw error;
-      return data as any[];
-    },
-  });
+  const { data: allSales, isLoading: salesLoading } = useAllDispatchSales();
 
   // Combine all order IDs for fetching related data
   const allOrderIds = useMemo(() => {
-    const ids = new Set<string>();
-    (sales || []).forEach(s => ids.add(s.order_id));
-    (olderPendingSales || []).forEach(s => ids.add(s.order_id));
-    return Array.from(ids);
-  }, [sales, olderPendingSales]);
+    return (allSales || []).map(s => s.order_id);
+  }, [allSales]);
 
   // Fetch sale_items for all dispatch orders
   const { data: allSaleItems, isLoading: saleItemsLoading } = useQuery({
@@ -118,9 +109,11 @@ const DispatchPage = () => {
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editShipment, setEditShipment] = useState<Shipment | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Read status filter from URL params
+  // Read status filter and date filter from URL params
   const statusFilter = searchParams.get("status") || "all";
+  const dateFilter = searchParams.get("period") || "all-time";
 
   const setStatusFilter = useCallback((filter: string) => {
     if (filter === "all") {
@@ -129,6 +122,17 @@ const DispatchPage = () => {
       searchParams.set("status", filter);
     }
     setSearchParams(searchParams, { replace: true });
+    setCurrentPage(1);
+  }, [searchParams, setSearchParams]);
+
+  const setDateFilter = useCallback((filter: string) => {
+    if (filter === "all-time") {
+      searchParams.delete("period");
+    } else {
+      searchParams.set("period", filter);
+    }
+    setSearchParams(searchParams, { replace: true });
+    setCurrentPage(1);
   }, [searchParams, setSearchParams]);
 
   // Fetch product types from DB for service detection
@@ -137,11 +141,10 @@ const DispatchPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("product_name, product_type");
+        .select("product_name, product_type, category");
       if (error) throw error;
       const map: Record<string, string> = {};
       (data || []).forEach(p => {
-        // Only "MDVR Connector" skips dispatch tracking
         const isSkipDispatch = p.product_name === "MDVR Connector";
         map[p.product_name] = isSkipDispatch ? "service" : (p.product_type || "physical");
       });
@@ -149,7 +152,6 @@ const DispatchPage = () => {
     },
   });
 
-  // Service products and accessories that don't require physical inventory tracking
   const isServiceProduct = useCallback((productName: string): boolean => {
     return (productTypesData || {})[productName] === "service";
   }, [productTypesData]);
@@ -175,46 +177,34 @@ const DispatchPage = () => {
     return "Pending";
   }, [allSaleItems, dispatchedInventory, shipments, isServiceProduct]);
 
-  // Combine current month sales + older sales with pending dispatch only
-  const allDispatchOrders = useMemo(() => {
-    const currentMonthOrders = sales || [];
-    const olderOrders = olderPendingSales || [];
-    
-    const orderMap = new Map<string, any>();
-    currentMonthOrders.forEach(s => orderMap.set(s.order_id, s));
-    // Only include older orders if dispatch is NOT completed
-    olderOrders.forEach(s => {
-      if (!orderMap.has(s.order_id)) {
-        const status = getOrderStatus(s.order_id);
-        if (status !== "Completed") {
-          orderMap.set(s.order_id, s);
-        }
+  // Get date range for filtering
+  const getDateRange = useCallback((filter: string): { start: Date | null; end: Date | null } => {
+    const now = new Date();
+    switch (filter) {
+      case "today":
+        return { start: startOfDay(now), end: null };
+      case "this-month":
+        return { start: startOfMonth(now), end: null };
+      case "last-month": {
+        const lastMonth = subMonths(now, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
       }
-    });
-    
-    return Array.from(orderMap.values());
-  }, [sales, olderPendingSales, getOrderStatus]);
+      case "this-quarter":
+        return { start: startOfQuarter(now), end: null };
+      case "this-year":
+        return { start: startOfYear(now), end: null };
+      default:
+        return { start: null, end: null };
+    }
+  }, []);
 
-  // Calculate dispatch order stats
-  const dispatchStats = useMemo(() => {
-    if (!allDispatchOrders.length) return { completed: 0, pending: 0 };
-    
-    let completed = 0;
-    let pending = 0;
-    allDispatchOrders.forEach(s => {
-      const status = getOrderStatus(s.order_id);
-      if (status === "Completed") completed++;
-      else pending++;
-    });
-    
-    return { completed, pending };
-  }, [allDispatchOrders, getOrderStatus]);
-
-  // Filter dispatch orders with status filter from URL
+  // Filter dispatch orders with status + date + search filters
   const filteredOrders = useMemo(() => {
-    if (!allDispatchOrders.length) return [];
+    if (!allSales?.length) return [];
     
-    return allDispatchOrders.filter(sale => {
+    const { start, end } = getDateRange(dateFilter);
+    
+    return allSales.filter(sale => {
       const matchesOrderId = orderIdSearch === "" || 
         sale.order_id.toLowerCase().includes(orderIdSearch.toLowerCase());
       const matchesCustomer = customerSearch === "" || 
@@ -228,10 +218,58 @@ const DispatchPage = () => {
         const status = getOrderStatus(sale.order_id);
         matchesStatus = status === "Pending" || status === "Partially Dispatched";
       }
+
+      let matchesDate = true;
+      if (start) {
+        const saleDate = new Date(sale.sale_date);
+        matchesDate = saleDate >= start;
+        if (end) {
+          matchesDate = matchesDate && saleDate <= end;
+        }
+      }
       
-      return matchesOrderId && matchesCustomer && matchesStatus;
+      return matchesOrderId && matchesCustomer && matchesStatus && matchesDate;
     });
-  }, [allDispatchOrders, orderIdSearch, customerSearch, statusFilter, getOrderStatus]);
+  }, [allSales, orderIdSearch, customerSearch, statusFilter, dateFilter, getOrderStatus, getDateRange]);
+
+  // Calculate dispatch order stats from filtered (by date) orders
+  const dispatchStats = useMemo(() => {
+    if (!filteredOrders.length) return { completed: 0, pending: 0, total: 0 };
+    
+    let completed = 0;
+    let pending = 0;
+    filteredOrders.forEach(s => {
+      const status = getOrderStatus(s.order_id);
+      if (status === "Completed") completed++;
+      else pending++;
+    });
+    
+    return { completed, pending, total: filteredOrders.length };
+  }, [filteredOrders, getOrderStatus]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("ellipsis");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("ellipsis");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   // Filter tracking details (shipments data)
   const filteredShipments = useMemo(() => {
@@ -250,6 +288,8 @@ const DispatchPage = () => {
     setOrderIdSearch("");
     setCustomerSearch("");
     setStatusFilter("all");
+    setDateFilter("all-time");
+    setCurrentPage(1);
   };
 
   const handleTrackingSuccess = () => {
@@ -267,7 +307,7 @@ const DispatchPage = () => {
     setTrackingDialogOpen(true);
   };
 
-  const isLoading = shipmentsLoading || salesLoading || olderSalesLoading || saleItemsLoading || inventoryLoading;
+  const isLoading = shipmentsLoading || salesLoading || saleItemsLoading || inventoryLoading;
 
   if (isLoading) {
     return (
@@ -286,7 +326,7 @@ const DispatchPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dispatch Management</h1>
           <p className="text-muted-foreground">
-            {dispatchStats.completed} Orders Completed | {dispatchStats.pending} Orders Pending Dispatch
+            {dispatchStats.completed} Completed | {dispatchStats.pending} Pending | {filteredOrders.length} Total Orders
           </p>
         </div>
         <div className="flex gap-2">
@@ -340,46 +380,50 @@ const DispatchPage = () => {
 
         {/* Dispatch Orders Tab */}
         <TabsContent value="orders" className="space-y-4">
-          {/* Status Filter Chips */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Button
-              size="sm"
-              variant={statusFilter === "all" ? "default" : "outline"}
-              className={cn(
-                "gap-1.5 transition-all duration-200",
-                statusFilter === "all" && "shadow-md"
-              )}
-              onClick={() => setStatusFilter("all")}
-            >
-              <Truck className="h-3.5 w-3.5" />
-              All ({dispatchStats.completed + dispatchStats.pending})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === "completed" ? "default" : "outline"}
-              className={cn(
-                "gap-1.5 transition-all duration-200",
-                statusFilter === "completed" && "bg-success hover:bg-success/90 shadow-md"
-              )}
-              onClick={() => setStatusFilter("completed")}
-            >
-              <CheckCircle className="h-3.5 w-3.5" />
-              Completed ({dispatchStats.completed})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === "pending" ? "default" : "outline"}
-              className={cn(
-                "gap-1.5 transition-all duration-200",
-                statusFilter === "pending" && "bg-warning hover:bg-warning/90 shadow-md"
-              )}
-              onClick={() => setStatusFilter("pending")}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Pending ({dispatchStats.pending})
-            </Button>
+          {/* Status Filter Chips + Date Filter */}
+          <div className="flex items-center gap-2 flex-wrap justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Button
+                size="sm"
+                variant={statusFilter === "all" ? "default" : "outline"}
+                className={cn(
+                  "gap-1.5 transition-all duration-200",
+                  statusFilter === "all" && "shadow-md"
+                )}
+                onClick={() => setStatusFilter("all")}
+              >
+                <Truck className="h-3.5 w-3.5" />
+                All ({dispatchStats.total})
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === "completed" ? "default" : "outline"}
+                className={cn(
+                  "gap-1.5 transition-all duration-200",
+                  statusFilter === "completed" && "bg-success hover:bg-success/90 shadow-md"
+                )}
+                onClick={() => setStatusFilter("completed")}
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                Completed ({dispatchStats.completed})
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === "pending" ? "default" : "outline"}
+                className={cn(
+                  "gap-1.5 transition-all duration-200",
+                  statusFilter === "pending" && "bg-warning hover:bg-warning/90 shadow-md"
+                )}
+                onClick={() => setStatusFilter("pending")}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Pending ({dispatchStats.pending})
+              </Button>
+            </div>
+            <DispatchDateFilter value={dateFilter} onValueChange={setDateFilter} />
           </div>
+
           {/* Search Bar */}
           <Card className="shadow-card">
             <CardContent className="p-4">
@@ -387,13 +431,13 @@ const DispatchPage = () => {
                 <Input
                   placeholder="Search by Order ID..."
                   value={orderIdSearch}
-                  onChange={(e) => setOrderIdSearch(e.target.value)}
+                  onChange={(e) => { setOrderIdSearch(e.target.value); setCurrentPage(1); }}
                   className="flex-1"
                 />
                 <Input
                   placeholder="Search by Customer Name/Mobile..."
                   value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  onChange={(e) => { setCustomerSearch(e.target.value); setCurrentPage(1); }}
                   className="flex-1"
                 />
                 <div className="flex gap-2">
@@ -417,25 +461,67 @@ const DispatchPage = () => {
           {/* Dispatch Orders Table */}
           <Card className="shadow-card">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Truck className="h-5 w-5" />
-                Dispatch Orders
+              <CardTitle className="flex items-center justify-between text-base font-semibold">
+                <span className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Dispatch Orders
+                </span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 pb-0">
               <DispatchOrdersTable 
-                orders={filteredOrders} 
+                orders={paginatedOrders} 
                 shipments={shipments || []}
                 saleItems={allSaleItems || []}
                 dispatchedInventory={dispatchedInventory || []}
+                pageOffset={(currentPage - 1) * ITEMS_PER_PAGE}
               />
             </CardContent>
           </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className={cn(currentPage === 1 && "pointer-events-none opacity-50", "cursor-pointer")}
+                  />
+                </PaginationItem>
+                {getPageNumbers().map((page, i) =>
+                  page === "ellipsis" ? (
+                    <PaginationItem key={`ellipsis-${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={currentPage === page}
+                        onClick={() => setCurrentPage(page as number)}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className={cn(currentPage === totalPages && "pointer-events-none opacity-50", "cursor-pointer")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </TabsContent>
 
         {/* Tracking Details Tab */}
         <TabsContent value="tracking" className="space-y-4">
-          {/* Tracking Records Report Header */}
           <div className="bg-gradient-to-r from-primary to-primary/80 rounded-lg p-6 text-primary-foreground">
             <div className="flex items-center justify-between">
               <div>
@@ -464,7 +550,6 @@ const DispatchPage = () => {
             </div>
           </div>
 
-          {/* Search and Filter */}
           <Card className="shadow-card">
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -485,7 +570,6 @@ const DispatchPage = () => {
             </CardContent>
           </Card>
 
-          {/* Tracking Details Table */}
           <Card className="shadow-card">
             <CardContent className="px-0 py-0">
               <TrackingDetailsTable 
@@ -502,7 +586,6 @@ const DispatchPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Tracking Details Dialog */}
       <TrackingDetailsDialog
         open={trackingDialogOpen}
         onOpenChange={setTrackingDialogOpen}
