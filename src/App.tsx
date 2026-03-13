@@ -27,6 +27,7 @@ import QuotationApprovalsPage from "./pages/QuotationApprovals";
 import CustomerDetailsPage from "./pages/CustomerDetails";
 import EmployeeManagementPage from "./pages/EmployeeManagement";
 import BulkQCApprovalsPage from "./pages/BulkQCApprovals";
+import TasksPage from "./pages/Tasks";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { toast } from "sonner";
 
