@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
