@@ -798,6 +798,7 @@ export type Database = {
           customer_email: string | null
           customer_id: string | null
           customer_name: string | null
+          dispatch_status_override: string | null
           employee_name: string
           gst_amount: number | null
           id: string
@@ -822,6 +823,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          dispatch_status_override?: string | null
           employee_name: string
           gst_amount?: number | null
           id?: string
@@ -846,6 +848,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          dispatch_status_override?: string | null
           employee_name?: string
           gst_amount?: number | null
           id?: string
