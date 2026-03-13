@@ -45,7 +45,7 @@ interface DispatchOrdersTableProps {
   pageOffset?: number;
 }
 
-export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory }: DispatchOrdersTableProps) => {
+export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory, pageOffset = 0 }: DispatchOrdersTableProps) => {
   const { isAdmin, isMasterAdmin } = useAuth();
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
