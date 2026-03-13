@@ -97,6 +97,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [balancePaymentOpen, setBalancePaymentOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleMenuClick = (action: string) => {
