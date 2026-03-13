@@ -42,6 +42,7 @@ interface DispatchOrdersTableProps {
   shipments: Shipment[];
   saleItems: SaleItem[];
   dispatchedInventory: DispatchedInventoryItem[];
+  pageOffset?: number;
 }
 
 export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedInventory }: DispatchOrdersTableProps) => {
