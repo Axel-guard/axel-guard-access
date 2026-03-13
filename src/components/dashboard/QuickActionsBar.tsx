@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ShoppingCart, UserPlus, FileEdit, Truck, Plus } from "lucide-react";
+import { ShoppingCart, UserPlus, FileEdit, Truck, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { useNavigate } from "react-router-dom";
 
 const quickActions = [
