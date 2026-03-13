@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   BarChart3,
   Shield,
+  ListTodo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +87,7 @@ const navItems: NavItem[] = [
       { icon: FileText, label: "Reports", path: "/reports?tab=inventory" },
     ],
   },
+  { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: ClipboardCheck, label: "Bulk QC Approvals", path: "/bulk-qc-approvals", masterAdminOnly: true },
   { icon: Tag, label: "Pricing", path: "/pricing" },
   {

@@ -12,7 +12,8 @@ import {
   Package,
   Truck,
   User,
-  Shield
+  Shield,
+  ListTodo,
 } from "lucide-react";
 import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,6 +82,13 @@ const menuItems = [
     bgColor: "bg-destructive/10",
     action: "dispatch",
   },
+  {
+    label: "New Task",
+    icon: ListTodo,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    action: "newTask",
+  },
 ];
 
 export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
@@ -88,6 +97,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [balancePaymentOpen, setBalancePaymentOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleMenuClick = (action: string) => {
@@ -110,6 +120,9 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
         break;
       case "dispatch":
         navigate("/dispatch");
+        break;
+      case "newTask":
+        setNewTaskOpen(true);
         break;
     }
   };
@@ -242,6 +255,7 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
       <NewSaleDialog open={newSaleOpen} onOpenChange={setNewSaleOpen} />
       <BalancePaymentDialog open={balancePaymentOpen} onOpenChange={setBalancePaymentOpen} />
       <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
+      <AddTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
     </>
   );
 };

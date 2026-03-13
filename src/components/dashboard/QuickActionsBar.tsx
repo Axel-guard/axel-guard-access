@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ShoppingCart, UserPlus, FileEdit, Truck, Plus } from "lucide-react";
+import { ShoppingCart, UserPlus, FileEdit, Truck, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 import { NewLeadDialog } from "@/components/forms/NewLeadDialog";
+import { AddTaskDialog } from "@/components/tasks/AddTaskDialog";
 import { useNavigate } from "react-router-dom";
 
 const quickActions = [
@@ -30,6 +31,12 @@ const quickActions = [
     action: "dispatch",
     variant: "success" as const,
   },
+  {
+    label: "New Task",
+    icon: ListTodo,
+    action: "newTask",
+    variant: "primary" as const,
+  },
 ];
 
 const variantStyles = {
@@ -43,6 +50,7 @@ export const QuickActionsBar = () => {
   const navigate = useNavigate();
   const [newSaleOpen, setNewSaleOpen] = useState(false);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
 
   const handleAction = (action: string) => {
     switch (action) {
@@ -57,6 +65,9 @@ export const QuickActionsBar = () => {
         break;
       case "dispatch":
         navigate("/dispatch");
+        break;
+      case "newTask":
+        setNewTaskOpen(true);
         break;
     }
   };
@@ -79,6 +90,7 @@ export const QuickActionsBar = () => {
 
       <NewSaleDialog open={newSaleOpen} onOpenChange={setNewSaleOpen} />
       <NewLeadDialog open={newLeadOpen} onOpenChange={setNewLeadOpen} />
+      <AddTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
     </>
   );
 };
