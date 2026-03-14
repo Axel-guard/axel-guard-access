@@ -57,16 +57,25 @@
      }
    }, [lead]);
  
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
-     if (!lead?.id) return;
- 
-     await updateLead.mutateAsync({
-       id: lead.id,
-       updates: formData,
-     });
-     onOpenChange(false);
-   };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead?.id) return;
+
+    if (!formData.email.trim()) {
+      toast.error("Email ID is required. Please add the customer's email.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    await updateLead.mutateAsync({
+      id: lead.id,
+      updates: formData,
+    });
+    onOpenChange(false);
+  };
  
    if (!lead) return null;
  
