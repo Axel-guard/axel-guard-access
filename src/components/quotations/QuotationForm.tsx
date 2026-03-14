@@ -83,7 +83,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   const [customerEmail, setCustomerEmail] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [remarks, setRemarks] = useState("");
-
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
   // Quotation Info
   const [quotationNo, setQuotationNo] = useState("");
   const [quotationDate, setQuotationDate] = useState(
