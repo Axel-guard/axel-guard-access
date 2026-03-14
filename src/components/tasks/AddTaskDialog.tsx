@@ -345,6 +345,28 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             )}
           </div>
 
+          {emailMissingError && isCustomerTask && (
+            <Alert variant="destructive">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Customer email ID is not present. First add email ID, then complete this form.
+                  </AlertDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddEmailDialog(true)}
+                  className="ml-4 shrink-0"
+                >
+                  Add Email ID
+                </Button>
+              </div>
+            </Alert>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -360,6 +382,17 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </Button>
           </div>
         </div>
+
+        <AddEmailDialog
+          open={showAddEmailDialog}
+          onOpenChange={setShowAddEmailDialog}
+          customerCode={customerCode}
+          customerName={customerName}
+          onEmailSaved={(email) => {
+            setCustomerEmail(email);
+            setEmailMissingError(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
