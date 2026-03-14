@@ -23,6 +23,7 @@ import {
   Save,
   Sparkles
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface NewLeadDialogProps {
   open: boolean;
