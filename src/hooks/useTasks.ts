@@ -177,7 +177,7 @@ export const useAddTaskUpdate = () => {
       // Send email notification
       try {
         await supabase.functions.invoke("send-task-email", {
-          body: { type: "updated", taskId, remarks, statusChange },
+          body: { type: "updated", taskId, remarks, statusChange, internalOnly: internalOnly || false },
         });
       } catch (e) {
         console.error("Failed to send task update email:", e);

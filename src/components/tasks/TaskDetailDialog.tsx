@@ -183,6 +183,7 @@ export const TaskDetailDialog = ({
         taskId: task.id,
         remarks: `Closure rejected by Master Admin: ${rejectionRemarks}`,
         statusChange: "In Progress",
+        internalOnly: true,
       });
       setRejectionRemarks("");
       setShowRejectForm(false);
