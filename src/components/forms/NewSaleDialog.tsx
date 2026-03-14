@@ -197,6 +197,14 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       return;
     }
 
+    // Check for email
+    if (!formData.customerEmail.trim()) {
+      setEmailMissingError(true);
+      toast.error("Customer email ID is not present. First add email ID, then complete this form.");
+      return;
+    }
+    setEmailMissingError(false);
+
     const saleTypeValue = isWithGST ? "With" : "Without";
 
     const createdOrderId = orderId;
