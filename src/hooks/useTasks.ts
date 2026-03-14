@@ -137,12 +137,14 @@ export const useAddTaskUpdate = () => {
       statusChange,
       attachmentUrl,
       attachmentName,
+      internalOnly,
     }: {
       taskId: string;
       remarks: string;
       statusChange?: string;
       attachmentUrl?: string;
       attachmentName?: string;
+      internalOnly?: boolean;
     }) => {
       // Insert update
       const { error: updateError } = await supabase
@@ -175,7 +177,7 @@ export const useAddTaskUpdate = () => {
       // Send email notification
       try {
         await supabase.functions.invoke("send-task-email", {
-          body: { type: "updated", taskId, remarks, statusChange },
+          body: { type: "updated", taskId, remarks, statusChange, internalOnly: internalOnly || false },
         });
       } catch (e) {
         console.error("Failed to send task update email:", e);
