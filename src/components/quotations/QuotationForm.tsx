@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Plus,
   Save,
@@ -40,6 +41,7 @@ import {
 } from "@/hooks/useQuotations";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
 
 interface QuotationFormProps {
   onSuccess?: () => void;
