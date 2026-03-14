@@ -137,12 +137,14 @@ export const useAddTaskUpdate = () => {
       statusChange,
       attachmentUrl,
       attachmentName,
+      internalOnly,
     }: {
       taskId: string;
       remarks: string;
       statusChange?: string;
       attachmentUrl?: string;
       attachmentName?: string;
+      internalOnly?: boolean;
     }) => {
       // Insert update
       const { error: updateError } = await supabase
