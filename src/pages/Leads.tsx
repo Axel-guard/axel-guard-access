@@ -46,12 +46,22 @@ const LeadsPage = () => {
    const [editOpen, setEditOpen] = useState(false);
    const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const filteredLeads = leads?.filter(
-    (lead) =>
-      lead.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.mobile_number.includes(searchTerm) ||
-      lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLeads = leads?.filter((lead) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.trim();
+    // If input is purely numeric and up to 4 digits, search only by customer_code
+    if (/^\d{1,4}$/.test(term)) {
+      return lead.customer_code.includes(term);
+    }
+    // Otherwise search by name, mobile, company
+    const lower = term.toLowerCase();
+    return (
+      lead.customer_name.toLowerCase().includes(lower) ||
+      lead.mobile_number.includes(term) ||
+      lead.customer_code.includes(term) ||
+      lead.company_name?.toLowerCase().includes(lower)
+    );
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
