@@ -442,7 +442,7 @@ serve(async (req) => {
         subject: internalEmail.subject, body: internalEmail.body,
       });
 
-      if (isCustomerTask && statusChange !== "Pending Master Approval") {
+      if (isCustomerTask && statusChange !== "Pending Master Approval" && !internalOnly) {
         const customerEmailContent = getTaskUpdatedCustomerEmail(task, remarks || "");
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
