@@ -161,7 +161,7 @@ export const useAddTaskUpdate = () => {
       // Update task status if changed
       if (statusChange) {
         const updateData: Record<string, unknown> = { status: statusChange };
-        if (statusChange === "Completed" || statusChange === "Closed") {
+        if (statusChange === "Closed") {
           updateData.completed_at = new Date().toISOString();
         }
         const { error: taskError } = await supabase

@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/select";
 import { Task, useTaskUpdates, useAddTaskUpdate, uploadTaskAttachment } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInDays } from "date-fns";
+import { toast } from "sonner";
 import {
   Clock,
   User,
@@ -28,13 +30,13 @@ import {
   MessageSquare,
   Loader2,
   CheckCircle,
-  AlertTriangle,
-  Timer,
   Paperclip,
   Download,
   FileText,
   Flag,
   Mail,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
 
 interface TaskDetailDialogProps {
@@ -49,6 +51,7 @@ const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning border-warning/30",
   "In Progress": "bg-info/10 text-info border-info/30",
   "Waiting for Customer": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
+  "Pending Master Approval": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/20 dark:text-purple-400",
   Completed: "bg-success/10 text-success border-success/30",
   Closed: "bg-muted text-muted-foreground border-muted",
 };
@@ -60,21 +63,8 @@ const priorityColors: Record<string, string> = {
   Urgent: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-400",
 };
 
-const priorityIcons: Record<string, string> = {
-  Low: "🟢",
-  Normal: "🔵",
-  High: "🟠",
-  Urgent: "🔴",
-};
-
 function getTaskAgeDays(createdAt: string): number {
   return differenceInDays(new Date(), new Date(createdAt));
-}
-
-function getAgeColor(days: number): string {
-  if (days <= 2) return "bg-emerald-500";
-  if (days <= 5) return "bg-orange-500";
-  return "bg-red-500";
 }
 
 function getAgeBadgeClass(days: number): string {
@@ -90,19 +80,22 @@ export const TaskDetailDialog = ({
   userEmails,
   userNames,
 }: TaskDetailDialogProps) => {
-  const { user } = useAuth();
+  const { user, isMasterAdmin } = useAuth();
   const { data: updates = [] } = useTaskUpdates(task?.id || "");
   const addUpdate = useAddTaskUpdate();
   const [remarks, setRemarks] = useState("");
   const [statusChange, setStatusChange] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [rejectionRemarks, setRejectionRemarks] = useState("");
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!task) return null;
 
   const taskAge = getTaskAgeDays(task.created_at);
-  const ageColor = getAgeColor(taskAge);
 
   const getDisplayName = (userId: string) => {
     if (userNames?.[userId]) return userNames[userId];
@@ -139,10 +132,75 @@ export const TaskDetailDialog = ({
     setAttachment(null);
   };
 
+  const handleMarkCompleted = async () => {
+    if (!remarks.trim()) {
+      toast.error("Please add remarks before marking as completed");
+      return;
+    }
+    await addUpdate.mutateAsync({
+      taskId: task.id,
+      remarks,
+      statusChange: "Pending Master Approval",
+    });
+    setRemarks("");
+    setStatusChange("");
+    toast.success("Task submitted for Master Admin approval");
+  };
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      // Add approval update
+      await addUpdate.mutateAsync({
+        taskId: task.id,
+        remarks: "Task closure approved by Master Admin.",
+        statusChange: "Closed",
+      });
+
+      // Send closure email via edge function
+      try {
+        await supabase.functions.invoke("send-task-email", {
+          body: { type: "closure-approved", taskId: task.id },
+        });
+      } catch (e) {
+        console.error("Failed to send closure email:", e);
+      }
+
+      toast.success("Task approved and closed successfully");
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionRemarks.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+    setRejecting(true);
+    try {
+      await addUpdate.mutateAsync({
+        taskId: task.id,
+        remarks: `Closure rejected by Master Admin: ${rejectionRemarks}`,
+        statusChange: "In Progress",
+      });
+      setRejectionRemarks("");
+      setShowRejectForm(false);
+      toast.success("Task closure rejected. Task moved back to In Progress.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const canUpdate =
     user?.id === task.created_by || user?.id === task.assigned_to;
 
-  const isTerminal = task.status === "Completed" || task.status === "Closed";
+  const isTerminal = task.status === "Closed";
+  const isPendingApproval = task.status === "Pending Master Approval";
+  const canMarkCompleted = canUpdate && !isTerminal && !isPendingApproval && task.status !== "Completed";
+
+  // Available statuses for the update dropdown (exclude terminal states and approval)
+  const availableStatuses = ["In Progress", "Waiting for Customer"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,7 +215,7 @@ export const TaskDetailDialog = ({
           {/* Status, Priority & Task Age */}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className={statusColors[task.status] || ""}>
-              {task.status}
+              {task.status === "Pending Master Approval" ? "⏳ Pending Approval" : task.status}
             </Badge>
             <Badge variant="outline" className={priorityColors[task.priority] || ""}>
               <Flag className="h-3 w-3 mr-1" />
@@ -177,6 +235,58 @@ export const TaskDetailDialog = ({
               </Badge>
             )}
           </div>
+
+          {/* Master Admin Approval Section */}
+          {isPendingApproval && isMasterAdmin && (
+            <div className="rounded-lg border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <p className="font-semibold text-purple-700 dark:text-purple-400">Master Admin Approval Required</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This task has been marked as completed and requires your approval to close.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleApprove}
+                  disabled={approving || rejecting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {approving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Approve Closure
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowRejectForm(!showRejectForm)}
+                  disabled={approving || rejecting}
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+              </div>
+              {showRejectForm && (
+                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-800">
+                  <Label>Rejection Reason *</Label>
+                  <Textarea
+                    value={rejectionRemarks}
+                    onChange={(e) => setRejectionRemarks(e.target.value)}
+                    placeholder="Explain why the task cannot be closed yet..."
+                    rows={2}
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleReject}
+                    disabled={!rejectionRemarks.trim() || rejecting}
+                  >
+                    {rejecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Confirm Rejection
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* People */}
           <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/30 p-3">
@@ -268,8 +378,10 @@ export const TaskDetailDialog = ({
                 <div key={update.id} className="flex gap-3 text-sm">
                   <div
                     className={`w-1 rounded-full shrink-0 ${
-                      update.status_change === "Completed" || update.status_change === "Closed"
+                      update.status_change === "Closed"
                         ? "bg-success"
+                        : update.status_change === "Pending Master Approval"
+                        ? "bg-purple-500"
                         : update.status_change
                         ? "bg-info"
                         : update.attachment_url
@@ -283,7 +395,7 @@ export const TaskDetailDialog = ({
                         variant="outline"
                         className={`text-xs mb-1 ${statusColors[update.status_change] || ""}`}
                       >
-                        Status → {update.status_change}
+                        Status → {update.status_change === "Pending Master Approval" ? "Pending Approval" : update.status_change}
                       </Badge>
                     )}
                     <p className="text-muted-foreground">
@@ -314,7 +426,7 @@ export const TaskDetailDialog = ({
           </div>
 
           {/* Add Update Form */}
-          {canUpdate && !isTerminal && (
+          {canUpdate && !isTerminal && !isPendingApproval && (
             <div className="border-t pt-4 space-y-3">
               <p className="text-sm font-semibold">Add Update</p>
               <div>
@@ -335,10 +447,9 @@ export const TaskDetailDialog = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="no-change">No status change</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
-                      <SelectItem value="Waiting for Customer">Waiting for Customer</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                      <SelectItem value="Closed">Closed</SelectItem>
+                      {availableStatuses.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -362,16 +473,29 @@ export const TaskDetailDialog = ({
                   </Button>
                 </div>
               </div>
-              <Button
-                onClick={handleAddUpdate}
-                disabled={!remarks.trim() || addUpdate.isPending || uploading}
-                size="sm"
-              >
-                {(addUpdate.isPending || uploading) && (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAddUpdate}
+                  disabled={!remarks.trim() || addUpdate.isPending || uploading}
+                  size="sm"
+                >
+                  {(addUpdate.isPending || uploading) && (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  )}
+                  Submit Update
+                </Button>
+                {canMarkCompleted && (
+                  <Button
+                    onClick={handleMarkCompleted}
+                    disabled={!remarks.trim() || addUpdate.isPending || uploading}
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Mark as Completed
+                  </Button>
                 )}
-                Submit Update
-              </Button>
+              </div>
             </div>
           )}
         </div>
