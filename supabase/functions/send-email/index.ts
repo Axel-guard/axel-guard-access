@@ -893,10 +893,22 @@ const getEmailTemplate = (
         const totalDispatchedSoFar = allDispatched?.length || 0;
         const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
         
+        // Build product-serial pairs for email table
+        let productSerialPairs = dispatchData?.productSerials || [];
+        if (productSerialPairs.length === 0 && serialNumbers.length > 0) {
+          // Fallback: fetch product names from inventory
+          const { data: invItems } = await supabase
+            .from("inventory")
+            .select("serial_number, product_name")
+            .in("serial_number", serialNumbers);
+          productSerialPairs = (invItems || []).map(i => ({ product_name: i.product_name, serial_number: i.serial_number }));
+        }
+
         emailData = {
           ...emailData,
           dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
           serialNumbers,
+          productSerials: productSerialPairs,
           productName,
           totalQuantity,
           totalOrderItems,
