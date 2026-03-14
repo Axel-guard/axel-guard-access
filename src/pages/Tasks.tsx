@@ -27,12 +27,14 @@ import {
   User,
   CalendarClock,
   Flag,
+  ShieldCheck,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning border-warning/30",
   "In Progress": "bg-info/10 text-info border-info/30",
   "Waiting for Customer": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
+  "Pending Master Approval": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/20 dark:text-purple-400",
   Completed: "bg-success/10 text-success border-success/30",
   Closed: "bg-muted text-muted-foreground border-muted",
 };
@@ -55,7 +57,7 @@ function getAgeBarColor(days: number): string {
 }
 
 const Tasks = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isMasterAdmin } = useAuth();
   const { data: tasks = [], isLoading } = useTasks();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -65,35 +67,39 @@ const Tasks = () => {
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [userNames, setUserNames] = useState<Record<string, string>>({});
 
-  // Fetch user emails and names for display
+  // Fetch user emails and names using proper DB function
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data: allowedEmails } = await supabase
-        .from("allowed_emails")
-        .select("email, role");
-
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
+      const { data: userMap } = await supabase.rpc("get_user_email_map");
       const { data: employees } = await supabase
         .from("employees")
         .select("name, email");
 
-      if (!allowedEmails || !roles) return;
+      if (!userMap) return;
 
       const emailMap: Record<string, string> = {};
       const nameMap: Record<string, string> = {};
 
-      for (const r of roles) {
-        const match = allowedEmails.find((d) => d.role === r.role);
-        if (match) {
-          emailMap[r.user_id] = match.email;
-          // Find employee name by email
+      // Hardcoded email→name mapping for known users
+      const knownNames: Record<string, string> = {
+        "info@axel-guard.com": "Akash Parashar",
+        "admin@axel-guard.com": "Siddharth Nagaich",
+        "support@axel-guard.com": "Pawan Singh",
+        "mani@axel-guard.com": "Mandeep Samal",
+        "sales.realtrack@gmail.com": "Smruti Ranjan Nayak",
+      };
+
+      for (const um of userMap) {
+        emailMap[um.user_id] = um.email;
+        const emailLower = um.email.toLowerCase();
+        // Check known names first, then employees, then fallback
+        if (knownNames[emailLower]) {
+          nameMap[um.user_id] = knownNames[emailLower];
+        } else {
           const emp = employees?.find(
-            (e) => e.email?.toLowerCase() === match.email.toLowerCase()
+            (e) => e.email?.toLowerCase() === emailLower
           );
-          nameMap[r.user_id] = emp?.name || match.email.split("@")[0];
+          nameMap[um.user_id] = emp?.name || um.email.split("@")[0];
         }
       }
       setUserEmails(emailMap);
@@ -110,12 +116,13 @@ const Tasks = () => {
     } else if (tab === "assigned-by-me") {
       result = result.filter((t) => t.created_by === user?.id);
     } else if (tab === "overdue") {
-      // Tasks older than 5 days that are not completed/closed
       result = result.filter(
         (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
       );
     } else if (tab === "completed") {
       result = result.filter((t) => t.status === "Completed" || t.status === "Closed");
+    } else if (tab === "pending-approval") {
+      result = result.filter((t) => t.status === "Pending Master Approval");
     }
 
     if (statusFilter !== "all") {
@@ -142,11 +149,13 @@ const Tasks = () => {
       (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
     );
     const completed = tasks.filter((t) => t.status === "Completed" || t.status === "Closed");
+    const pendingApproval = tasks.filter((t) => t.status === "Pending Master Approval");
     return {
       myTasks: myTasks.length,
       assignedByMe: assignedByMe.length,
       overdue: overdue.length,
       completed: completed.length,
+      pendingApproval: pendingApproval.length,
       all: tasks.length,
     };
   }, [tasks, user]);
@@ -183,7 +192,7 @@ const Tasks = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("my-tasks")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -217,6 +226,19 @@ const Tasks = () => {
             </div>
           </CardContent>
         </Card>
+        {isMasterAdmin && (
+          <Card className="cursor-pointer hover:shadow-md transition-shadow border-purple-200 dark:border-purple-800" onClick={() => setTab("pending-approval")}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{counts.pendingApproval}</p>
+                <p className="text-xs text-muted-foreground">Pending Approval</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("completed")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
@@ -233,10 +255,20 @@ const Tasks = () => {
       {/* Tabs & Filters */}
       <Tabs value={tab} onValueChange={setTab}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto flex-wrap">
             <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
             <TabsTrigger value="assigned-by-me">Assigned by Me</TabsTrigger>
             <TabsTrigger value="overdue">Overdue</TabsTrigger>
+            {isMasterAdmin && (
+              <TabsTrigger value="pending-approval" className="gap-1">
+                Pending Approval
+                {counts.pendingApproval > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                    {counts.pendingApproval}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="completed">Completed</TabsTrigger>
             {isAdmin && <TabsTrigger value="all">All Tasks</TabsTrigger>}
           </TabsList>
@@ -260,6 +292,7 @@ const Tasks = () => {
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Waiting for Customer">Waiting</SelectItem>
+                <SelectItem value="Pending Master Approval">Pending Approval</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
                 <SelectItem value="Closed">Closed</SelectItem>
               </SelectContent>
@@ -267,7 +300,7 @@ const Tasks = () => {
           </div>
         </div>
 
-        {["my-tasks", "assigned-by-me", "overdue", "completed", "all"].map(
+        {["my-tasks", "assigned-by-me", "overdue", "pending-approval", "completed", "all"].map(
           (tabValue) => (
             <TabsContent key={tabValue} value={tabValue} className="mt-4">
               {filtered.length === 0 ? (
@@ -298,7 +331,7 @@ const Tasks = () => {
                                 variant="outline"
                                 className={`shrink-0 text-xs ${statusColors[task.status] || ""}`}
                               >
-                                {task.status}
+                                {task.status === "Pending Master Approval" ? "Pending Approval" : task.status}
                               </Badge>
                             </div>
 

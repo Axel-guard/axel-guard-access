@@ -59,7 +59,6 @@ async function sendSmtpEmail(config: {
 
     response = await sendCommand(`MAIL FROM:<${config.from}>`);
     
-    // Add all recipients
     for (const to of config.to) {
       await sendCommand(`RCPT TO:<${to}>`);
     }
@@ -202,6 +201,8 @@ function getTaskUpdatedInternalEmail(
           ? "background: #d1fae5; color: #065f46;"
           : statusChange === "In Progress"
           ? "background: #dbeafe; color: #1e40af;"
+          : statusChange === "Pending Master Approval"
+          ? "background: #e9d5ff; color: #6b21a8;"
           : statusChange === "Waiting for Customer"
           ? "background: #fed7aa; color: #9a3412;"
           : "background: #fef3c7; color: #92400e;"
@@ -271,6 +272,71 @@ function getTaskUpdatedCustomerEmail(
   };
 }
 
+function getTaskClosureCustomerEmail(
+  task: Record<string, unknown>,
+  updates: Array<{ remarks: string; created_at: string; status_change: string | null; user_name: string }>
+): { subject: string; body: string } {
+  const timelineHtml = updates
+    .map((u) => {
+      const date = new Date(u.created_at);
+      const formatted = `${date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+      return `<li style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+        <span style="color: #6b7280; font-size: 12px;">${formatted}</span><br>
+        <span style="color: #374151;">${u.remarks}</span>
+      </li>`;
+    })
+    .join("");
+
+  return {
+    subject: `Task Completion Update – AxelGuard Support`,
+    body: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
+<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+  <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 28px 24px; text-align: center;">
+    <h1 style="margin: 0; font-size: 22px;">✅ Task Completed</h1>
+    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
+  </div>
+  <div style="padding: 28px 24px;">
+    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
+    <p style="color: #374151; line-height: 1.6;">We are pleased to inform you that the requested task has been successfully completed by our team.</p>
+    
+    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      <h3 style="margin: 0 0 4px; color: #065f46;">Task Title</h3>
+      <p style="margin: 0; color: #374151; font-weight: 600;">${task.title}</p>
+    </div>
+
+    <h3 style="color: #1e40af; margin: 24px 0 12px;">Activity Timeline</h3>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      ${timelineHtml}
+    </ul>
+
+    <p style="color: #374151; line-height: 1.6; margin-top: 24px;">Our team has ensured that the requested task has been addressed as per the requirements.</p>
+    <p style="color: #374151; line-height: 1.6;">If you need any further assistance, please feel free to reach out to us.</p>
+    
+    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong><br>
+    <a href="mailto:info@axel-guard.com" style="color: #3b82f6;">info@axel-guard.com</a></p>
+  </div>
+  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
+    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
+  </div>
+</div>
+</body>
+</html>`,
+  };
+}
+
+// Known email→name mapping
+const KNOWN_NAMES: Record<string, string> = {
+  "info@axel-guard.com": "Akash Parashar",
+  "admin@axel-guard.com": "Siddharth Nagaich",
+  "support@axel-guard.com": "Pawan Singh",
+  "mani@axel-guard.com": "Mandeep Samal",
+  "sales.realtrack@gmail.com": "Smruti Ranjan Nayak",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -284,7 +350,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch the task
     const { data: task, error: taskError } = await supabase
       .from("tasks")
       .select("*")
@@ -295,14 +360,14 @@ serve(async (req) => {
       throw new Error(`Task not found: ${taskId}`);
     }
 
-    // Get user email
     const getUserEmail = async (userId: string): Promise<string | null> => {
       const { data: userData } = await supabase.auth.admin.getUserById(userId);
       return userData?.user?.email || null;
     };
 
-    // Get user display name from employees
     const getUserName = async (email: string): Promise<string> => {
+      const emailLower = email.toLowerCase();
+      if (KNOWN_NAMES[emailLower]) return KNOWN_NAMES[emailLower];
       const { data: emp } = await supabase
         .from("employees")
         .select("name")
@@ -311,7 +376,6 @@ serve(async (req) => {
       return emp?.name || email.split("@")[0];
     };
 
-    // Get admin emails for CC
     const getAdminEmails = async (): Promise<string[]> => {
       const { data: admins } = await supabase
         .from("allowed_emails")
@@ -340,7 +404,6 @@ serve(async (req) => {
     const adminEmails = await getAdminEmails();
 
     if (type === "created") {
-      // Send internal email to assigned user + creator + admins
       const internalEmail = getTaskCreatedInternalEmail(task);
       const internalRecipients = [assigneeEmail];
       const internalCc = [...new Set([
@@ -354,7 +417,6 @@ serve(async (req) => {
         subject: internalEmail.subject, body: internalEmail.body,
       });
 
-      // If customer email is enabled, send professional email to customer
       if (isCustomerTask) {
         const customerEmailContent = getTaskCreatedCustomerEmail(task);
         await sendSmtpEmail({
@@ -367,7 +429,6 @@ serve(async (req) => {
     } else if (type === "updated") {
       const updaterName = await getUserName(creatorEmail || assigneeEmail);
 
-      // Internal email
       const internalEmail = getTaskUpdatedInternalEmail(task, remarks || "", statusChange || null, updaterName);
       const internalRecipients = [assigneeEmail];
       const internalCc = [...new Set([
@@ -381,8 +442,7 @@ serve(async (req) => {
         subject: internalEmail.subject, body: internalEmail.body,
       });
 
-      // Customer email if enabled
-      if (isCustomerTask) {
+      if (isCustomerTask && statusChange !== "Pending Master Approval") {
         const customerEmailContent = getTaskUpdatedCustomerEmail(task, remarks || "");
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
@@ -391,6 +451,66 @@ serve(async (req) => {
           subject: customerEmailContent.subject, body: customerEmailContent.body,
         });
       }
+    } else if (type === "closure-approved") {
+      // Send closure email with full activity timeline
+      if (isCustomerTask) {
+        // Fetch all task updates for timeline
+        const { data: taskUpdates } = await supabase
+          .from("task_updates")
+          .select("*")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: true });
+
+        const timeline = [];
+        // Add task creation
+        const creatorName = creatorEmail ? await getUserName(creatorEmail) : "Unknown";
+        timeline.push({
+          remarks: "Task created",
+          created_at: task.created_at,
+          status_change: null,
+          user_name: creatorName,
+        });
+
+        if (taskUpdates) {
+          for (const u of taskUpdates) {
+            const uEmail = await getUserEmail(u.user_id);
+            const uName = uEmail ? await getUserName(uEmail) : "Team";
+            timeline.push({
+              remarks: u.remarks,
+              created_at: u.created_at,
+              status_change: u.status_change,
+              user_name: uName,
+            });
+          }
+        }
+
+        const closureEmail = getTaskClosureCustomerEmail(task, timeline);
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: [task.customer_email],
+          cc: [
+            assigneeEmail,
+            ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
+            ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
+          ],
+          subject: closureEmail.subject, body: closureEmail.body,
+        });
+      }
+
+      // Also send internal closure notification
+      const updaterName = "Master Admin";
+      const internalEmail = getTaskUpdatedInternalEmail(task, "Task closure approved. Task is now Closed.", "Closed", updaterName);
+      const allRecipients = [assigneeEmail];
+      const cc = [...new Set([
+        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
+        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
+      ])];
+
+      await sendSmtpEmail({
+        host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+        from: smtpUser, to: allRecipients, cc: cc.length ? cc : undefined,
+        subject: internalEmail.subject, body: internalEmail.body,
+      });
     }
 
     console.log(`Task email (${type}) sent for task: ${taskId}`);
