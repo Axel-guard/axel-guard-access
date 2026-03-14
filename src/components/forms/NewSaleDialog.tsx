@@ -76,6 +76,8 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
 
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [customerNotFound, setCustomerNotFound] = useState(false);
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
 
   // Auto-generate Order ID when dialog opens
   useEffect(() => {
