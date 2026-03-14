@@ -728,6 +728,17 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </Button>
           </div>
         </form>
+
+        <AddEmailDialog
+          open={showAddEmailDialog}
+          onOpenChange={setShowAddEmailDialog}
+          customerCode={formData.customerCode}
+          customerName={formData.customerName}
+          onEmailSaved={(email) => {
+            setFormData((prev) => ({ ...prev, customerEmail: email }));
+            setEmailMissingError(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
