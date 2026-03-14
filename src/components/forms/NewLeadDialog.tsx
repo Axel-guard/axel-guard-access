@@ -50,6 +50,16 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
 
     if (!formData.customerName || !formData.mobileNumber || !nextCode) return;
 
+    // Validate email is present and valid
+    if (!formData.email.trim()) {
+      toast.error("Email ID is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     await createLead.mutateAsync({
       customer_code: nextCode,
       customer_name: formData.customerName,
