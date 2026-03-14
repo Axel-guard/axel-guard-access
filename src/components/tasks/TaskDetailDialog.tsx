@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Task, useTaskUpdates, useAddTaskUpdate } from "@/hooks/useTasks";
+import { Task, useTaskUpdates, useAddTaskUpdate, uploadTaskAttachment } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import {
   Clock,
   User,
@@ -30,6 +30,11 @@ import {
   CheckCircle,
   AlertTriangle,
   Timer,
+  Paperclip,
+  Download,
+  FileText,
+  Flag,
+  Mail,
 } from "lucide-react";
 
 interface TaskDetailDialogProps {
@@ -37,81 +42,140 @@ interface TaskDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userEmails: Record<string, string>;
+  userNames?: Record<string, string>;
 }
 
 const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning border-warning/30",
   "In Progress": "bg-info/10 text-info border-info/30",
+  "Waiting for Customer": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
   Completed: "bg-success/10 text-success border-success/30",
+  Closed: "bg-muted text-muted-foreground border-muted",
 };
 
-const statusIcons: Record<string, React.ElementType> = {
-  Pending: AlertTriangle,
-  "In Progress": Timer,
-  Completed: CheckCircle,
+const priorityColors: Record<string, string> = {
+  Low: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400",
+  Normal: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400",
+  High: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
+  Urgent: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-400",
 };
+
+const priorityIcons: Record<string, string> = {
+  Low: "🟢",
+  Normal: "🔵",
+  High: "🟠",
+  Urgent: "🔴",
+};
+
+function getTaskAgeDays(createdAt: string): number {
+  return differenceInDays(new Date(), new Date(createdAt));
+}
+
+function getAgeColor(days: number): string {
+  if (days <= 2) return "bg-emerald-500";
+  if (days <= 5) return "bg-orange-500";
+  return "bg-red-500";
+}
+
+function getAgeBadgeClass(days: number): string {
+  if (days <= 2) return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400";
+  if (days <= 5) return "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400";
+  return "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400";
+}
 
 export const TaskDetailDialog = ({
   task,
   open,
   onOpenChange,
   userEmails,
+  userNames,
 }: TaskDetailDialogProps) => {
   const { user } = useAuth();
   const { data: updates = [] } = useTaskUpdates(task?.id || "");
   const addUpdate = useAddTaskUpdate();
   const [remarks, setRemarks] = useState("");
   const [statusChange, setStatusChange] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!task) return null;
 
-  const isOverdue =
-    task.status !== "Completed" && new Date(task.deadline) < new Date();
+  const taskAge = getTaskAgeDays(task.created_at);
+  const ageColor = getAgeColor(taskAge);
+
+  const getDisplayName = (userId: string) => {
+    if (userNames?.[userId]) return userNames[userId];
+    return userEmails[userId] || userId;
+  };
 
   const handleAddUpdate = async () => {
     if (!remarks.trim()) return;
+    
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+
+    if (attachment) {
+      setUploading(true);
+      try {
+        const result = await uploadTaskAttachment(attachment);
+        attachmentUrl = result.url;
+        attachmentName = result.name;
+      } catch {
+        // Continue without attachment
+      }
+      setUploading(false);
+    }
+
     await addUpdate.mutateAsync({
       taskId: task.id,
       remarks,
-      statusChange: statusChange || undefined,
+      statusChange: statusChange && statusChange !== "no-change" ? statusChange : undefined,
+      attachmentUrl,
+      attachmentName,
     });
     setRemarks("");
     setStatusChange("");
+    setAttachment(null);
   };
 
   const canUpdate =
     user?.id === task.created_by || user?.id === task.assigned_to;
 
-  const StatusIcon = statusIcons[task.status] || AlertTriangle;
+  const isTerminal = task.status === "Completed" || task.status === "Closed";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <StatusIcon className="h-5 w-5" />
             {task.title}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Status & Deadline */}
+          {/* Status, Priority & Task Age */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className={statusColors[task.status] || ""}
-            >
+            <Badge variant="outline" className={statusColors[task.status] || ""}>
               {task.status}
             </Badge>
-            {isOverdue && (
-              <Badge variant="destructive">Overdue</Badge>
+            <Badge variant="outline" className={priorityColors[task.priority] || ""}>
+              <Flag className="h-3 w-3 mr-1" />
+              {task.priority}
+            </Badge>
+            <Badge variant="outline" className={getAgeBadgeClass(taskAge)}>
+              <Clock className="h-3 w-3 mr-1" />
+              {taskAge === 0 ? "Today" : `${taskAge} Day${taskAge > 1 ? "s" : ""} Old`}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {task.task_type === "Customer" ? "👤 Customer Task" : "🏢 Internal Task"}
+            </Badge>
+            {task.customer_email_enabled && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                <Mail className="h-3 w-3 mr-1" />
+                Customer Email ON
+              </Badge>
             )}
-            <div className="flex items-center gap-1 text-sm text-muted-foreground ml-auto">
-              <Clock className="h-4 w-4" />
-              <span>
-                Deadline: {format(new Date(task.deadline), "dd MMM yyyy, hh:mm a")}
-              </span>
-            </div>
           </div>
 
           {/* People */}
@@ -120,18 +184,14 @@ export const TaskDetailDialog = ({
               <User className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Created By</p>
-                <p className="text-sm font-medium">
-                  {userEmails[task.created_by] || task.created_by}
-                </p>
+                <p className="text-sm font-medium">{getDisplayName(task.created_by)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">Assigned To</p>
-                <p className="text-sm font-medium">
-                  {userEmails[task.assigned_to] || task.assigned_to}
-                </p>
+                <p className="text-sm font-medium">{getDisplayName(task.assigned_to)}</p>
               </div>
             </div>
           </div>
@@ -185,7 +245,7 @@ export const TaskDetailDialog = ({
           <div>
             <p className="text-sm font-semibold mb-3 flex items-center gap-1.5">
               <MessageSquare className="h-4 w-4" />
-              Activity Log ({updates.length})
+              Activity Log ({updates.length + 1})
             </p>
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {/* Task creation entry */}
@@ -194,7 +254,7 @@ export const TaskDetailDialog = ({
                 <div>
                   <p className="text-muted-foreground">
                     <span className="font-medium text-foreground">
-                      {userEmails[task.created_by] || "User"}
+                      {getDisplayName(task.created_by)}
                     </span>{" "}
                     created this task
                   </p>
@@ -208,30 +268,42 @@ export const TaskDetailDialog = ({
                 <div key={update.id} className="flex gap-3 text-sm">
                   <div
                     className={`w-1 rounded-full shrink-0 ${
-                      update.status_change === "Completed"
+                      update.status_change === "Completed" || update.status_change === "Closed"
                         ? "bg-success"
                         : update.status_change
                         ? "bg-info"
+                        : update.attachment_url
+                        ? "bg-purple-500"
                         : "bg-muted-foreground"
                     }`}
                   />
-                  <div>
+                  <div className="flex-1">
                     {update.status_change && (
                       <Badge
                         variant="outline"
-                        className={`text-xs mb-1 ${
-                          statusColors[update.status_change] || ""
-                        }`}
+                        className={`text-xs mb-1 ${statusColors[update.status_change] || ""}`}
                       >
                         Status → {update.status_change}
                       </Badge>
                     )}
                     <p className="text-muted-foreground">
                       <span className="font-medium text-foreground">
-                        {userEmails[update.user_id] || "User"}
+                        {getDisplayName(update.user_id)}
                       </span>
                       : {update.remarks}
                     </p>
+                    {update.attachment_url && (
+                      <a
+                        href={update.attachment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1"
+                      >
+                        <FileText className="h-3 w-3" />
+                        {update.attachment_name || "Attachment"}
+                        <Download className="h-3 w-3" />
+                      </a>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(update.created_at), "dd MMM yyyy, hh:mm a")}
                     </p>
@@ -242,7 +314,7 @@ export const TaskDetailDialog = ({
           </div>
 
           {/* Add Update Form */}
-          {canUpdate && task.status !== "Completed" && (
+          {canUpdate && !isTerminal && (
             <div className="border-t pt-4 space-y-3">
               <p className="text-sm font-semibold">Add Update</p>
               <div>
@@ -254,25 +326,48 @@ export const TaskDetailDialog = ({
                   rows={2}
                 />
               </div>
-              <div>
-                <Label>Update Status</Label>
-                <Select value={statusChange} onValueChange={setStatusChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="No status change" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no-change">No status change</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Update Status</Label>
+                  <Select value={statusChange} onValueChange={setStatusChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No status change" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no-change">No status change</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Waiting for Customer">Waiting for Customer</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="Closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Attach File</Label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.mp4,.mov,.doc,.docx,.xls,.xlsx"
+                    onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full mt-0.5"
+                    onClick={() => fileRef.current?.click()}
+                    type="button"
+                  >
+                    <Paperclip className="h-4 w-4 mr-1" />
+                    {attachment ? attachment.name.substring(0, 20) : "Choose file"}
+                  </Button>
+                </div>
               </div>
               <Button
                 onClick={handleAddUpdate}
-                disabled={!remarks.trim() || addUpdate.isPending}
+                disabled={!remarks.trim() || addUpdate.isPending || uploading}
                 size="sm"
               >
-                {addUpdate.isPending && (
+                {(addUpdate.isPending || uploading) && (
                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
                 )}
                 Submit Update

@@ -16,18 +16,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { useCreateTask } from "@/hooks/useTasks";
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { useCreateTask, uploadTaskAttachment } from "@/hooks/useTasks";
+import { CheckCircle, AlertCircle, Loader2, Paperclip, X } from "lucide-react";
 
 interface AddTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface AllowedUser {
+interface Employee {
   id: string;
+  name: string;
+  employee_role: string | null;
+}
+
+interface AllowedUser {
+  userId: string;
   email: string;
+  name: string;
   role: string;
 }
 
@@ -35,53 +43,68 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const createTask = useCreateTask();
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [priority, setPriority] = useState("Normal");
   const [customerCode, setCustomerCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerLocation, setCustomerLocation] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerEmailEnabled, setCustomerEmailEnabled] = useState(false);
   const [description, setDescription] = useState("");
   const [customerFound, setCustomerFound] = useState<boolean | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [users, setUsers] = useState<AllowedUser[]>([]);
+  const [attachment, setAttachment] = useState<File | null>(null);
 
-  // Fetch allowed users for assignment
+  // Fetch users for assignment - use employees + allowed_emails + user_roles
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
-      // Get allowed emails with their user IDs from user_roles
+      // Get employees for display names
+      const { data: employees } = await supabase
+        .from("employees")
+        .select("name, email, employee_role")
+        .eq("is_active", true);
+
+      // Get allowed emails with roles
       const { data: allowedEmails } = await supabase
         .from("allowed_emails")
         .select("email, role");
 
-      if (!allowedEmails) return;
-
-      // Get user_roles to map emails to user IDs
+      // Get user_roles to map to user IDs
       const { data: roles } = await supabase
         .from("user_roles")
         .select("user_id, role");
 
-      if (!roles) return;
+      if (!allowedEmails || !roles) return;
 
-      // We need to match - for now use allowed_emails as the source
-      // and user_roles for user_id mapping
       const userList: AllowedUser[] = [];
       for (const ae of allowedEmails) {
-        // Find matching user_role entry - we'll use email as display
+        // Find user_id from user_roles
         const matchingRole = roles.find(r => r.role === ae.role);
-        if (matchingRole) {
-          userList.push({
-            id: matchingRole.user_id,
-            email: ae.email,
-            role: ae.role,
-          });
-        }
+        if (!matchingRole) continue;
+
+        // Find employee name by email match
+        const emp = employees?.find(
+          e => e.email?.toLowerCase() === ae.email.toLowerCase()
+        );
+
+        const displayName = emp?.name || ae.email.split("@")[0];
+        const displayRole = emp?.employee_role || 
+          (ae.role === "master_admin" ? "Master Admin" : ae.role === "admin" ? "Admin" : "User");
+
+        userList.push({
+          userId: matchingRole.user_id,
+          email: ae.email,
+          name: displayName,
+          role: displayRole,
+        });
       }
 
-      // Deduplicate by user_id
+      // Deduplicate by userId
       const unique = userList.filter(
-        (u, i, arr) => arr.findIndex(x => x.id === u.id) === i
+        (u, i, arr) => arr.findIndex(x => x.userId === u.userId) === i
       );
       setUsers(unique);
     };
@@ -96,6 +119,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
       setCustomerPhone("");
       setCustomerLocation("");
       setCompanyName("");
+      setCustomerEmail("");
       return;
     }
 
@@ -103,7 +127,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
       setLookingUp(true);
       const { data } = await supabase
         .from("leads")
-        .select("customer_name, mobile_number, location, company_name")
+        .select("customer_name, mobile_number, location, company_name, email")
         .eq("customer_code", customerCode.trim())
         .maybeSingle();
 
@@ -113,6 +137,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
         setCustomerPhone(data.mobile_number || "");
         setCustomerLocation(data.location || "");
         setCompanyName(data.company_name || "");
+        setCustomerEmail(data.email || "");
       } else {
         setCustomerFound(false);
       }
@@ -122,8 +147,23 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     return () => clearTimeout(timer);
   }, [customerCode]);
 
+  const isCustomerTask = !!customerCode.trim() && customerFound;
+
   const handleSubmit = async () => {
-    if (!title || !assignedTo || !deadline) return;
+    if (!title || !assignedTo) return;
+
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+
+    if (attachment) {
+      try {
+        const result = await uploadTaskAttachment(attachment);
+        attachmentUrl = result.url;
+        attachmentName = result.name;
+      } catch {
+        // Continue without attachment
+      }
+    }
 
     await createTask.mutateAsync({
       title,
@@ -133,7 +173,10 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
       customer_phone: customerPhone || undefined,
       customer_location: customerLocation || undefined,
       company_name: companyName || undefined,
-      deadline: new Date(deadline).toISOString(),
+      customer_email: customerEmail || undefined,
+      priority,
+      task_type: isCustomerTask ? "Customer" : "Internal",
+      customer_email_enabled: isCustomerTask ? customerEmailEnabled : false,
       assigned_to: assignedTo,
     });
 
@@ -144,14 +187,17 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const resetForm = () => {
     setTitle("");
     setAssignedTo("");
-    setDeadline("");
+    setPriority("Normal");
     setCustomerCode("");
     setCustomerName("");
     setCustomerPhone("");
     setCustomerLocation("");
     setCompanyName("");
+    setCustomerEmail("");
+    setCustomerEmailEnabled(false);
     setDescription("");
     setCustomerFound(null);
+    setAttachment(null);
   };
 
   return (
@@ -162,7 +208,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Required Fields */}
+          {/* Task Title */}
           <div>
             <Label htmlFor="task-title">Task Title *</Label>
             <Input
@@ -173,6 +219,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             />
           </div>
 
+          {/* Assign To - Employee Names */}
           <div>
             <Label htmlFor="assign-to">Assign To *</Label>
             <Select value={assignedTo} onValueChange={setAssignedTo}>
@@ -181,25 +228,31 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
               </SelectTrigger>
               <SelectContent>
                 {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.email} ({u.role})
+                  <SelectItem key={u.userId} value={u.userId}>
+                    {u.name} – {u.role}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Priority */}
           <div>
-            <Label htmlFor="deadline">Deadline *</Label>
-            <Input
-              id="deadline"
-              type="datetime-local"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-            />
+            <Label>Priority</Label>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Low">🟢 Low</SelectItem>
+                <SelectItem value="Normal">🔵 Normal</SelectItem>
+                <SelectItem value="High">🟠 High</SelectItem>
+                <SelectItem value="Urgent">🔴 Urgent</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Optional: Customer Code */}
+          {/* Customer Code (Optional) */}
           <div>
             <Label htmlFor="customer-code">Customer Code (Optional)</Label>
             <div className="relative">
@@ -249,6 +302,23 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </div>
           )}
 
+          {/* Customer Email Communication Toggle - only for customer tasks */}
+          {isCustomerTask && (
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Enable Customer Email Communication</p>
+                <p className="text-xs text-muted-foreground">
+                  Send task updates to customer via email
+                </p>
+              </div>
+              <Switch
+                checked={customerEmailEnabled}
+                onCheckedChange={setCustomerEmailEnabled}
+              />
+            </div>
+          )}
+
+          {/* Description */}
           <div>
             <Label htmlFor="task-desc">Description / Remarks</Label>
             <Textarea
@@ -260,13 +330,39 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             />
           </div>
 
+          {/* File Attachment */}
+          <div>
+            <Label>Attachment (Optional)</Label>
+            {attachment ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 mt-1">
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm truncate flex-1">{attachment.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setAttachment(null)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.mp4,.mov,.doc,.docx,.xls,.xlsx"
+                onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                className="mt-1"
+              />
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!title || !assignedTo || !deadline || createTask.isPending}
+              disabled={!title || !assignedTo || createTask.isPending}
             >
               {createTask.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

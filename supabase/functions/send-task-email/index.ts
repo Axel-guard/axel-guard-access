@@ -17,8 +17,8 @@ async function sendSmtpEmail(config: {
   username: string;
   password: string;
   from: string;
-  to: string;
-  cc?: string;
+  to: string[];
+  cc?: string[];
   subject: string;
   body: string;
 }): Promise<void> {
@@ -58,10 +58,15 @@ async function sendSmtpEmail(config: {
     }
 
     response = await sendCommand(`MAIL FROM:<${config.from}>`);
-    response = await sendCommand(`RCPT TO:<${config.to}>`);
-
+    
+    // Add all recipients
+    for (const to of config.to) {
+      await sendCommand(`RCPT TO:<${to}>`);
+    }
     if (config.cc) {
-      await sendCommand(`RCPT TO:<${config.cc}>`);
+      for (const cc of config.cc) {
+        await sendCommand(`RCPT TO:<${cc}>`);
+      }
     }
 
     response = await sendCommand("DATA");
@@ -69,8 +74,8 @@ async function sendSmtpEmail(config: {
     const date = new Date().toUTCString();
     const emailContent = [
       `From: AxelGuard <${config.from}>`,
-      `To: ${config.to}`,
-      config.cc ? `Cc: ${config.cc}` : null,
+      `To: ${config.to.join(", ")}`,
+      config.cc?.length ? `Cc: ${config.cc.join(", ")}` : null,
       `Subject: ${config.subject}`,
       `Date: ${date}`,
       `MIME-Version: 1.0`,
@@ -96,11 +101,17 @@ async function sendSmtpEmail(config: {
   }
 }
 
-function getTaskCreatedEmail(task: Record<string, unknown>, assigneeEmail: string): { subject: string; body: string } {
-  const deadline = new Date(task.deadline as string).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+function getPriorityBadge(priority: string): string {
+  const colors: Record<string, string> = {
+    Low: "background: #d1fae5; color: #065f46;",
+    Normal: "background: #dbeafe; color: #1e40af;",
+    High: "background: #fed7aa; color: #9a3412;",
+    Urgent: "background: #fecaca; color: #991b1b;",
+  };
+  return `<span style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; ${colors[priority] || colors.Normal}">${priority}</span>`;
+}
 
+function getTaskCreatedInternalEmail(task: Record<string, unknown>): { subject: string; body: string } {
   const customerSection = task.customer_code
     ? `
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin: 16px 0;">
@@ -127,20 +138,16 @@ function getTaskCreatedEmail(task: Record<string, unknown>, assigneeEmail: strin
     <h1 style="margin: 0; font-size: 24px;">📌 New Task Assigned</h1>
     <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
   </div>
-  
   <div style="padding: 28px 24px;">
     <p style="color: #374151; margin-bottom: 20px;">A new task has been assigned to you.</p>
-    
     <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
       <h2 style="margin: 0 0 8px 0; color: #1e40af; font-size: 18px;">${task.title}</h2>
-      <p style="margin: 0; color: #dc2626; font-weight: 600; font-size: 14px;">⏰ Deadline: ${deadline}</p>
+      <p style="margin: 0;">Priority: ${getPriorityBadge(task.priority as string || "Normal")}</p>
+      <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;">Type: ${task.task_type || "Internal"}</p>
     </div>
-    
     ${task.description ? `<div style="margin-bottom: 16px;"><p style="font-weight: 600; color: #374151; margin: 0 0 4px;">Remarks:</p><p style="color: #4b5563; margin: 0;">${task.description}</p></div>` : ""}
-    
     ${customerSection}
   </div>
-  
   <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
     <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
     <p style="margin: 4px 0 0;">This is an automated notification.</p>
@@ -151,18 +158,52 @@ function getTaskCreatedEmail(task: Record<string, unknown>, assigneeEmail: strin
   };
 }
 
-function getTaskUpdatedEmail(
+function getTaskCreatedCustomerEmail(task: Record<string, unknown>): { subject: string; body: string } {
+  return {
+    subject: `Regarding Your Request – ${task.title}`,
+    body: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
+<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+  <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 28px 24px; text-align: center;">
+    <h1 style="margin: 0; font-size: 22px;">AxelGuard Support</h1>
+    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
+  </div>
+  <div style="padding: 28px 24px;">
+    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
+    <p style="color: #374151; line-height: 1.6;">We would like to inform you that a request has been initiated regarding your query.</p>
+    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      <h3 style="margin: 0 0 8px; color: #1e40af;">${task.title}</h3>
+      ${task.description ? `<p style="margin: 0; color: #4b5563;">${task.description}</p>` : ""}
+    </div>
+    <p style="color: #374151; line-height: 1.6;">Our team is currently working on this and will update you shortly.</p>
+    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong></p>
+  </div>
+  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
+    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
+  </div>
+</div>
+</body>
+</html>`,
+  };
+}
+
+function getTaskUpdatedInternalEmail(
   task: Record<string, unknown>,
   remarks: string,
   statusChange: string | null,
-  updaterEmail: string
+  updaterName: string
 ): { subject: string; body: string } {
   const statusBadge = statusChange
     ? `<span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; ${
-        statusChange === "Completed"
+        statusChange === "Completed" || statusChange === "Closed"
           ? "background: #d1fae5; color: #065f46;"
           : statusChange === "In Progress"
           ? "background: #dbeafe; color: #1e40af;"
+          : statusChange === "Waiting for Customer"
+          ? "background: #fed7aa; color: #9a3412;"
           : "background: #fef3c7; color: #92400e;"
       }">${statusChange}</span>`
     : "";
@@ -179,18 +220,14 @@ function getTaskUpdatedEmail(
     <h1 style="margin: 0; font-size: 22px;">📝 Task Update</h1>
     <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
   </div>
-  
   <div style="padding: 28px 24px;">
     <h2 style="margin: 0 0 16px; color: #1e40af; font-size: 18px;">${task.title}</h2>
-    
     ${statusChange ? `<p style="margin-bottom: 16px;">Status changed to: ${statusBadge}</p>` : ""}
-    
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-      <p style="margin: 0 0 4px; font-weight: 600; color: #374151; font-size: 13px;">Update by ${updaterEmail}:</p>
+      <p style="margin: 0 0 4px; font-weight: 600; color: #374151; font-size: 13px;">Update by ${updaterName}:</p>
       <p style="margin: 0; color: #4b5563;">${remarks}</p>
     </div>
   </div>
-  
   <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
     <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
   </div>
@@ -200,33 +237,31 @@ function getTaskUpdatedEmail(
   };
 }
 
-function getReminderEmail(task: Record<string, unknown>): { subject: string; body: string } {
-  const deadline = new Date(task.deadline as string).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
-
+function getTaskUpdatedCustomerEmail(
+  task: Record<string, unknown>,
+  remarks: string
+): { subject: string; body: string } {
   return {
-    subject: `⏰ Task Deadline Reminder: ${task.title}`,
+    subject: `Re: Update Regarding Your Request – ${task.title}`,
     body: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
 <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 22px;">⏰ Deadline Approaching</h1>
+  <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 24px; text-align: center;">
+    <h1 style="margin: 0; font-size: 22px;">AxelGuard Support Update</h1>
     <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
   </div>
-  
   <div style="padding: 28px 24px;">
-    <p style="color: #374151;">Reminder: Your assigned task deadline is approaching. Please update or complete the task.</p>
-    
-    <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
-      <h2 style="margin: 0 0 8px 0; color: #dc2626; font-size: 18px;">${task.title}</h2>
-      <p style="margin: 0; font-weight: 600; color: #991b1b;">Deadline: ${deadline}</p>
+    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
+    <p style="color: #374151; line-height: 1.6;">We would like to inform you about an update regarding your request.</p>
+    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      <p style="margin: 0; color: #374151;">${remarks}</p>
     </div>
+    <p style="color: #374151; line-height: 1.6;">Our team is currently working on this and will update you shortly.</p>
+    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong></p>
   </div>
-  
   <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
     <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
   </div>
@@ -260,19 +295,29 @@ serve(async (req) => {
       throw new Error(`Task not found: ${taskId}`);
     }
 
-    // Get emails for creator and assignee from allowed_emails via user_roles
+    // Get user email
     const getUserEmail = async (userId: string): Promise<string | null> => {
-      const { data: role } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (!role) return null;
-
-      // Try to find email from auth.users
       const { data: userData } = await supabase.auth.admin.getUserById(userId);
       return userData?.user?.email || null;
+    };
+
+    // Get user display name from employees
+    const getUserName = async (email: string): Promise<string> => {
+      const { data: emp } = await supabase
+        .from("employees")
+        .select("name")
+        .ilike("email", email)
+        .maybeSingle();
+      return emp?.name || email.split("@")[0];
+    };
+
+    // Get admin emails for CC
+    const getAdminEmails = async (): Promise<string[]> => {
+      const { data: admins } = await supabase
+        .from("allowed_emails")
+        .select("email, role")
+        .in("role", ["admin", "master_admin"]);
+      return admins?.map(a => a.email) || [];
     };
 
     const creatorEmail = await getUserEmail(task.created_by);
@@ -291,45 +336,61 @@ serve(async (req) => {
     const smtpUser = Deno.env.get("SMTP_USER")!;
     const smtpPass = Deno.env.get("SMTP_PASS")!;
 
-    let subject: string;
-    let body: string;
+    const isCustomerTask = task.task_type === "Customer" && task.customer_email_enabled && task.customer_email;
+    const adminEmails = await getAdminEmails();
 
     if (type === "created") {
-      const email = getTaskCreatedEmail(task, assigneeEmail);
-      subject = email.subject;
-      body = email.body;
+      // Send internal email to assigned user + creator + admins
+      const internalEmail = getTaskCreatedInternalEmail(task);
+      const internalRecipients = [assigneeEmail];
+      const internalCc = [...new Set([
+        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
+        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
+      ])];
 
       await sendSmtpEmail({
         host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: assigneeEmail, cc: creatorEmail || undefined,
-        subject, body,
+        from: smtpUser, to: internalRecipients, cc: internalCc.length ? internalCc : undefined,
+        subject: internalEmail.subject, body: internalEmail.body,
       });
+
+      // If customer email is enabled, send professional email to customer
+      if (isCustomerTask) {
+        const customerEmailContent = getTaskCreatedCustomerEmail(task);
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: [task.customer_email],
+          cc: [assigneeEmail, ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : [])],
+          subject: customerEmailContent.subject, body: customerEmailContent.body,
+        });
+      }
     } else if (type === "updated") {
-      const updaterEmail = creatorEmail || assigneeEmail;
-      const email = getTaskUpdatedEmail(task, remarks || "", statusChange || null, updaterEmail);
-      subject = email.subject;
-      body = email.body;
+      const updaterName = await getUserName(creatorEmail || assigneeEmail);
 
-      // Send to both creator and assignee
-      const recipients = [creatorEmail, assigneeEmail].filter(Boolean) as string[];
-      const primaryTo = recipients[0];
-      const cc = recipients.length > 1 ? recipients[1] : undefined;
-
-      await sendSmtpEmail({
-        host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: primaryTo, cc,
-        subject, body,
-      });
-    } else if (type === "reminder") {
-      const email = getReminderEmail(task);
-      subject = email.subject;
-      body = email.body;
+      // Internal email
+      const internalEmail = getTaskUpdatedInternalEmail(task, remarks || "", statusChange || null, updaterName);
+      const internalRecipients = [assigneeEmail];
+      const internalCc = [...new Set([
+        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
+        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
+      ])];
 
       await sendSmtpEmail({
         host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: assigneeEmail,
-        subject, body,
+        from: smtpUser, to: internalRecipients, cc: internalCc.length ? internalCc : undefined,
+        subject: internalEmail.subject, body: internalEmail.body,
       });
+
+      // Customer email if enabled
+      if (isCustomerTask) {
+        const customerEmailContent = getTaskUpdatedCustomerEmail(task, remarks || "");
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: [task.customer_email],
+          cc: [assigneeEmail, ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : [])],
+          subject: customerEmailContent.subject, body: customerEmailContent.body,
+        });
+      }
     }
 
     console.log(`Task email (${type}) sent for task: ${taskId}`);

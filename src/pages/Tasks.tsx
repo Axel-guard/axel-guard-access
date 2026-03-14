@@ -17,23 +17,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { differenceInDays } from "date-fns";
 import {
   Plus,
   Search,
   Clock,
   CheckCircle,
   AlertTriangle,
-  Timer,
   User,
   CalendarClock,
+  Flag,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning border-warning/30",
   "In Progress": "bg-info/10 text-info border-info/30",
+  "Waiting for Customer": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
   Completed: "bg-success/10 text-success border-success/30",
+  Closed: "bg-muted text-muted-foreground border-muted",
 };
+
+const priorityColors: Record<string, string> = {
+  Low: "text-emerald-600",
+  Normal: "text-blue-600",
+  High: "text-orange-600",
+  Urgent: "text-red-600",
+};
+
+function getTaskAgeDays(createdAt: string): number {
+  return differenceInDays(new Date(), new Date(createdAt));
+}
+
+function getAgeBarColor(days: number): string {
+  if (days <= 2) return "bg-emerald-500";
+  if (days <= 5) return "bg-orange-500";
+  return "bg-red-500";
+}
 
 const Tasks = () => {
   const { user, isAdmin } = useAuth();
@@ -44,11 +63,12 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [tab, setTab] = useState("my-tasks");
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
-  // Fetch user emails for display
+  // Fetch user emails and names for display
   useEffect(() => {
-    const fetchEmails = async () => {
-      const { data } = await supabase
+    const fetchUsers = async () => {
+      const { data: allowedEmails } = await supabase
         .from("allowed_emails")
         .select("email, role");
 
@@ -56,41 +76,52 @@ const Tasks = () => {
         .from("user_roles")
         .select("user_id, role");
 
-      if (!data || !roles) return;
+      const { data: employees } = await supabase
+        .from("employees")
+        .select("name, email");
 
-      const map: Record<string, string> = {};
+      if (!allowedEmails || !roles) return;
+
+      const emailMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
+
       for (const r of roles) {
-        const match = data.find((d) => d.role === r.role);
-        if (match) map[r.user_id] = match.email;
+        const match = allowedEmails.find((d) => d.role === r.role);
+        if (match) {
+          emailMap[r.user_id] = match.email;
+          // Find employee name by email
+          const emp = employees?.find(
+            (e) => e.email?.toLowerCase() === match.email.toLowerCase()
+          );
+          nameMap[r.user_id] = emp?.name || match.email.split("@")[0];
+        }
       }
-      setUserEmails(map);
+      setUserEmails(emailMap);
+      setUserNames(nameMap);
     };
-    fetchEmails();
+    fetchUsers();
   }, []);
 
   const filtered = useMemo(() => {
     let result = tasks;
 
-    // Tab filter
     if (tab === "my-tasks") {
       result = result.filter((t) => t.assigned_to === user?.id);
     } else if (tab === "assigned-by-me") {
       result = result.filter((t) => t.created_by === user?.id);
     } else if (tab === "overdue") {
+      // Tasks older than 5 days that are not completed/closed
       result = result.filter(
-        (t) => t.status !== "Completed" && new Date(t.deadline) < new Date()
+        (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
       );
     } else if (tab === "completed") {
-      result = result.filter((t) => t.status === "Completed");
+      result = result.filter((t) => t.status === "Completed" || t.status === "Closed");
     }
-    // "all" tab shows everything (admin only)
 
-    // Status filter
     if (statusFilter !== "all") {
       result = result.filter((t) => t.status === statusFilter);
     }
 
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -108,9 +139,9 @@ const Tasks = () => {
     const myTasks = tasks.filter((t) => t.assigned_to === user?.id);
     const assignedByMe = tasks.filter((t) => t.created_by === user?.id);
     const overdue = tasks.filter(
-      (t) => t.status !== "Completed" && new Date(t.deadline) < new Date()
+      (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
     );
-    const completed = tasks.filter((t) => t.status === "Completed");
+    const completed = tasks.filter((t) => t.status === "Completed" || t.status === "Closed");
     return {
       myTasks: myTasks.length,
       assignedByMe: assignedByMe.length,
@@ -171,7 +202,7 @@ const Tasks = () => {
             </div>
             <div>
               <p className="text-2xl font-bold">{counts.overdue}</p>
-              <p className="text-xs text-muted-foreground">Overdue</p>
+              <p className="text-xs text-muted-foreground">Overdue (5+ Days)</p>
             </div>
           </CardContent>
         </Card>
@@ -221,20 +252,21 @@ const Tasks = () => {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Waiting for Customer">Waiting</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Task Cards - same content for all tabs, filtered by useMemo */}
         {["my-tasks", "assigned-by-me", "overdue", "completed", "all"].map(
           (tabValue) => (
             <TabsContent key={tabValue} value={tabValue} className="mt-4">
@@ -246,59 +278,65 @@ const Tasks = () => {
               ) : (
                 <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {filtered.map((task) => {
-                    const isOverdue =
-                      task.status !== "Completed" &&
-                      new Date(task.deadline) < new Date();
+                    const taskAge = getTaskAgeDays(task.created_at);
+                    const ageBarColor = getAgeBarColor(taskAge);
                     return (
                       <Card
                         key={task.id}
-                        className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30"
+                        className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30 overflow-hidden"
                         onClick={() => setSelectedTask(task)}
                       >
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-semibold text-sm line-clamp-2">
-                              {task.title}
-                            </h3>
-                            <Badge
-                              variant="outline"
-                              className={`shrink-0 text-xs ${
-                                statusColors[task.status] || ""
-                              }`}
-                            >
-                              {task.status}
-                            </Badge>
-                          </div>
-
-                          {task.customer_code && (
-                            <p className="text-xs text-muted-foreground">
-                              Customer: {task.customer_code}
-                              {task.customer_name
-                                ? ` - ${task.customer_name}`
-                                : ""}
-                            </p>
-                          )}
-
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              <span className="truncate max-w-[120px]">
-                                {userEmails[task.assigned_to] || "Unknown"}
-                              </span>
+                        <div className="flex">
+                          {/* Age color bar */}
+                          <div className={`w-1.5 ${ageBarColor} shrink-0`} />
+                          <CardContent className="p-4 space-y-3 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-sm line-clamp-2">
+                                {task.title}
+                              </h3>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-xs ${statusColors[task.status] || ""}`}
+                              >
+                                {task.status}
+                              </Badge>
                             </div>
-                            <div
-                              className={`flex items-center gap-1 ${
-                                isOverdue ? "text-destructive font-medium" : ""
-                              }`}
-                            >
-                              <Clock className="h-3 w-3" />
-                              {format(
-                                new Date(task.deadline),
-                                "dd MMM, hh:mm a"
+
+                            {/* Priority & Age */}
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-medium ${priorityColors[task.priority] || ""}`}>
+                                <Flag className="h-3 w-3 inline mr-0.5" />
+                                {task.priority}
+                              </span>
+                              <span className="text-xs text-muted-foreground">•</span>
+                              <span className="text-xs text-muted-foreground">
+                                {taskAge === 0 ? "Today" : `${taskAge}d old`}
+                              </span>
+                              {task.task_type === "Customer" && (
+                                <>
+                                  <span className="text-xs text-muted-foreground">•</span>
+                                  <span className="text-xs text-muted-foreground">👤 Customer</span>
+                                </>
                               )}
                             </div>
-                          </div>
-                        </CardContent>
+
+                            {task.customer_code && (
+                              <p className="text-xs text-muted-foreground">
+                                {task.customer_code}
+                                {task.customer_name ? ` – ${task.customer_name}` : ""}
+                              </p>
+                            )}
+
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                <span className="truncate max-w-[140px]">
+                                  {userNames[task.assigned_to] || userEmails[task.assigned_to] || "Unknown"}
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
                       </Card>
                     );
                   })}
@@ -315,6 +353,7 @@ const Tasks = () => {
         open={!!selectedTask}
         onOpenChange={(open) => !open && setSelectedTask(null)}
         userEmails={userEmails}
+        userNames={userNames}
       />
     </div>
   );

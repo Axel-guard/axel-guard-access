@@ -12,8 +12,12 @@ export interface Task {
   customer_phone: string | null;
   customer_location: string | null;
   company_name: string | null;
-  deadline: string;
+  customer_email: string | null;
+  deadline: string | null;
   status: string;
+  priority: string;
+  task_type: string;
+  customer_email_enabled: boolean;
   created_by: string;
   assigned_to: string;
   created_at: string;
@@ -28,6 +32,8 @@ export interface TaskUpdate {
   user_id: string;
   remarks: string;
   status_change: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
   created_at: string;
 }
 
@@ -39,7 +45,11 @@ export interface CreateTaskData {
   customer_phone?: string;
   customer_location?: string;
   company_name?: string;
-  deadline: string;
+  customer_email?: string;
+  priority?: string;
+  task_type?: string;
+  customer_email_enabled?: boolean;
+  deadline?: string;
   assigned_to: string;
 }
 
@@ -125,10 +135,14 @@ export const useAddTaskUpdate = () => {
       taskId,
       remarks,
       statusChange,
+      attachmentUrl,
+      attachmentName,
     }: {
       taskId: string;
       remarks: string;
       statusChange?: string;
+      attachmentUrl?: string;
+      attachmentName?: string;
     }) => {
       // Insert update
       const { error: updateError } = await supabase
@@ -138,6 +152,8 @@ export const useAddTaskUpdate = () => {
           user_id: user!.id,
           remarks,
           status_change: statusChange || null,
+          attachment_url: attachmentUrl || null,
+          attachment_name: attachmentName || null,
         });
 
       if (updateError) throw updateError;
@@ -145,7 +161,7 @@ export const useAddTaskUpdate = () => {
       // Update task status if changed
       if (statusChange) {
         const updateData: Record<string, unknown> = { status: statusChange };
-        if (statusChange === "Completed") {
+        if (statusChange === "Completed" || statusChange === "Closed") {
           updateData.completed_at = new Date().toISOString();
         }
         const { error: taskError } = await supabase
@@ -174,4 +190,22 @@ export const useAddTaskUpdate = () => {
       toast.error(error.message || "Failed to update task");
     },
   });
+};
+
+export const uploadTaskAttachment = async (file: File): Promise<{ url: string; name: string }> => {
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
+  const filePath = `attachments/${fileName}`;
+
+  const { error } = await supabase.storage
+    .from("task-attachments")
+    .upload(filePath, file);
+
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage
+    .from("task-attachments")
+    .getPublicUrl(filePath);
+
+  return { url: urlData.publicUrl, name: file.name };
 };

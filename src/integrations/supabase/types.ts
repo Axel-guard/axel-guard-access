@@ -909,6 +909,8 @@ export type Database = {
       }
       task_updates: {
         Row: {
+          attachment_name: string | null
+          attachment_url: string | null
           created_at: string
           id: string
           remarks: string
@@ -917,6 +919,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           created_at?: string
           id?: string
           remarks: string
@@ -925,6 +929,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           created_at?: string
           id?: string
           remarks?: string
@@ -950,14 +956,18 @@ export type Database = {
           created_at: string
           created_by: string
           customer_code: string | null
+          customer_email: string | null
+          customer_email_enabled: boolean
           customer_location: string | null
           customer_name: string | null
           customer_phone: string | null
-          deadline: string
+          deadline: string | null
           description: string | null
           email_thread_id: string | null
           id: string
+          priority: string
           status: string
+          task_type: string
           title: string
           updated_at: string
         }
@@ -968,14 +978,18 @@ export type Database = {
           created_at?: string
           created_by: string
           customer_code?: string | null
+          customer_email?: string | null
+          customer_email_enabled?: boolean
           customer_location?: string | null
           customer_name?: string | null
           customer_phone?: string | null
-          deadline: string
+          deadline?: string | null
           description?: string | null
           email_thread_id?: string | null
           id?: string
+          priority?: string
           status?: string
+          task_type?: string
           title: string
           updated_at?: string
         }
@@ -986,14 +1000,18 @@ export type Database = {
           created_at?: string
           created_by?: string
           customer_code?: string | null
+          customer_email?: string | null
+          customer_email_enabled?: boolean
           customer_location?: string | null
           customer_name?: string | null
           customer_phone?: string | null
-          deadline?: string
+          deadline?: string | null
           description?: string | null
           email_thread_id?: string | null
           id?: string
+          priority?: string
           status?: string
+          task_type?: string
           title?: string
           updated_at?: string
         }
