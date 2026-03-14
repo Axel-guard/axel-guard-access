@@ -297,6 +297,26 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           </div>
         </DialogHeader>
 
+        {emailMissingError && (
+          <Alert variant="destructive" className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Customer email ID is not present. First add email ID, then complete this form.
+              </AlertDescription>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAddEmailDialog(true)}
+              className="ml-4 shrink-0"
+            >
+              Add Email ID
+            </Button>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6 pt-4">
           {/* Row 1: Customer Code, Customer Name, Mobile Number */}
           <div className="grid gap-4 md:grid-cols-3">
