@@ -58,6 +58,8 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const [lookingUp, setLookingUp] = useState(false);
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
 
   // Fetch users for assignment - use employee user_id for direct mapping
   useEffect(() => {
