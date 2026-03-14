@@ -134,6 +134,12 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const handleSubmit = async () => {
     if (!title || !assignedTo) return;
 
+    // For customer tasks, require email
+    if (isCustomerTask && !customerEmail.trim()) {
+      setEmailMissingError(true);
+      return;
+    }
+    setEmailMissingError(false);
     let attachmentUrl: string | undefined;
     let attachmentName: string | undefined;
 
