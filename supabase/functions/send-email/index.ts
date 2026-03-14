@@ -14,6 +14,7 @@ interface EmailRequest {
   dispatchData?: {
     dispatchDate?: string;
     serialNumbers?: string[];
+    productSerials?: { product_name: string; serial_number: string }[];
     productName?: string;
     totalQuantity?: number;
   };
@@ -205,12 +206,38 @@ const getEmailTemplate = (
       };
  
      case "dispatch":
-       const serialNumbersHtml = (data.serialNumbers as string[])?.length > 0
+       // Build product-serial table from productSerials or fallback to flat serialNumbers
+       const productSerials = (data.productSerials as { product_name: string; serial_number: string }[]) || [];
+       const flatSerials = (data.serialNumbers as string[]) || [];
+       
+       const serialNumbersHtml = (productSerials.length > 0 || flatSerials.length > 0)
         ? `<div class="section-card">
-            <div class="section-title">🔢 Dispatched Serial Numbers</div>
-            <div style="text-align: center; padding: 10px 0;">
-              ${(data.serialNumbers as string[]).map((sn: string) => `<span class="serial-badge">${sn}</span>`).join("")}
-             </div>
+            <div class="section-title">📋 Dispatched Devices</div>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+              <thead>
+                <tr style="background: #f0fdf4;">
+                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">S.No</th>
+                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">Product Name</th>
+                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">Serial Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${productSerials.length > 0 
+                  ? productSerials.map((ps, idx) => `
+                    <tr style="border-bottom: 1px solid #f3f4f6;${idx % 2 === 1 ? ' background: #fafafa;' : ''}">
+                      <td style="padding: 10px 14px; font-size: 13px; color: #6b7280;">${idx + 1}</td>
+                      <td style="padding: 10px 14px; font-size: 13px; color: #111827; font-weight: 500;">${ps.product_name}</td>
+                      <td style="padding: 10px 14px; font-size: 13px; color: #059669; font-weight: 600; font-family: monospace;">${ps.serial_number}</td>
+                    </tr>`).join("")
+                  : flatSerials.map((sn, idx) => `
+                    <tr style="border-bottom: 1px solid #f3f4f6;${idx % 2 === 1 ? ' background: #fafafa;' : ''}">
+                      <td style="padding: 10px 14px; font-size: 13px; color: #6b7280;">${idx + 1}</td>
+                      <td style="padding: 10px 14px; font-size: 13px; color: #111827;">—</td>
+                      <td style="padding: 10px 14px; font-size: 13px; color: #059669; font-weight: 600; font-family: monospace;">${sn}</td>
+                    </tr>`).join("")
+                }
+              </tbody>
+            </table>
            </div>`
          : "";
  
@@ -866,10 +893,22 @@ const getEmailTemplate = (
         const totalDispatchedSoFar = allDispatched?.length || 0;
         const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
         
+        // Build product-serial pairs for email table
+        let productSerialPairs = dispatchData?.productSerials || [];
+        if (productSerialPairs.length === 0 && serialNumbers.length > 0) {
+          // Fallback: fetch product names from inventory
+          const { data: invItems } = await supabase
+            .from("inventory")
+            .select("serial_number, product_name")
+            .in("serial_number", serialNumbers);
+          productSerialPairs = (invItems || []).map(i => ({ product_name: i.product_name, serial_number: i.serial_number }));
+        }
+
         emailData = {
           ...emailData,
           dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
           serialNumbers,
+          productSerials: productSerialPairs,
           productName,
           totalQuantity,
           totalOrderItems,

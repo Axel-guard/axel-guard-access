@@ -7,6 +7,7 @@ type EmailType = "sale" | "dispatch" | "tracking";
 interface DispatchEmailData {
   dispatchDate?: string;
   serialNumbers?: string[];
+  productSerials?: { product_name: string; serial_number: string }[];
   productName?: string;
   totalQuantity?: number;
 }

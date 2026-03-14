@@ -544,6 +544,7 @@ export const CreateDispatchDialog = ({
       sendDispatchEmail(order.order_id, {
         dispatchDate: format(new Date(dispatchDate), "dd/MM/yyyy"),
         serialNumbers,
+        productSerials: scannedDevices.map(d => ({ product_name: d.product_name, serial_number: d.serial_number })),
         productName: productNames,
         totalQuantity: totalThisDispatch,
       }).catch(emailError => {
