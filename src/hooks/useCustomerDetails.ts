@@ -426,6 +426,14 @@ export const useUpdateCustomer = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["customer-search"] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-history-with-sales"] });
       toast.success("Customer updated successfully!");
     },
     onError: (error) => {

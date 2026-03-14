@@ -122,6 +122,11 @@ export const useUpdateLead = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-search"] });
       toast.success("Lead updated successfully!");
     },
     onError: (error) => {
