@@ -67,41 +67,25 @@ const Tasks = () => {
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [userNames, setUserNames] = useState<Record<string, string>>({});
 
-  // Fetch user emails and names using proper DB function
+  // Fetch user names using employee user_id for direct mapping
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data: userMap } = await supabase.rpc("get_user_email_map");
       const { data: employees } = await supabase
         .from("employees")
-        .select("name, email");
+        .select("name, email, user_id")
+        .eq("is_active", true);
 
-      if (!userMap) return;
+      if (!employees) return;
 
       const emailMap: Record<string, string> = {};
       const nameMap: Record<string, string> = {};
 
-      // Hardcoded email→name mapping for known users
-      const knownNames: Record<string, string> = {
-        "info@axel-guard.com": "Akash Parashar",
-        "admin@axel-guard.com": "Siddharth Nagaich",
-        "support@axel-guard.com": "Pawan Singh",
-        "mani@axel-guard.com": "Mandeep Samal",
-        "sales.realtrack@gmail.com": "Smruti Ranjan Nayak",
-      };
-
-      for (const um of userMap) {
-        emailMap[um.user_id] = um.email;
-        const emailLower = um.email.toLowerCase();
-        // Check known names first, then employees, then fallback
-        if (knownNames[emailLower]) {
-          nameMap[um.user_id] = knownNames[emailLower];
-        } else {
-          const emp = employees?.find(
-            (e) => e.email?.toLowerCase() === emailLower
-          );
-          nameMap[um.user_id] = emp?.name || um.email.split("@")[0];
-        }
+      for (const emp of employees) {
+        if (!emp.user_id) continue;
+        emailMap[emp.user_id] = emp.email || "";
+        nameMap[emp.user_id] = emp.name;
       }
+
       setUserEmails(emailMap);
       setUserNames(nameMap);
     };
