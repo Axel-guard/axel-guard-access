@@ -15,25 +15,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   readExcelFile,
   isValidExcelFile,
-  findMatchingColumn,
-  cleanValue,
   parseNumber,
-  normalizeColumnName,
+  parseDate,
 } from "@/lib/excelParser";
 
-// Expanded column mappings for flexible matching
-const COLUMN_MAPPINGS: Record<string, string[]> = {
-  order_id: ["order id", "order_id", "order no", "order number", "orderid", "order", "id", "sr no", "s no", "sno", "srno"],
-  sale_date: ["sale date", "sale_date", "saledate", "date", "order date", "invoice date"],
-  customer_code: ["customer code", "customer_code", "customercode", "cust code", "custcode", "cust id", "customer id"],
-  customer_name: ["customer name", "customer_name", "customername", "name", "cust name", "custname", "party name", "party"],
-  customer_contact: ["mobile", "mobile number", "phone", "contact", "mobile_number", "phone number", "cell", "mob", "contact no"],
-  location: ["location", "city", "address", "area", "state", "place", "delivery location"],
-  total_amount: ["total amount", "total_amount", "totalamount", "total", "amount", "grand total", "net amount", "invoice amount", "bill amount"],
-  final_amount: ["final amount", "final_amount", "finalamount", "final", "net amount", "payable", "receivable"],
+// Direct column name mapping (case-insensitive, trimmed)
+const getColumnValue = (row: Record<string, any>, ...possibleNames: string[]): any => {
+  for (const key of Object.keys(row)) {
+    const normalized = key.toLowerCase().trim();
+    for (const name of possibleNames) {
+      if (normalized === name.toLowerCase().trim()) {
+        return row[key];
+      }
+    }
+  }
+  return undefined;
 };
-
-const DATE_COLUMNS = ["sale_date"];
 
 export const SalesUploadDialog = () => {
   const [open, setOpen] = useState(false);
@@ -54,167 +51,171 @@ export const SalesUploadDialog = () => {
         throw new Error("No data found in the Excel file");
       }
 
-      setProgress({ current: 0, total: jsonData.length, status: "Mapping columns..." });
+      setProgress({ current: 0, total: jsonData.length, status: "Grouping orders..." });
 
-      // Get Excel columns and create mapping
-      const excelColumns = Object.keys(jsonData[0] as object);
-      const columnMap: Record<string, string> = {};
+      // Group rows by Order ID
+      const orderGroups = new Map<string, Record<string, any>[]>();
 
-      console.log("Excel columns found:", excelColumns);
+      for (const row of jsonData) {
+        const rawRow = row as Record<string, any>;
+        const orderId = String(
+          getColumnValue(rawRow, "Order ID", "order_id", "Order No", "OrderID") ?? ""
+        ).trim();
 
-      for (const excelCol of excelColumns) {
-        const schemaCol = findMatchingColumn(excelCol, COLUMN_MAPPINGS);
-        if (schemaCol) {
-          columnMap[excelCol] = schemaCol;
+        if (!orderId) continue;
+
+        if (!orderGroups.has(orderId)) {
+          orderGroups.set(orderId, []);
         }
+        orderGroups.get(orderId)!.push(rawRow);
       }
 
-      console.log("Column mapping:", columnMap);
+      const totalOrders = orderGroups.size;
+      setProgress({ current: 0, total: totalOrders, status: `Processing ${totalOrders} orders...` });
 
-      // Check for required columns - order_id is the only required field
-      const mappedColumns = Object.values(columnMap);
-      if (!mappedColumns.includes("order_id")) {
-        // Try to find any column that might be order_id
-        const possibleOrderCols = excelColumns.filter(col => {
-          const normalized = normalizeColumnName(col);
-          return normalized.includes("order") || normalized.includes("id") || normalized.includes("no") || normalized.includes("sr");
-        });
-        
-        if (possibleOrderCols.length > 0) {
-          columnMap[possibleOrderCols[0]] = "order_id";
-          console.log("Auto-mapped first ID-like column:", possibleOrderCols[0]);
-        } else {
-          throw new Error("Could not find 'Order ID' column. Please ensure your Excel has an Order ID, Order No, or similar column.");
-        }
+      // First, delete existing orders that will be replaced (Safe Replace strategy)
+      const orderIds = Array.from(orderGroups.keys());
+      
+      // Delete in batches of 50
+      for (let i = 0; i < orderIds.length; i += 50) {
+        const batch = orderIds.slice(i, i + 50);
+        // Delete sale_items first (foreign key)
+        await supabase.from("sale_items").delete().in("order_id", batch);
+        // Delete payment_history
+        await supabase.from("payment_history").delete().in("order_id", batch);
+        // Delete sales
+        await supabase.from("sales").delete().in("order_id", batch);
       }
 
-      setProgress({ current: 0, total: jsonData.length, status: "Processing records..." });
+      let successCount = 0;
+      let errorCount = 0;
+      let processed = 0;
 
-      // Transform ALL data - allow duplicates, skip invalid rows
-      const transformedData: any[] = [];
-      const skippedRows: { row: number; reason: string }[] = [];
-
-      for (let i = 0; i < jsonData.length; i++) {
+      for (const [orderId, rows] of orderGroups) {
         try {
-          const record = jsonData[i] as Record<string, any>;
-          const transformed: Record<string, any> = {};
+          const firstRow = rows[0];
 
-          // Extract values using column mapping
-          for (const [excelCol, schemaCol] of Object.entries(columnMap)) {
-            const rawValue = record[excelCol];
-            if (schemaCol === "total_amount" || schemaCol === "final_amount") {
-              transformed[schemaCol] = parseNumber(rawValue) || 0;
-            } else {
-              transformed[schemaCol] = cleanValue(rawValue, schemaCol, DATE_COLUMNS);
+          // Extract order-level data from first row
+          const saleDate = parseDate(getColumnValue(firstRow, "Sale Date", "sale_date", "Date")) 
+            || new Date().toISOString().split("T")[0];
+          const customerCode = String(getColumnValue(firstRow, "Customer Code", "customer_code", "Cust Code") ?? "").trim() || "UNKNOWN";
+          const customerName = String(getColumnValue(firstRow, "Customer Name", "customer_name", "Name") ?? "").trim() || null;
+          const companyName = String(getColumnValue(firstRow, "Company Name", "company_name") ?? "").trim() || null;
+          const employeeName = String(getColumnValue(firstRow, "Employee", "employee_name", "Employee Name") ?? "").trim() || "Imported";
+          const customerContact = String(getColumnValue(firstRow, "Contact", "customer_contact", "Mobile", "Phone") ?? "").trim() || null;
+          const saleType = String(getColumnValue(firstRow, "Sale Type", "sale_type") ?? "Without").trim();
+
+          // Financial data (same across all rows of an order)
+          const subtotal = parseNumber(getColumnValue(firstRow, "Subtotal", "Sub Total")) || 0;
+          const courierCost = parseNumber(getColumnValue(firstRow, "Courier Cost", "Courier")) || 0;
+          const gstAmount = parseNumber(getColumnValue(firstRow, "GST Amount", "GST")) || 0;
+          const totalAmount = parseNumber(getColumnValue(firstRow, "Total Amount", "Total")) || 0;
+          const amountReceived = parseNumber(getColumnValue(firstRow, "Amount Received", "Received")) || 0;
+          const balanceAmount = parseNumber(getColumnValue(firstRow, "Balance Amount", "Balance")) || 0;
+          const account = String(getColumnValue(firstRow, "Account", "account_received") ?? "").trim() || null;
+
+          // Insert sale record
+          const { error: saleError } = await supabase.from("sales").insert({
+            order_id: orderId,
+            sale_date: saleDate,
+            customer_code: customerCode,
+            customer_name: customerName || undefined,
+            company_name: companyName || undefined,
+            employee_name: employeeName,
+            customer_contact: customerContact || undefined,
+            sale_type: saleType === "With" ? "With" : "Without",
+            subtotal,
+            courier_cost: courierCost,
+            gst_amount: gstAmount,
+            total_amount: totalAmount || subtotal,
+            amount_received: amountReceived,
+            balance_amount: balanceAmount,
+            account_received: account || undefined,
+          });
+
+          if (saleError) {
+            console.error(`Sale insert error for ${orderId}:`, saleError);
+            errorCount++;
+            processed++;
+            continue;
+          }
+
+          // Insert sale items for each row that has product data
+          const saleItems: { order_id: string; product_name: string; quantity: number; unit_price: number }[] = [];
+
+          for (const row of rows) {
+            const productName = String(getColumnValue(row, "Product Name", "product_name") ?? "").trim();
+            const productCode = String(getColumnValue(row, "Product Code", "product_code") ?? "").trim();
+            const quantity = parseNumber(getColumnValue(row, "Quantity", "Qty")) || 0;
+            const unitPrice = parseNumber(getColumnValue(row, "Unit Price", "Rate", "Price")) || 0;
+
+            // Include row if it has any product info or quantity
+            if (productName || productCode || quantity > 0) {
+              saleItems.push({
+                order_id: orderId,
+                product_name: productName || productCode || "Unknown Product",
+                quantity: quantity || 1,
+                unit_price: unitPrice,
+              });
             }
           }
 
-          // Skip if no order_id (only required field)
-          if (!transformed.order_id && transformed.order_id !== 0) {
-            skippedRows.push({ row: i + 2, reason: "Missing Order ID" });
-            continue;
+          if (saleItems.length > 0) {
+            const { error: itemsError } = await supabase.from("sale_items").insert(saleItems);
+            if (itemsError) {
+              console.error(`Sale items error for ${orderId}:`, itemsError);
+            }
           }
 
-          // Normalize order_id: trim spaces, ensure string (accept numeric or text)
-          const normalizedOrderId = String(transformed.order_id).trim();
-          if (!normalizedOrderId) {
-            skippedRows.push({ row: i + 2, reason: "Empty Order ID" });
-            continue;
-          }
-          transformed.order_id = normalizedOrderId;
+          // Insert payment history if payment data exists
+          const paymentDate = parseDate(getColumnValue(firstRow, "Payment Date", "payment_date"));
+          const paymentAmount = parseNumber(getColumnValue(firstRow, "Payment Amount", "payment_amount"));
+          const paymentReference = String(getColumnValue(firstRow, "Payment Reference", "payment_reference") ?? "").trim() || null;
 
-          // Map final_amount to total_amount if total_amount is missing
-          if (!transformed.total_amount && transformed.final_amount) {
-            transformed.total_amount = transformed.final_amount;
-          }
-
-          // Set required defaults
-          transformed.customer_code = transformed.customer_code || `CUST-${Date.now()}-${i}`;
-          transformed.employee_name = transformed.employee_name || "Imported";
-          transformed.sale_type = "Without";
-          transformed.subtotal = transformed.total_amount || 0;
-          transformed.gst_amount = 0;
-          transformed.courier_cost = 0;
-          transformed.amount_received = 0;
-          transformed.balance_amount = transformed.total_amount || 0;
-          transformed.sale_date = transformed.sale_date || new Date().toISOString().split("T")[0];
-
-          // Store location in remarks if present
-          if (transformed.location) {
-            transformed.remarks = `Location: ${transformed.location}`;
+          if (paymentDate && paymentAmount && paymentAmount > 0) {
+            await supabase.from("payment_history").insert({
+              order_id: orderId,
+              payment_date: paymentDate,
+              amount: paymentAmount,
+              account_received: account || "Cash",
+              payment_reference: paymentReference || undefined,
+            });
           }
 
-          // Remove non-schema fields
-          delete transformed.final_amount;
-          delete transformed.location;
-
-          transformedData.push(transformed);
-        } catch (rowError: any) {
-          console.error(`Error processing row ${i + 2}:`, rowError);
-          skippedRows.push({ row: i + 2, reason: rowError.message || "Processing error" });
-        }
-      }
-
-      if (transformedData.length === 0) {
-        throw new Error(`No valid records found. ${skippedRows.length} rows skipped. Please ensure your Excel has Order ID column with data.`);
-      }
-
-      setProgress({ current: 0, total: transformedData.length, status: "Uploading to database..." });
-
-      // Upload records one by one to avoid batch failures
-      let uploaded = 0;
-      let successCount = 0;
-      let errorCount = 0;
-      const failedRecords: { orderId: string; reason: string }[] = [];
-
-      for (let i = 0; i < transformedData.length; i++) {
-        const record = transformedData[i];
-
-        try {
-          const { error: insertError } = await supabase
-            .from("sales")
-            .insert(record);
-
-          if (insertError) {
-            console.error("Insert error for", record.order_id, ":", insertError);
-            errorCount++;
-            failedRecords.push({ orderId: record.order_id, reason: insertError.message });
-          } else {
-            successCount++;
-          }
+          successCount++;
         } catch (err: any) {
+          console.error(`Error processing order ${orderId}:`, err);
           errorCount++;
-          failedRecords.push({ orderId: record.order_id, reason: err.message || "Unknown error" });
         }
 
-        uploaded++;
-        if (uploaded % 50 === 0 || uploaded === transformedData.length) {
+        processed++;
+        if (processed % 10 === 0 || processed === totalOrders) {
           setProgress({
-            current: uploaded,
-            total: transformedData.length,
-            status: `Processed ${uploaded} of ${transformedData.length} records...`,
+            current: processed,
+            total: totalOrders,
+            status: `Processed ${processed} of ${totalOrders} orders...`,
           });
         }
       }
 
+      // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       await queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      await queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
+      await queryClient.invalidateQueries({ queryKey: ["payment-history-with-sales"] });
 
-      // Build result message
-      let description = `Successfully imported ${successCount} records.`;
-      if (skippedRows.length > 0) {
-        description += ` ${skippedRows.length} rows skipped (no Order ID).`;
-      }
+      let description = `Successfully imported ${successCount} orders with product line items.`;
       if (errorCount > 0) {
-        description += ` ${errorCount} failed.`;
-        console.log("Failed records:", failedRecords.slice(0, 10));
+        description += ` ${errorCount} orders failed.`;
       }
 
       toast({
         title: successCount > 0 ? "Import Complete" : "Import Failed",
         description,
-        variant: successCount === 0 ? "destructive" : errorCount > 0 ? "destructive" : "default",
+        variant: successCount === 0 ? "destructive" : undefined,
       });
 
       if (successCount > 0) {
@@ -290,20 +291,20 @@ export const SalesUploadDialog = () => {
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-success" />
-                  Flexible Import
+                  Multi-Product Orders
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Auto-detects columns: Order ID (required), Sale Date, Customer Name, Mobile, Location, Total Amount
+                  Groups rows by Order ID. Each product becomes a line item. Payment history is auto-created.
                 </p>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-primary" />
-                  Data Cleaning
+                  Safe Replace
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Auto removes ₹ symbols, commas. Accepts multiple date formats. Invalid rows are skipped.
+                  Existing orders with matching IDs are replaced. Other records are preserved.
                 </p>
               </div>
             </>
@@ -316,7 +317,7 @@ export const SalesUploadDialog = () => {
                 <p className="font-medium">{progress.status}</p>
                 {progress.total > 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    {progress.current} / {progress.total} records
+                    {progress.current} / {progress.total} orders
                   </p>
                 )}
               </div>
