@@ -343,7 +343,7 @@ serve(async (req) => {
   }
 
   try {
-    const { type, taskId, remarks, statusChange } = await req.json();
+    const { type, taskId, remarks, statusChange, internalOnly } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
