@@ -20,6 +20,8 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useCreateTask, uploadTaskAttachment } from "@/hooks/useTasks";
 import { CheckCircle, AlertCircle, Loader2, Paperclip, X } from "lucide-react";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AddTaskDialogProps {
   open: boolean;
