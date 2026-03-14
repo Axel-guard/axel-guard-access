@@ -57,48 +57,30 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
 
-  // Fetch users for assignment - use DB function for proper user_id↔email mapping
+  // Fetch users for assignment - use employee user_id for direct mapping
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
-      // Get user_id → email mapping via security definer function
-      const { data: userMap } = await supabase.rpc("get_user_email_map");
-
-      // Get employees for display names
+      // Get employees with user_id for direct auth user linking
       const { data: employees } = await supabase
         .from("employees")
-        .select("name, email, employee_role")
+        .select("name, email, employee_role, user_id")
         .eq("is_active", true);
 
-      // Get allowed emails with roles
-      const { data: allowedEmails } = await supabase
-        .from("allowed_emails")
-        .select("email, role");
-
-      if (!userMap || !allowedEmails) return;
+      if (!employees) return;
 
       const userList: AllowedUser[] = [];
-      for (const um of userMap) {
-        // Find role from allowed_emails
-        const ae = allowedEmails.find(
-          a => a.email.toLowerCase() === um.email.toLowerCase()
-        );
+      const seen = new Set<string>();
 
-        // Find employee name by email match
-        const emp = employees?.find(
-          e => e.email?.toLowerCase() === um.email.toLowerCase()
-        );
-
-        const displayName = emp?.name || um.email.split("@")[0];
-        const roleLabel = ae?.role === "master_admin" ? "Master Admin" 
-          : ae?.role === "admin" ? "Admin" : "User";
-        const displayRole = emp?.employee_role || roleLabel;
+      for (const emp of employees) {
+        if (!emp.user_id || seen.has(emp.user_id)) continue;
+        seen.add(emp.user_id);
 
         userList.push({
-          userId: um.user_id,
-          email: um.email,
-          name: displayName,
-          role: displayRole,
+          userId: emp.user_id,
+          email: emp.email || "",
+          name: emp.name,
+          role: emp.employee_role || "User",
         });
       }
 
