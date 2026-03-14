@@ -20,6 +20,8 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useCreateTask, uploadTaskAttachment } from "@/hooks/useTasks";
 import { CheckCircle, AlertCircle, Loader2, Paperclip, X } from "lucide-react";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AddTaskDialogProps {
   open: boolean;
@@ -56,6 +58,8 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const [lookingUp, setLookingUp] = useState(false);
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
 
   // Fetch users for assignment - use employee user_id for direct mapping
   useEffect(() => {
@@ -130,6 +134,12 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const handleSubmit = async () => {
     if (!title || !assignedTo) return;
 
+    // For customer tasks, require email
+    if (isCustomerTask && !customerEmail.trim()) {
+      setEmailMissingError(true);
+      return;
+    }
+    setEmailMissingError(false);
     let attachmentUrl: string | undefined;
     let attachmentName: string | undefined;
 
@@ -176,6 +186,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     setDescription("");
     setCustomerFound(null);
     setAttachment(null);
+    setEmailMissingError(false);
   };
 
   return (
@@ -334,6 +345,28 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             )}
           </div>
 
+          {emailMissingError && isCustomerTask && (
+            <Alert variant="destructive">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Customer email ID is not present. First add email ID, then complete this form.
+                  </AlertDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddEmailDialog(true)}
+                  className="ml-4 shrink-0"
+                >
+                  Add Email ID
+                </Button>
+              </div>
+            </Alert>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -349,6 +382,17 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </Button>
           </div>
         </div>
+
+        <AddEmailDialog
+          open={showAddEmailDialog}
+          onOpenChange={setShowAddEmailDialog}
+          customerCode={customerCode}
+          customerName={customerName}
+          onEmailSaved={(email) => {
+            setCustomerEmail(email);
+            setEmailMissingError(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

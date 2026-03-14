@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Plus,
   Save,
@@ -40,6 +41,7 @@ import {
 } from "@/hooks/useQuotations";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
 
 interface QuotationFormProps {
   onSuccess?: () => void;
@@ -81,7 +83,8 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   const [customerEmail, setCustomerEmail] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [remarks, setRemarks] = useState("");
-
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
   // Quotation Info
   const [quotationNo, setQuotationNo] = useState("");
   const [quotationDate, setQuotationDate] = useState(
@@ -355,6 +358,12 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       toast.error("Please enter a valid Customer Code from Lead Database");
       return;
     }
+    if (!customerEmail.trim()) {
+      setEmailMissingError(true);
+      toast.error("Customer email ID is not present. First add email ID, then complete this form.");
+      return;
+    }
+    setEmailMissingError(false);
     if (!customerName || items.every((i) => !i.product_code)) {
       return;
     }
@@ -863,7 +872,40 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
             ? "Update Quotation"
             : "Save Quotation"}
         </Button>
+
+        {emailMissingError && (
+          <Alert variant="destructive">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Customer email ID is not present. First add email ID, then complete this form.
+                </AlertDescription>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddEmailDialog(true)}
+                className="ml-4 shrink-0"
+              >
+                Add Email ID
+              </Button>
+            </div>
+          </Alert>
+        )}
       </div>
+
+      <AddEmailDialog
+        open={showAddEmailDialog}
+        onOpenChange={setShowAddEmailDialog}
+        customerCode={customerCode}
+        customerName={customerName}
+        onEmailSaved={(email) => {
+          setCustomerEmail(email);
+          setEmailMissingError(false);
+        }}
+      />
     </div>
   );
 };

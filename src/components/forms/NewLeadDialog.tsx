@@ -23,6 +23,7 @@ import {
   Save,
   Sparkles
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface NewLeadDialogProps {
   open: boolean;
@@ -49,6 +50,16 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
     e.preventDefault();
 
     if (!formData.customerName || !formData.mobileNumber || !nextCode) return;
+
+    // Validate email is present and valid
+    if (!formData.email.trim()) {
+      toast.error("Email ID is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
 
     await createLead.mutateAsync({
       customer_code: nextCode,
@@ -265,7 +276,7 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium flex items-center gap-1.5">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                    Email ID
+                    Email ID <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="email"
@@ -276,6 +287,7 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
                     }
                     placeholder="Enter email address"
                     className="h-11 bg-muted/30 border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    required
                   />
                 </div>
 

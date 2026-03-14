@@ -16,13 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, AlertCircle } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEmail } from "@/hooks/useEmail";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface NewSaleDialogProps {
   open: boolean;
@@ -74,6 +76,8 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
 
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [customerNotFound, setCustomerNotFound] = useState(false);
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [emailMissingError, setEmailMissingError] = useState(false);
 
   // Auto-generate Order ID when dialog opens
   useEffect(() => {
@@ -193,6 +197,14 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
       return;
     }
 
+    // Check for email
+    if (!formData.customerEmail.trim()) {
+      setEmailMissingError(true);
+      toast.error("Customer email ID is not present. First add email ID, then complete this form.");
+      return;
+    }
+    setEmailMissingError(false);
+
     const saleTypeValue = isWithGST ? "With" : "Without";
 
     const createdOrderId = orderId;
@@ -284,6 +296,26 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </div>
           </div>
         </DialogHeader>
+
+        {emailMissingError && (
+          <Alert variant="destructive" className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Customer email ID is not present. First add email ID, then complete this form.
+              </AlertDescription>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAddEmailDialog(true)}
+              className="ml-4 shrink-0"
+            >
+              Add Email ID
+            </Button>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-4">
           {/* Row 1: Customer Code, Customer Name, Mobile Number */}
@@ -696,6 +728,17 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
             </Button>
           </div>
         </form>
+
+        <AddEmailDialog
+          open={showAddEmailDialog}
+          onOpenChange={setShowAddEmailDialog}
+          customerCode={formData.customerCode}
+          customerName={formData.customerName}
+          onEmailSaved={(email) => {
+            setFormData((prev) => ({ ...prev, customerEmail: email }));
+            setEmailMissingError(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

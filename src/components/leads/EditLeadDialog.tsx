@@ -17,7 +17,8 @@
    SelectTrigger,
    SelectValue,
  } from "@/components/ui/select";
- import { Lead, useUpdateLead } from "@/hooks/useLeads";
+import { Lead, useUpdateLead } from "@/hooks/useLeads";
+import { toast } from "sonner";
  
  const STATUSES = ["New", "Contacted", "Interested", "Not Interested", "Converted"];
  
@@ -57,16 +58,25 @@
      }
    }, [lead]);
  
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
-     if (!lead?.id) return;
- 
-     await updateLead.mutateAsync({
-       id: lead.id,
-       updates: formData,
-     });
-     onOpenChange(false);
-   };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead?.id) return;
+
+    if (!formData.email.trim()) {
+      toast.error("Email ID is required. Please add the customer's email.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    await updateLead.mutateAsync({
+      id: lead.id,
+      updates: formData,
+    });
+    onOpenChange(false);
+  };
  
    if (!lead) return null;
  
@@ -104,14 +114,15 @@
                  onChange={(e) => setFormData({ ...formData, alternate_mobile: e.target.value })}
                />
              </div>
-             <div className="space-y-2">
-               <Label htmlFor="email">Email</Label>
-               <Input
-                 id="email"
-                 type="email"
-                 value={formData.email}
-                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-               />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
              </div>
              <div className="space-y-2">
                <Label htmlFor="company_name">Company Name</Label>
