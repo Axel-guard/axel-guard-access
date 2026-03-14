@@ -114,14 +114,15 @@ import { toast } from "sonner";
                  onChange={(e) => setFormData({ ...formData, alternate_mobile: e.target.value })}
                />
              </div>
-             <div className="space-y-2">
-               <Label htmlFor="email">Email</Label>
-               <Input
-                 id="email"
-                 type="email"
-                 value={formData.email}
-                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-               />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
              </div>
              <div className="space-y-2">
                <Label htmlFor="company_name">Company Name</Label>
