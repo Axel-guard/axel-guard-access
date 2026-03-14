@@ -17,7 +17,8 @@
    SelectTrigger,
    SelectValue,
  } from "@/components/ui/select";
- import { Lead, useUpdateLead } from "@/hooks/useLeads";
+import { Lead, useUpdateLead } from "@/hooks/useLeads";
+import { toast } from "sonner";
  
  const STATUSES = ["New", "Contacted", "Interested", "Not Interested", "Converted"];
  
