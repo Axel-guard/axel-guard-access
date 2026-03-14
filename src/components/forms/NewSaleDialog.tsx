@@ -16,13 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Loader2, AlertCircle } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEmail } from "@/hooks/useEmail";
+import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface NewSaleDialogProps {
   open: boolean;
