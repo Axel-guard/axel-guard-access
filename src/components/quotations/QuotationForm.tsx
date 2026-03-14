@@ -358,6 +358,12 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       toast.error("Please enter a valid Customer Code from Lead Database");
       return;
     }
+    if (!customerEmail.trim()) {
+      setEmailMissingError(true);
+      toast.error("Customer email ID is not present. First add email ID, then complete this form.");
+      return;
+    }
+    setEmailMissingError(false);
     if (!customerName || items.every((i) => !i.product_code)) {
       return;
     }
