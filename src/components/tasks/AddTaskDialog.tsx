@@ -57,10 +57,13 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const [users, setUsers] = useState<AllowedUser[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
 
-  // Fetch users for assignment - use employees + allowed_emails + user_roles
+  // Fetch users for assignment - use DB function for proper user_id↔email mapping
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
+      // Get user_id → email mapping via security definer function
+      const { data: userMap } = await supabase.rpc("get_user_email_map");
+
       // Get employees for display names
       const { data: employees } = await supabase
         .from("employees")
@@ -72,41 +75,34 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
         .from("allowed_emails")
         .select("email, role");
 
-      // Get user_roles to map to user IDs
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      if (!allowedEmails || !roles) return;
+      if (!userMap || !allowedEmails) return;
 
       const userList: AllowedUser[] = [];
-      for (const ae of allowedEmails) {
-        // Find user_id from user_roles
-        const matchingRole = roles.find(r => r.role === ae.role);
-        if (!matchingRole) continue;
+      for (const um of userMap) {
+        // Find role from allowed_emails
+        const ae = allowedEmails.find(
+          a => a.email.toLowerCase() === um.email.toLowerCase()
+        );
 
         // Find employee name by email match
         const emp = employees?.find(
-          e => e.email?.toLowerCase() === ae.email.toLowerCase()
+          e => e.email?.toLowerCase() === um.email.toLowerCase()
         );
 
-        const displayName = emp?.name || ae.email.split("@")[0];
-        const displayRole = emp?.employee_role || 
-          (ae.role === "master_admin" ? "Master Admin" : ae.role === "admin" ? "Admin" : "User");
+        const displayName = emp?.name || um.email.split("@")[0];
+        const roleLabel = ae?.role === "master_admin" ? "Master Admin" 
+          : ae?.role === "admin" ? "Admin" : "User";
+        const displayRole = emp?.employee_role || roleLabel;
 
         userList.push({
-          userId: matchingRole.user_id,
-          email: ae.email,
+          userId: um.user_id,
+          email: um.email,
           name: displayName,
           role: displayRole,
         });
       }
 
-      // Deduplicate by userId
-      const unique = userList.filter(
-        (u, i, arr) => arr.findIndex(x => x.userId === u.userId) === i
-      );
-      setUsers(unique);
+      setUsers(userList);
     };
     fetchUsers();
   }, [open]);
