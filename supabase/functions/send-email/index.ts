@@ -206,36 +206,42 @@ const getEmailTemplate = (
       };
  
      case "dispatch":
-       // Build product-serial table from productSerials or fallback to flat serialNumbers
+       // Group serials by product name
        const productSerials = (data.productSerials as { product_name: string; serial_number: string }[]) || [];
        const flatSerials = (data.serialNumbers as string[]) || [];
        
-       const serialNumbersHtml = (productSerials.length > 0 || flatSerials.length > 0)
+       // Group by product name
+       const groupedByProduct = new Map<string, string[]>();
+       if (productSerials.length > 0) {
+         for (const ps of productSerials) {
+           const existing = groupedByProduct.get(ps.product_name) || [];
+           existing.push(ps.serial_number);
+           groupedByProduct.set(ps.product_name, existing);
+         }
+       } else if (flatSerials.length > 0) {
+         groupedByProduct.set("—", flatSerials);
+       }
+
+       const serialNumbersHtml = groupedByProduct.size > 0
         ? `<div class="section-card">
             <div class="section-title">📋 Dispatched Devices</div>
             <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
               <thead>
                 <tr style="background: #f0fdf4;">
-                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">S.No</th>
+                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5; width: 44px;">S.No</th>
                   <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">Product Name</th>
-                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">Serial Number</th>
+                  <th style="text-align: center; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5; width: 44px;">Qty</th>
+                  <th style="text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #d1fae5;">Serial Numbers</th>
                 </tr>
               </thead>
               <tbody>
-                ${productSerials.length > 0 
-                  ? productSerials.map((ps, idx) => `
-                    <tr style="border-bottom: 1px solid #f3f4f6;${idx % 2 === 1 ? ' background: #fafafa;' : ''}">
-                      <td style="padding: 10px 14px; font-size: 13px; color: #6b7280;">${idx + 1}</td>
-                      <td style="padding: 10px 14px; font-size: 13px; color: #111827; font-weight: 500;">${ps.product_name}</td>
-                      <td style="padding: 10px 14px; font-size: 13px; color: #059669; font-weight: 600; font-family: monospace;">${ps.serial_number}</td>
-                    </tr>`).join("")
-                  : flatSerials.map((sn, idx) => `
-                    <tr style="border-bottom: 1px solid #f3f4f6;${idx % 2 === 1 ? ' background: #fafafa;' : ''}">
-                      <td style="padding: 10px 14px; font-size: 13px; color: #6b7280;">${idx + 1}</td>
-                      <td style="padding: 10px 14px; font-size: 13px; color: #111827;">—</td>
-                      <td style="padding: 10px 14px; font-size: 13px; color: #059669; font-weight: 600; font-family: monospace;">${sn}</td>
-                    </tr>`).join("")
-                }
+                ${Array.from(groupedByProduct.entries()).map(([productName, serials], idx) => `
+                  <tr style="border-bottom: 1px solid #e5e7eb;${idx % 2 === 1 ? ' background: #fafafa;' : ''} vertical-align: top;">
+                    <td style="padding: 12px 14px; font-size: 13px; color: #6b7280;">${idx + 1}</td>
+                    <td style="padding: 12px 14px; font-size: 13px; color: #111827; font-weight: 500;">${productName}</td>
+                    <td style="padding: 12px 14px; font-size: 13px; color: #111827; text-align: center; font-weight: 600;">${serials.length}</td>
+                    <td style="padding: 12px 14px; font-size: 12px; color: #059669; font-family: monospace; line-height: 1.6;">${serials.map(sn => `<span style="display: inline-block; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; padding: 2px 8px; margin: 2px 4px 2px 0; font-weight: 600;">${sn}</span>`).join("")}</td>
+                  </tr>`).join("")}
               </tbody>
             </table>
            </div>`
