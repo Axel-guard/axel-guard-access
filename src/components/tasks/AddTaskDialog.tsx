@@ -186,6 +186,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     setDescription("");
     setCustomerFound(null);
     setAttachment(null);
+    setEmailMissingError(false);
   };
 
   return (
