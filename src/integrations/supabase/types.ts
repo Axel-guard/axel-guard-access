@@ -1133,6 +1133,13 @@ export type Database = {
         Args: { _email: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_email_map: {
+        Args: never
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
