@@ -110,7 +110,98 @@ function getPriorityBadge(priority: string): string {
   return `<span style="display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; ${colors[priority] || colors.Normal}">${priority}</span>`;
 }
 
-function getTaskCreatedInternalEmail(task: Record<string, unknown>): { subject: string; body: string } {
+// Unified email for customer tickets - sent TO customer, CC internal team
+function getTicketCustomerEmail(
+  task: Record<string, unknown>,
+  action: "created" | "updated" | "closed",
+  remarks?: string,
+  timeline?: Array<{ remarks: string; created_at: string; status_change: string | null; user_name: string }>
+): { subject: string; body: string } {
+  const isCreated = action === "created";
+  const isClosed = action === "closed";
+
+  let headerColor = "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)";
+  let headerTitle = "📌 New Ticket Created";
+  let mainMessage = "We would like to inform you that a support ticket has been created regarding your query.";
+
+  if (isClosed) {
+    headerColor = "linear-gradient(135deg, #059669 0%, #10b981 100%)";
+    headerTitle = "✅ Ticket Resolved";
+    mainMessage = "We are pleased to inform you that your support ticket has been successfully resolved by our team.";
+  } else if (!isCreated) {
+    headerColor = "linear-gradient(135deg, #059669 0%, #10b981 100%)";
+    headerTitle = "📝 Ticket Update";
+    mainMessage = "We would like to inform you about an update regarding your support ticket.";
+  }
+
+  const ticketInfoSection = `
+    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      <h3 style="margin: 0 0 8px; color: #1e40af;">${task.title}</h3>
+      <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;">Priority: ${getPriorityBadge(task.priority as string || "Normal")}</p>
+      ${task.description && isCreated ? `<p style="margin: 8px 0 0; color: #4b5563;">${task.description}</p>` : ""}
+    </div>`;
+
+  const remarksSection = remarks && !isCreated && !isClosed ? `
+    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      <p style="margin: 0; color: #374151;">${remarks}</p>
+    </div>` : "";
+
+  const timelineSection = isClosed && timeline ? `
+    <h3 style="color: #1e40af; margin: 24px 0 12px;">Activity Timeline</h3>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      ${timeline.map((u) => {
+        const date = new Date(u.created_at);
+        const formatted = `${date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+        return `<li style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+          <span style="color: #6b7280; font-size: 12px;">${formatted}</span><br>
+          <span style="color: #374151;">${u.remarks}</span>
+        </li>`;
+      }).join("")}
+    </ul>` : "";
+
+  const subjectPrefix = isCreated ? "Regarding Your Request" : isClosed ? "Ticket Resolved" : "Re: Update Regarding Your Request";
+
+  return {
+    subject: `${subjectPrefix} – ${task.title}`,
+    body: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
+<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
+  <div style="background: ${headerColor}; color: white; padding: 28px 24px; text-align: center;">
+    <h1 style="margin: 0; font-size: 22px;">${headerTitle}</h1>
+    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
+  </div>
+  <div style="padding: 28px 24px;">
+    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
+    <p style="color: #374151; line-height: 1.6;">${mainMessage}</p>
+    ${ticketInfoSection}
+    ${remarksSection}
+    ${timelineSection}
+    <p style="color: #374151; line-height: 1.6; margin-top: 24px;">${isClosed ? "If you need any further assistance, please feel free to reach out to us." : "Our team is currently working on this and will update you shortly."}</p>
+    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong><br>
+    <a href="mailto:info@axel-guard.com" style="color: #3b82f6;">info@axel-guard.com</a></p>
+  </div>
+  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
+    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
+  </div>
+</div>
+</body>
+</html>`,
+  };
+}
+
+// Internal-only email for non-customer tickets or internal-only notifications
+function getInternalTicketEmail(
+  task: Record<string, unknown>,
+  action: "created" | "updated",
+  remarks?: string,
+  statusChange?: string | null,
+  updaterName?: string
+): { subject: string; body: string } {
+  const isCreated = action === "created";
+
   const customerSection = task.customer_code
     ? `
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin: 16px 0;">
@@ -125,202 +216,51 @@ function getTaskCreatedInternalEmail(task: Record<string, unknown>): { subject: 
     </div>`
     : "";
 
-  return {
-    subject: `New Task Assigned: ${task.title}`,
-    body: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
-<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 28px 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 24px;">📌 New Task Assigned</h1>
-    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
-  </div>
-  <div style="padding: 28px 24px;">
-    <p style="color: #374151; margin-bottom: 20px;">A new task has been assigned to you.</p>
-    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
-      <h2 style="margin: 0 0 8px 0; color: #1e40af; font-size: 18px;">${task.title}</h2>
-      <p style="margin: 0;">Priority: ${getPriorityBadge(task.priority as string || "Normal")}</p>
-      <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;">Type: ${task.task_type || "Internal"}</p>
-    </div>
-    ${task.description ? `<div style="margin-bottom: 16px;"><p style="font-weight: 600; color: #374151; margin: 0 0 4px;">Remarks:</p><p style="color: #4b5563; margin: 0;">${task.description}</p></div>` : ""}
-    ${customerSection}
-  </div>
-  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
-    <p style="margin: 4px 0 0;">This is an automated notification.</p>
-  </div>
-</div>
-</body>
-</html>`,
-  };
-}
-
-function getTaskCreatedCustomerEmail(task: Record<string, unknown>): { subject: string; body: string } {
-  return {
-    subject: `Regarding Your Request – ${task.title}`,
-    body: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
-<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 28px 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 22px;">AxelGuard Support</h1>
-    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
-  </div>
-  <div style="padding: 28px 24px;">
-    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
-    <p style="color: #374151; line-height: 1.6;">We would like to inform you that a request has been initiated regarding your query.</p>
-    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
-      <h3 style="margin: 0 0 8px; color: #1e40af;">${task.title}</h3>
-      ${task.description ? `<p style="margin: 0; color: #4b5563;">${task.description}</p>` : ""}
-    </div>
-    <p style="color: #374151; line-height: 1.6;">Our team is currently working on this and will update you shortly.</p>
-    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong></p>
-  </div>
-  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
-  </div>
-</div>
-</body>
-</html>`,
-  };
-}
-
-function getTaskUpdatedInternalEmail(
-  task: Record<string, unknown>,
-  remarks: string,
-  statusChange: string | null,
-  updaterName: string
-): { subject: string; body: string } {
   const statusBadge = statusChange
     ? `<span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; ${
-        statusChange === "Completed" || statusChange === "Closed"
+        statusChange === "Closed"
           ? "background: #d1fae5; color: #065f46;"
-          : statusChange === "In Progress"
+          : statusChange === "WIP"
           ? "background: #dbeafe; color: #1e40af;"
           : statusChange === "Pending Master Approval"
           ? "background: #e9d5ff; color: #6b21a8;"
-          : statusChange === "Waiting for Customer"
-          ? "background: #fed7aa; color: #9a3412;"
           : "background: #fef3c7; color: #92400e;"
       }">${statusChange}</span>`
     : "";
 
+  const headerColor = isCreated ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)" : "linear-gradient(135deg, #059669 0%, #10b981 100%)";
+  const headerTitle = isCreated ? "📌 New Ticket Assigned" : "📝 Ticket Update";
+
   return {
-    subject: `Re: Task Update: ${task.title}`,
+    subject: isCreated ? `New Ticket Assigned: ${task.title}` : `Re: Ticket Update: ${task.title}`,
     body: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
 <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 22px;">📝 Task Update</h1>
+  <div style="background: ${headerColor}; color: white; padding: 28px 24px; text-align: center;">
+    <h1 style="margin: 0; font-size: 22px;">${headerTitle}</h1>
     <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
   </div>
   <div style="padding: 28px 24px;">
-    <h2 style="margin: 0 0 16px; color: #1e40af; font-size: 18px;">${task.title}</h2>
-    ${statusChange ? `<p style="margin-bottom: 16px;">Status changed to: ${statusBadge}</p>` : ""}
+    ${isCreated ? `<p style="color: #374151; margin-bottom: 20px;">A new ticket has been assigned.</p>` : ""}
+    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+      <h2 style="margin: 0 0 8px 0; color: #1e40af; font-size: 18px;">${task.title}</h2>
+      ${isCreated ? `<p style="margin: 0;">Priority: ${getPriorityBadge(task.priority as string || "Normal")}</p>` : ""}
+      ${statusChange ? `<p style="margin: 8px 0 0;">Status: ${statusBadge}</p>` : ""}
+    </div>
+    ${!isCreated && remarks ? `
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-      <p style="margin: 0 0 4px; font-weight: 600; color: #374151; font-size: 13px;">Update by ${updaterName}:</p>
+      <p style="margin: 0 0 4px; font-weight: 600; color: #374151; font-size: 13px;">Update by ${updaterName || "Team"}:</p>
       <p style="margin: 0; color: #4b5563;">${remarks}</p>
-    </div>
+    </div>` : ""}
+    ${isCreated && task.description ? `<div style="margin-bottom: 16px;"><p style="font-weight: 600; color: #374151; margin: 0 0 4px;">Remarks:</p><p style="color: #4b5563; margin: 0;">${task.description}</p></div>` : ""}
+    ${isCreated ? customerSection : ""}
   </div>
   <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
     <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
-  </div>
-</div>
-</body>
-</html>`,
-  };
-}
-
-function getTaskUpdatedCustomerEmail(
-  task: Record<string, unknown>,
-  remarks: string
-): { subject: string; body: string } {
-  return {
-    subject: `Re: Update Regarding Your Request – ${task.title}`,
-    body: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
-<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 22px;">AxelGuard Support Update</h1>
-    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
-  </div>
-  <div style="padding: 28px 24px;">
-    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
-    <p style="color: #374151; line-height: 1.6;">We would like to inform you about an update regarding your request.</p>
-    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
-      <p style="margin: 0; color: #374151;">${remarks}</p>
-    </div>
-    <p style="color: #374151; line-height: 1.6;">Our team is currently working on this and will update you shortly.</p>
-    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong></p>
-  </div>
-  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
-  </div>
-</div>
-</body>
-</html>`,
-  };
-}
-
-function getTaskClosureCustomerEmail(
-  task: Record<string, unknown>,
-  updates: Array<{ remarks: string; created_at: string; status_change: string | null; user_name: string }>
-): { subject: string; body: string } {
-  const timelineHtml = updates
-    .map((u) => {
-      const date = new Date(u.created_at);
-      const formatted = `${date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
-      return `<li style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
-        <span style="color: #6b7280; font-size: 12px;">${formatted}</span><br>
-        <span style="color: #374151;">${u.remarks}</span>
-      </li>`;
-    })
-    .join("");
-
-  return {
-    subject: `Task Completion Update – AxelGuard Support`,
-    body: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4;">
-<div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 28px 24px; text-align: center;">
-    <h1 style="margin: 0; font-size: 22px;">✅ Task Completed</h1>
-    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">RealTrack Technology</p>
-  </div>
-  <div style="padding: 28px 24px;">
-    <p style="color: #374151; font-size: 15px;">Dear ${task.customer_name || "Customer"},</p>
-    <p style="color: #374151; line-height: 1.6;">We are pleased to inform you that the requested task has been successfully completed by our team.</p>
-    
-    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
-      <h3 style="margin: 0 0 4px; color: #065f46;">Task Title</h3>
-      <p style="margin: 0; color: #374151; font-weight: 600;">${task.title}</p>
-    </div>
-
-    <h3 style="color: #1e40af; margin: 24px 0 12px;">Activity Timeline</h3>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      ${timelineHtml}
-    </ul>
-
-    <p style="color: #374151; line-height: 1.6; margin-top: 24px;">Our team has ensured that the requested task has been addressed as per the requirements.</p>
-    <p style="color: #374151; line-height: 1.6;">If you need any further assistance, please feel free to reach out to us.</p>
-    
-    <p style="color: #374151; margin-top: 24px;">Best regards,<br><strong>AxelGuard Support Team</strong><br>
-    <a href="mailto:info@axel-guard.com" style="color: #3b82f6;">info@axel-guard.com</a></p>
-  </div>
-  <div style="text-align: center; padding: 20px; background: #1f2937; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 0; color: #fff; font-weight: 600;">AxelGuard - RealTrack Technology</p>
+    <p style="margin: 4px 0 0;">This is an automated notification.</p>
   </div>
 </div>
 </body>
@@ -357,7 +297,7 @@ serve(async (req) => {
       .single();
 
     if (taskError || !task) {
-      throw new Error(`Task not found: ${taskId}`);
+      throw new Error(`Ticket not found: ${taskId}`);
     }
 
     const getUserEmail = async (userId: string): Promise<string | null> => {
@@ -400,61 +340,66 @@ serve(async (req) => {
     const smtpUser = Deno.env.get("SMTP_USER")!;
     const smtpPass = Deno.env.get("SMTP_PASS")!;
 
-    const isCustomerTask = task.task_type === "Customer" && task.customer_email_enabled && task.customer_email;
+    const isCustomerTicket = task.task_type === "Customer" && task.customer_email_enabled && task.customer_email;
     const adminEmails = await getAdminEmails();
 
+    // Build CC list: assigned employee, creator, admins (deduplicated)
+    const buildCcList = (excludeEmail?: string): string[] => {
+      const ccSet = new Set<string>();
+      if (assigneeEmail) ccSet.add(assigneeEmail);
+      if (creatorEmail) ccSet.add(creatorEmail);
+      for (const ae of adminEmails) ccSet.add(ae);
+      if (excludeEmail) ccSet.delete(excludeEmail);
+      return [...ccSet];
+    };
+
     if (type === "created") {
-      const internalEmail = getTaskCreatedInternalEmail(task);
-      const internalRecipients = [assigneeEmail];
-      const internalCc = [...new Set([
-        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
-        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
-      ])];
-
-      await sendSmtpEmail({
-        host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: internalRecipients, cc: internalCc.length ? internalCc : undefined,
-        subject: internalEmail.subject, body: internalEmail.body,
-      });
-
-      if (isCustomerTask) {
-        const customerEmailContent = getTaskCreatedCustomerEmail(task);
+      if (isCustomerTicket) {
+        // Single unified email TO customer, CC internal team
+        const email = getTicketCustomerEmail(task, "created");
+        const cc = buildCcList(task.customer_email);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email],
-          cc: [assigneeEmail, ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : [])],
-          subject: customerEmailContent.subject, body: customerEmailContent.body,
+          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
+          subject: email.subject, body: email.body,
+        });
+      } else {
+        // Internal-only ticket: send to assignee, CC creator + admins
+        const email = getInternalTicketEmail(task, "created");
+        const internalRecipients = [assigneeEmail];
+        const cc = buildCcList(assigneeEmail);
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: internalRecipients, cc: cc.length ? cc : undefined,
+          subject: email.subject, body: email.body,
         });
       }
     } else if (type === "updated") {
       const updaterName = await getUserName(creatorEmail || assigneeEmail);
 
-      const internalEmail = getTaskUpdatedInternalEmail(task, remarks || "", statusChange || null, updaterName);
-      const internalRecipients = [assigneeEmail];
-      const internalCc = [...new Set([
-        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
-        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
-      ])];
-
-      await sendSmtpEmail({
-        host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: internalRecipients, cc: internalCc.length ? internalCc : undefined,
-        subject: internalEmail.subject, body: internalEmail.body,
-      });
-
-      if (isCustomerTask && statusChange !== "Pending Master Approval" && !internalOnly) {
-        const customerEmailContent = getTaskUpdatedCustomerEmail(task, remarks || "");
+      if (isCustomerTicket && statusChange !== "Pending Master Approval" && !internalOnly) {
+        // Single unified email TO customer, CC internal team
+        const email = getTicketCustomerEmail(task, "updated", remarks);
+        const cc = buildCcList(task.customer_email);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email],
-          cc: [assigneeEmail, ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : [])],
-          subject: customerEmailContent.subject, body: customerEmailContent.body,
+          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
+          subject: email.subject, body: email.body,
+        });
+      } else {
+        // Internal-only notification
+        const email = getInternalTicketEmail(task, "updated", remarks, statusChange, updaterName);
+        const internalRecipients = [assigneeEmail];
+        const cc = buildCcList(assigneeEmail);
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: internalRecipients, cc: cc.length ? cc : undefined,
+          subject: email.subject, body: email.body,
         });
       }
     } else if (type === "closure-approved") {
-      // Send closure email with full activity timeline
-      if (isCustomerTask) {
-        // Fetch all task updates for timeline
+      if (isCustomerTicket) {
+        // Fetch all ticket updates for timeline
         const { data: taskUpdates } = await supabase
           .from("task_updates")
           .select("*")
@@ -462,10 +407,9 @@ serve(async (req) => {
           .order("created_at", { ascending: true });
 
         const timeline = [];
-        // Add task creation
         const creatorName = creatorEmail ? await getUserName(creatorEmail) : "Unknown";
         timeline.push({
-          remarks: "Task created",
+          remarks: "Ticket created",
           created_at: task.created_at,
           status_change: null,
           user_name: creatorName,
@@ -484,43 +428,35 @@ serve(async (req) => {
           }
         }
 
-        const closureEmail = getTaskClosureCustomerEmail(task, timeline);
+        // Single closure email TO customer, CC entire team
+        const closureEmail = getTicketCustomerEmail(task, "closed", undefined, timeline);
+        const cc = buildCcList(task.customer_email);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email],
-          cc: [
-            assigneeEmail,
-            ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
-            ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
-          ],
+          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
           subject: closureEmail.subject, body: closureEmail.body,
         });
+      } else {
+        // Internal closure notification
+        const email = getInternalTicketEmail(task, "updated", "Ticket closure approved. Ticket is now Closed.", "Closed", "Master Admin");
+        const internalRecipients = [assigneeEmail];
+        const cc = buildCcList(assigneeEmail);
+        await sendSmtpEmail({
+          host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
+          from: smtpUser, to: internalRecipients, cc: cc.length ? cc : undefined,
+          subject: email.subject, body: email.body,
+        });
       }
-
-      // Also send internal closure notification
-      const updaterName = "Master Admin";
-      const internalEmail = getTaskUpdatedInternalEmail(task, "Task closure approved. Task is now Closed.", "Closed", updaterName);
-      const allRecipients = [assigneeEmail];
-      const cc = [...new Set([
-        ...(creatorEmail && creatorEmail !== assigneeEmail ? [creatorEmail] : []),
-        ...adminEmails.filter(e => e !== assigneeEmail && e !== creatorEmail),
-      ])];
-
-      await sendSmtpEmail({
-        host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-        from: smtpUser, to: allRecipients, cc: cc.length ? cc : undefined,
-        subject: internalEmail.subject, body: internalEmail.body,
-      });
     }
 
-    console.log(`Task email (${type}) sent for task: ${taskId}`);
+    console.log(`Ticket email (${type}) sent for ticket: ${taskId}`);
 
     return new Response(
       JSON.stringify({ success: true }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error) {
-    console.error("Error sending task email:", error);
+    console.error("Error sending ticket email:", error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

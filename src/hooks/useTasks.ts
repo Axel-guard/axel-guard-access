@@ -111,17 +111,17 @@ export const useCreateTask = () => {
           body: { type: "created", taskId: task.id },
         });
       } catch (e) {
-        console.error("Failed to send task email:", e);
+        console.error("Failed to send ticket email:", e);
       }
 
       return task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      toast.success("Task created successfully");
+      toast.success("Ticket created successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create task");
+      toast.error(error.message || "Failed to create ticket");
     },
   });
 };
@@ -180,16 +180,16 @@ export const useAddTaskUpdate = () => {
           body: { type: "updated", taskId, remarks, statusChange, internalOnly: internalOnly || false },
         });
       } catch (e) {
-        console.error("Failed to send task update email:", e);
+        console.error("Failed to send ticket update email:", e);
       }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["task_updates", variables.taskId] });
-      toast.success("Task updated successfully");
+      toast.success("Ticket updated successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update task");
+      toast.error(error.message || "Failed to update ticket");
     },
   });
 };
