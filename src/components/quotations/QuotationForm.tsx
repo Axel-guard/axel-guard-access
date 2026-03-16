@@ -365,11 +365,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
 
   const handleSave = async () => {
     if (!customerCode.trim()) {
-      toast.error("Customer Code is required");
+      toast.error("Customer Code or Mobile Number is required");
       return;
     }
     if (customerFound !== true || !customerId) {
-      toast.error("Please enter a valid Customer Code from Lead Database");
+      toast.error("Please enter a valid Customer Code or Mobile Number from Lead Database");
       return;
     }
     if (!customerEmail.trim()) {
