@@ -272,7 +272,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     }
     
     if (customerCode.trim() && customerFound === null) {
-      fetchCustomerByCode(customerCode);
+      fetchCustomerByCodeOrMobile(customerCode);
     }
   };
 
