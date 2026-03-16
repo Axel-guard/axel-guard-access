@@ -501,16 +501,16 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
             <CardTitle className="text-base">Customer Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Customer Code Input */}
+             {/* Customer Code / Mobile Input */}
             <div className="space-y-2">
-              <Label htmlFor="customerCode">Customer Code *</Label>
+              <Label htmlFor="customerCode">Customer Code / Mobile Number *</Label>
               <div className="relative">
                 <Input
                   id="customerCode"
                   value={customerCode}
                   onChange={(e) => handleCustomerCodeChange(e.target.value)}
                   onBlur={handleCustomerCodeBlur}
-                  placeholder="Enter Customer Code"
+                  placeholder="Enter Customer Code or Mobile Number..."
                   className={cn(
                     "pr-10",
                     customerFound === true && "border-primary focus-visible:ring-primary",
