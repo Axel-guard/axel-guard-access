@@ -259,7 +259,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     // Set new debounce timeout (900ms)
     debounceRef.current = setTimeout(() => {
       if (value.trim()) {
-        fetchCustomerByCode(value);
+        fetchCustomerByCodeOrMobile(value);
       }
     }, 900);
   };
