@@ -558,7 +558,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
                     <AlertCircle className="mr-1 h-3 w-3" />
-                    Customer not found
+                    Customer not found. Please check the code/number or add a new lead.
                   </Badge>
                   <Button
                     size="sm"

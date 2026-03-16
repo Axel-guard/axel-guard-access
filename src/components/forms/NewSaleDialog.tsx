@@ -332,7 +332,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
           {/* Row 1: Customer Code, Customer Name, Mobile Number */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="customerCode">Customer Code *</Label>
+              <Label htmlFor="customerCode">Customer Code / Mobile Number *</Label>
               <div className="relative">
                 <Input
                   id="customerCode"
@@ -340,7 +340,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                   onChange={(e) =>
                     setFormData({ ...formData, customerCode: e.target.value })
                   }
-                  placeholder="Enter customer code"
+                  placeholder="Enter Customer Code or Mobile Number..."
                   required
                   className={customerNotFound ? "border-destructive" : ""}
                 />
@@ -349,7 +349,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                 )}
               </div>
               {customerNotFound && (
-                <p className="text-xs text-destructive">Customer not found in database</p>
+                <p className="text-xs text-destructive">Customer not found. Please check the code/number or add a new lead.</p>
               )}
             </div>
             <div className="space-y-2">
