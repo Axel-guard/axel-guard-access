@@ -112,9 +112,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     },
   ]);
 
-  // Fetch customer by code from database
-  const fetchCustomerByCode = useCallback(async (code: string) => {
-    if (!code.trim()) {
+  // Fetch customer by code or mobile number from database
+  const fetchCustomerByCodeOrMobile = useCallback(async (input: string) => {
+    if (!input.trim()) {
       setCustomerFound(null);
       setCustomerId(null);
       setCustomerName("");
@@ -129,16 +129,30 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     setIsSearching(true);
     
     try {
-      const { data, error } = await supabase
+      const trimmed = input.trim();
+      // If input is 10+ digits, search by mobile_number; otherwise search by customer_code
+      const isMobileLookup = /^\d{10,}$/.test(trimmed);
+      
+      let query = supabase
         .from("leads")
-        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number, email")
-        .eq("customer_code", code.trim())
-        .maybeSingle();
+        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number, email");
+      
+      if (isMobileLookup) {
+        query = query.eq("mobile_number", trimmed);
+      } else {
+        query = query.eq("customer_code", trimmed);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
       if (data) {
         setCustomerId(data.id);
+        // If searched by mobile, also set the customerCode field
+        if (isMobileLookup) {
+          setCustomerCode(data.customer_code);
+        }
         setCustomerName(data.customer_name || "");
         setCompanyName(data.company_name || "");
         setAddress(data.complete_address || "");

@@ -97,9 +97,9 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     }
   }, [open]);
 
-  // Customer auto-fill from Leads Database
-  const lookupCustomer = useCallback(async (code: string) => {
-    if (!code.trim()) {
+  // Customer auto-fill from Leads Database (by code or mobile)
+  const lookupCustomer = useCallback(async (input: string) => {
+    if (!input.trim()) {
       setCustomerNotFound(false);
       return;
     }
@@ -108,17 +108,28 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     setCustomerNotFound(false);
 
     try {
-      const { data, error } = await supabase
+      const trimmed = input.trim();
+      // If input is 10+ digits, search by mobile_number; otherwise by customer_code
+      const isMobileLookup = /^\d{10,}$/.test(trimmed);
+      
+      let query = supabase
         .from("leads")
-        .select("customer_name, mobile_number, company_name, location, email")
-        .eq("customer_code", code.trim())
-        .maybeSingle();
+        .select("customer_code, customer_name, mobile_number, company_name, location, email");
+      
+      if (isMobileLookup) {
+        query = query.eq("mobile_number", trimmed);
+      } else {
+        query = query.eq("customer_code", trimmed);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
       if (data) {
         setFormData((prev) => ({
           ...prev,
+          customerCode: data.customer_code || prev.customerCode,
           customerName: data.customer_name || prev.customerName,
           customerContact: data.mobile_number || prev.customerContact,
           companyName: data.company_name || prev.companyName,
@@ -137,7 +148,7 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     }
   }, []);
 
-  // Debounced customer code lookup
+  // Debounced customer code/mobile lookup
   useEffect(() => {
     const timer = setTimeout(() => {
       if (formData.customerCode.trim()) {
