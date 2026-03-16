@@ -390,7 +390,7 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
-                  Customer Code *
+                  Customer Code / Mobile Number *
                   {customerLookupStatus === "loading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {customerLookupStatus === "found" && <CheckCircle2 className="h-3 w-3 text-green-500" />}
                   {customerLookupStatus === "not-found" && <AlertCircle className="h-3 w-3 text-destructive" />}
@@ -398,9 +398,13 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
                 <Input
                   value={formData.customerCode}
                   onChange={(e) => handleCustomerCodeChange(e.target.value)}
+                  placeholder="Enter Customer Code or Mobile Number..."
                   required
                   className={customerLookupStatus === "found" ? "border-green-500" : customerLookupStatus === "not-found" ? "border-destructive" : ""}
                 />
+                {customerLookupStatus === "not-found" && (
+                  <p className="text-xs text-destructive">Customer not found. Please check the code/number or add a new lead.</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Customer Name</Label>
