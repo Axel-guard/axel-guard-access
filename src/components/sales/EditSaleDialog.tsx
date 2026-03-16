@@ -130,23 +130,33 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
     { category: "", product_name: "", quantity: "", unit_price: "" },
   ]);
 
-  // Lookup customer from leads DB by customer code
-  const lookupCustomer = useCallback(async (code: string) => {
-    if (!code || code.length < 1) {
+  // Lookup customer from leads DB by customer code or mobile number
+  const lookupCustomer = useCallback(async (input: string) => {
+    if (!input || input.length < 1) {
       setCustomerLookupStatus("idle");
       return;
     }
     setCustomerLookupStatus("loading");
     try {
-      const { data, error } = await supabase
+      const trimmed = input.trim();
+      const isMobileLookup = /^\d{10,}$/.test(trimmed);
+      
+      let query = supabase
         .from("leads")
-        .select("customer_name, company_name, mobile_number, email")
-        .eq("customer_code", code)
-        .maybeSingle();
+        .select("customer_code, customer_name, company_name, mobile_number, email");
+      
+      if (isMobileLookup) {
+        query = query.eq("mobile_number", trimmed);
+      } else {
+        query = query.eq("customer_code", trimmed);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (!error && data) {
         setFormData(prev => ({
           ...prev,
+          customerCode: data.customer_code || prev.customerCode,
           customerName: data.customer_name || prev.customerName,
           companyName: data.company_name || prev.companyName,
           customerContact: data.mobile_number || prev.customerContact,
@@ -380,7 +390,7 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
-                  Customer Code *
+                  Customer Code / Mobile Number *
                   {customerLookupStatus === "loading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {customerLookupStatus === "found" && <CheckCircle2 className="h-3 w-3 text-green-500" />}
                   {customerLookupStatus === "not-found" && <AlertCircle className="h-3 w-3 text-destructive" />}
@@ -388,9 +398,13 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
                 <Input
                   value={formData.customerCode}
                   onChange={(e) => handleCustomerCodeChange(e.target.value)}
+                  placeholder="Enter Customer Code or Mobile Number..."
                   required
                   className={customerLookupStatus === "found" ? "border-green-500" : customerLookupStatus === "not-found" ? "border-destructive" : ""}
                 />
+                {customerLookupStatus === "not-found" && (
+                  <p className="text-xs text-destructive">Customer not found. Please check the code/number or add a new lead.</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Customer Name</Label>

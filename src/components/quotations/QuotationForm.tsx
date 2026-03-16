@@ -112,9 +112,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     },
   ]);
 
-  // Fetch customer by code from database
-  const fetchCustomerByCode = useCallback(async (code: string) => {
-    if (!code.trim()) {
+  // Fetch customer by code or mobile number from database
+  const fetchCustomerByCodeOrMobile = useCallback(async (input: string) => {
+    if (!input.trim()) {
       setCustomerFound(null);
       setCustomerId(null);
       setCustomerName("");
@@ -129,16 +129,30 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     setIsSearching(true);
     
     try {
-      const { data, error } = await supabase
+      const trimmed = input.trim();
+      // If input is 10+ digits, search by mobile_number; otherwise search by customer_code
+      const isMobileLookup = /^\d{10,}$/.test(trimmed);
+      
+      let query = supabase
         .from("leads")
-        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number, email")
-        .eq("customer_code", code.trim())
-        .maybeSingle();
+        .select("id, customer_code, customer_name, company_name, complete_address, mobile_number, gst_number, email");
+      
+      if (isMobileLookup) {
+        query = query.eq("mobile_number", trimmed);
+      } else {
+        query = query.eq("customer_code", trimmed);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
       if (data) {
         setCustomerId(data.id);
+        // If searched by mobile, also set the customerCode field
+        if (isMobileLookup) {
+          setCustomerCode(data.customer_code);
+        }
         setCustomerName(data.customer_name || "");
         setCompanyName(data.company_name || "");
         setAddress(data.complete_address || "");
@@ -245,7 +259,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     // Set new debounce timeout (900ms)
     debounceRef.current = setTimeout(() => {
       if (value.trim()) {
-        fetchCustomerByCode(value);
+        fetchCustomerByCodeOrMobile(value);
       }
     }, 900);
   };
@@ -258,7 +272,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     }
     
     if (customerCode.trim() && customerFound === null) {
-      fetchCustomerByCode(customerCode);
+      fetchCustomerByCodeOrMobile(customerCode);
     }
   };
 
@@ -351,11 +365,11 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
 
   const handleSave = async () => {
     if (!customerCode.trim()) {
-      toast.error("Customer Code is required");
+      toast.error("Customer Code or Mobile Number is required");
       return;
     }
     if (customerFound !== true || !customerId) {
-      toast.error("Please enter a valid Customer Code from Lead Database");
+      toast.error("Please enter a valid Customer Code or Mobile Number from Lead Database");
       return;
     }
     if (!customerEmail.trim()) {
@@ -487,16 +501,16 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
             <CardTitle className="text-base">Customer Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Customer Code Input */}
+             {/* Customer Code / Mobile Input */}
             <div className="space-y-2">
-              <Label htmlFor="customerCode">Customer Code *</Label>
+              <Label htmlFor="customerCode">Customer Code / Mobile Number *</Label>
               <div className="relative">
                 <Input
                   id="customerCode"
                   value={customerCode}
                   onChange={(e) => handleCustomerCodeChange(e.target.value)}
                   onBlur={handleCustomerCodeBlur}
-                  placeholder="Enter Customer Code"
+                  placeholder="Enter Customer Code or Mobile Number..."
                   className={cn(
                     "pr-10",
                     customerFound === true && "border-primary focus-visible:ring-primary",
@@ -544,7 +558,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
                     <AlertCircle className="mr-1 h-3 w-3" />
-                    Customer not found
+                    Customer not found. Please check the code/number or add a new lead.
                   </Badge>
                   <Button
                     size="sm"
