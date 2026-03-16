@@ -130,23 +130,33 @@ export const EditSaleDialog = ({ sale, open, onOpenChange }: EditSaleDialogProps
     { category: "", product_name: "", quantity: "", unit_price: "" },
   ]);
 
-  // Lookup customer from leads DB by customer code
-  const lookupCustomer = useCallback(async (code: string) => {
-    if (!code || code.length < 1) {
+  // Lookup customer from leads DB by customer code or mobile number
+  const lookupCustomer = useCallback(async (input: string) => {
+    if (!input || input.length < 1) {
       setCustomerLookupStatus("idle");
       return;
     }
     setCustomerLookupStatus("loading");
     try {
-      const { data, error } = await supabase
+      const trimmed = input.trim();
+      const isMobileLookup = /^\d{10,}$/.test(trimmed);
+      
+      let query = supabase
         .from("leads")
-        .select("customer_name, company_name, mobile_number, email")
-        .eq("customer_code", code)
-        .maybeSingle();
+        .select("customer_code, customer_name, company_name, mobile_number, email");
+      
+      if (isMobileLookup) {
+        query = query.eq("mobile_number", trimmed);
+      } else {
+        query = query.eq("customer_code", trimmed);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (!error && data) {
         setFormData(prev => ({
           ...prev,
+          customerCode: data.customer_code || prev.customerCode,
           customerName: data.customer_name || prev.customerName,
           companyName: data.company_name || prev.companyName,
           customerContact: data.mobile_number || prev.customerContact,
