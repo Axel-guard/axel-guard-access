@@ -9,13 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { differenceInDays } from "date-fns";
 import {
@@ -28,15 +21,14 @@ import {
   CalendarClock,
   Flag,
   ShieldCheck,
+  Building,
+  Ticket,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
-  Pending: "bg-warning/10 text-warning border-warning/30",
-  "In Progress": "bg-info/10 text-info border-info/30",
-  "Waiting for Customer": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400",
+  WIP: "bg-info/10 text-info border-info/30",
   "Pending Master Approval": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/20 dark:text-purple-400",
-  Completed: "bg-success/10 text-success border-success/30",
-  Closed: "bg-muted text-muted-foreground border-muted",
+  Closed: "bg-success/10 text-success border-success/30",
 };
 
 const priorityColors: Record<string, string> = {
@@ -46,8 +38,14 @@ const priorityColors: Record<string, string> = {
   Urgent: "text-red-600",
 };
 
-function getTaskAgeDays(createdAt: string): number {
+function getTicketAgeDays(createdAt: string): number {
   return differenceInDays(new Date(), new Date(createdAt));
+}
+
+function getAgeColor(days: number): string {
+  if (days <= 2) return "text-emerald-600";
+  if (days <= 5) return "text-orange-600";
+  return "text-red-600";
 }
 
 function getAgeBarColor(days: number): string {
@@ -62,55 +60,62 @@ const Tasks = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [tab, setTab] = useState("my-tasks");
+  const [tab, setTab] = useState("wip");
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [userNames, setUserNames] = useState<Record<string, string>>({});
+  const [employeeRoles, setEmployeeRoles] = useState<Record<string, string>>({});
 
-  // Fetch user names using employee user_id for direct mapping
   useEffect(() => {
     const fetchUsers = async () => {
       const { data: employees } = await supabase
         .from("employees")
-        .select("name, email, user_id")
+        .select("name, email, user_id, employee_role")
         .eq("is_active", true);
 
       if (!employees) return;
 
       const emailMap: Record<string, string> = {};
       const nameMap: Record<string, string> = {};
+      const roleMap: Record<string, string> = {};
 
       for (const emp of employees) {
         if (!emp.user_id) continue;
         emailMap[emp.user_id] = emp.email || "";
         nameMap[emp.user_id] = emp.name;
+        roleMap[emp.user_id] = emp.employee_role || "User";
       }
 
       setUserEmails(emailMap);
       setUserNames(nameMap);
+      setEmployeeRoles(roleMap);
     };
     fetchUsers();
   }, []);
 
+  // Sort: urgent/high priority first, then by age (newest first for same priority)
+  const sortTickets = (tickets: Task[]) => {
+    const priorityOrder: Record<string, number> = { Urgent: 0, High: 1, Normal: 2, Low: 3 };
+    return [...tickets].sort((a, b) => {
+      const pa = priorityOrder[a.priority] ?? 2;
+      const pb = priorityOrder[b.priority] ?? 2;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  };
+
   const filtered = useMemo(() => {
     let result = tasks;
 
-    if (tab === "my-tasks") {
-      result = result.filter((t) => t.assigned_to === user?.id);
+    if (tab === "wip") {
+      result = result.filter((t) => t.status === "WIP" || t.status === "Pending Master Approval");
     } else if (tab === "assigned-by-me") {
       result = result.filter((t) => t.created_by === user?.id);
-    } else if (tab === "overdue") {
-      result = result.filter(
-        (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
-      );
-    } else if (tab === "completed") {
-      result = result.filter((t) => t.status === "Completed" || t.status === "Closed");
+    } else if (tab === "assigned-to-me") {
+      result = result.filter((t) => t.assigned_to === user?.id);
     } else if (tab === "pending-approval") {
       result = result.filter((t) => t.status === "Pending Master Approval");
-    }
-
-    if (statusFilter !== "all") {
-      result = result.filter((t) => t.status === statusFilter);
+    } else if (tab === "closed") {
+      result = result.filter((t) => t.status === "Closed");
     }
 
     if (search.trim()) {
@@ -119,27 +124,26 @@ const Tasks = () => {
         (t) =>
           t.title.toLowerCase().includes(q) ||
           t.customer_code?.toLowerCase().includes(q) ||
-          t.customer_name?.toLowerCase().includes(q)
+          t.customer_name?.toLowerCase().includes(q) ||
+          t.company_name?.toLowerCase().includes(q)
       );
     }
 
-    return result;
-  }, [tasks, tab, statusFilter, search, user]);
+    return sortTickets(result);
+  }, [tasks, tab, search, user]);
 
   const counts = useMemo(() => {
-    const myTasks = tasks.filter((t) => t.assigned_to === user?.id);
+    const wip = tasks.filter((t) => t.status === "WIP" || t.status === "Pending Master Approval");
     const assignedByMe = tasks.filter((t) => t.created_by === user?.id);
-    const overdue = tasks.filter(
-      (t) => !["Completed", "Closed"].includes(t.status) && getTaskAgeDays(t.created_at) > 5
-    );
-    const completed = tasks.filter((t) => t.status === "Completed" || t.status === "Closed");
+    const assignedToMe = tasks.filter((t) => t.assigned_to === user?.id);
     const pendingApproval = tasks.filter((t) => t.status === "Pending Master Approval");
+    const closed = tasks.filter((t) => t.status === "Closed");
     return {
-      myTasks: myTasks.length,
+      wip: wip.length,
       assignedByMe: assignedByMe.length,
-      overdue: overdue.length,
-      completed: completed.length,
+      assignedToMe: assignedToMe.length,
       pendingApproval: pendingApproval.length,
+      closed: closed.length,
       all: tasks.length,
     };
   }, [tasks, user]);
@@ -148,14 +152,17 @@ const Tasks = () => {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       </div>
     );
   }
+
+  const getDisplayName = (userId: string) => userNames[userId] || userEmails[userId] || "Unknown";
+  const getDisplayRole = (userId: string) => employeeRoles[userId] || "";
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -163,46 +170,46 @@ const Tasks = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-            Task Management
+            Ticket Management
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Manage and track team tasks
+            Manage and track support tickets
           </p>
         </div>
         <Button onClick={() => setAddOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Task
+          Create Ticket
         </Button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("my-tasks")}>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("wip")}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
+              <Clock className="h-5 w-5 text-info" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{counts.wip}</p>
+              <p className="text-xs text-muted-foreground">WIP Tickets</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("assigned-to-me")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <User className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{counts.myTasks}</p>
-              <p className="text-xs text-muted-foreground">My Tasks</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("overdue")}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{counts.overdue}</p>
-              <p className="text-xs text-muted-foreground">Overdue (5+ Days)</p>
+              <p className="text-2xl font-bold">{counts.assignedToMe}</p>
+              <p className="text-xs text-muted-foreground">Assigned to Me</p>
             </div>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("assigned-by-me")}>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-info/10 flex items-center justify-center">
-              <CalendarClock className="h-5 w-5 text-info" />
+            <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+              <CalendarClock className="h-5 w-5 text-warning" />
             </div>
             <div>
               <p className="text-2xl font-bold">{counts.assignedByMe}</p>
@@ -223,26 +230,26 @@ const Tasks = () => {
             </CardContent>
           </Card>
         )}
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("completed")}>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setTab("closed")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
               <CheckCircle className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{counts.completed}</p>
-              <p className="text-xs text-muted-foreground">Completed</p>
+              <p className="text-2xl font-bold">{counts.closed}</p>
+              <p className="text-xs text-muted-foreground">Closed</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs & Filters */}
+      {/* Tabs & Search */}
       <Tabs value={tab} onValueChange={setTab}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <TabsList className="w-full sm:w-auto flex-wrap">
-            <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
+            <TabsTrigger value="wip">WIP</TabsTrigger>
             <TabsTrigger value="assigned-by-me">Assigned by Me</TabsTrigger>
-            <TabsTrigger value="overdue">Overdue</TabsTrigger>
+            <TabsTrigger value="assigned-to-me">Assigned to Me</TabsTrigger>
             {isMasterAdmin && (
               <TabsTrigger value="pending-approval" className="gap-1">
                 Pending Approval
@@ -253,108 +260,108 @@ const Tasks = () => {
                 )}
               </TabsTrigger>
             )}
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            {isAdmin && <TabsTrigger value="all">All Tasks</TabsTrigger>}
+            <TabsTrigger value="closed">Closed</TabsTrigger>
+            {isAdmin && <TabsTrigger value="all">All Tickets</TabsTrigger>}
           </TabsList>
 
-          <div className="flex gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Waiting for Customer">Waiting</SelectItem>
-                <SelectItem value="Pending Master Approval">Pending Approval</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="relative flex-1 sm:w-64 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tickets..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
 
-        {["my-tasks", "assigned-by-me", "overdue", "pending-approval", "completed", "all"].map(
+        {["wip", "assigned-by-me", "assigned-to-me", "pending-approval", "closed", "all"].map(
           (tabValue) => (
             <TabsContent key={tabValue} value={tabValue} className="mt-4">
               {filtered.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p>No tasks found</p>
+                  <Ticket className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p>No tickets found</p>
                 </div>
               ) : (
-                <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {filtered.map((task) => {
-                    const taskAge = getTaskAgeDays(task.created_at);
-                    const ageBarColor = getAgeBarColor(taskAge);
+                <div className="space-y-2">
+                  {filtered.map((ticket) => {
+                    const age = getTicketAgeDays(ticket.created_at);
+                    const ageBarColor = getAgeBarColor(age);
+                    const heading = ticket.company_name || ticket.customer_name || "Internal Ticket";
+                    const assigneeName = getDisplayName(ticket.assigned_to);
+                    const assigneeRole = getDisplayRole(ticket.assigned_to);
+
                     return (
-                      <Card
-                        key={task.id}
-                        className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30 overflow-hidden"
-                        onClick={() => setSelectedTask(task)}
+                      <div
+                        key={ticket.id}
+                        className="flex cursor-pointer rounded-lg border border-border bg-card hover:shadow-md hover:border-primary/30 transition-all overflow-hidden"
+                        onClick={() => setSelectedTask(ticket)}
                       >
-                        <div className="flex">
-                          {/* Age color bar */}
-                          <div className={`w-1.5 ${ageBarColor} shrink-0`} />
-                          <CardContent className="p-4 space-y-3 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-semibold text-sm line-clamp-2">
-                                {task.title}
-                              </h3>
-                              <Badge
-                                variant="outline"
-                                className={`shrink-0 text-xs ${statusColors[task.status] || ""}`}
-                              >
-                                {task.status === "Pending Master Approval" ? "Pending Approval" : task.status}
-                              </Badge>
-                            </div>
+                        {/* Age color bar */}
+                        <div className={`w-1.5 ${ageBarColor} shrink-0`} />
 
-                            {/* Priority & Age */}
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-medium ${priorityColors[task.priority] || ""}`}>
-                                <Flag className="h-3 w-3 inline mr-0.5" />
-                                {task.priority}
-                              </span>
-                              <span className="text-xs text-muted-foreground">•</span>
-                              <span className="text-xs text-muted-foreground">
-                                {taskAge === 0 ? "Today" : `${taskAge}d old`}
-                              </span>
-                              {task.task_type === "Customer" && (
-                                <>
-                                  <span className="text-xs text-muted-foreground">•</span>
-                                  <span className="text-xs text-muted-foreground">👤 Customer</span>
-                                </>
+                        <div className="flex-1 flex items-center gap-4 p-3 sm:p-4 min-w-0">
+                          {/* Main content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              {ticket.company_name && (
+                                <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               )}
+                              <h3 className="font-semibold text-sm sm:text-base text-foreground truncate">
+                                {heading}
+                              </h3>
                             </div>
-
-                            {task.customer_code && (
-                              <p className="text-xs text-muted-foreground">
-                                {task.customer_code}
-                                {task.customer_name ? ` – ${task.customer_name}` : ""}
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {ticket.title}
+                            </p>
+                            {ticket.customer_code && (
+                              <p className="text-xs text-muted-foreground/70 mt-0.5">
+                                {ticket.customer_code}
+                                {ticket.customer_name && ticket.company_name ? ` – ${ticket.customer_name}` : ""}
                               </p>
                             )}
+                          </div>
 
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                <span className="truncate max-w-[140px]">
-                                  {userNames[task.assigned_to] || userEmails[task.assigned_to] || "Unknown"}
-                                </span>
-                              </div>
+                          {/* Metadata */}
+                          <div className="hidden sm:flex items-center gap-3 shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${statusColors[ticket.status] || ""}`}
+                            >
+                              {ticket.status === "Pending Master Approval" ? "Pending Approval" : ticket.status}
+                            </Badge>
+                            <span className={`text-xs font-medium ${priorityColors[ticket.priority] || ""}`}>
+                              <Flag className="h-3 w-3 inline mr-0.5" />
+                              {ticket.priority}
+                            </span>
+                          </div>
+
+                          {/* Assignee & Age */}
+                          <div className="hidden md:flex flex-col items-end gap-1 shrink-0 text-right min-w-[120px]">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              <span className="truncate max-w-[100px]">{assigneeName}</span>
                             </div>
-                          </CardContent>
+                            <span className={`text-xs font-semibold ${getAgeColor(age)}`}>
+                              {age === 0 ? "Today" : `${age}d old`}
+                            </span>
+                          </div>
+
+                          {/* Mobile: compact badges */}
+                          <div className="flex sm:hidden flex-col items-end gap-1 shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${statusColors[ticket.status] || ""}`}
+                            >
+                              {ticket.status === "Pending Master Approval" ? "PA" : ticket.status}
+                            </Badge>
+                            <span className={`text-[10px] font-semibold ${getAgeColor(age)}`}>
+                              {age === 0 ? "Today" : `${age}d`}
+                            </span>
+                          </div>
                         </div>
-                      </Card>
+                      </div>
                     );
                   })}
                 </div>
@@ -371,6 +378,7 @@ const Tasks = () => {
         onOpenChange={(open) => !open && setSelectedTask(null)}
         userEmails={userEmails}
         userNames={userNames}
+        employeeRoles={employeeRoles}
       />
     </div>
   );

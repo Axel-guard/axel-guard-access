@@ -28,12 +28,6 @@ interface AddTaskDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface Employee {
-  id: string;
-  name: string;
-  employee_role: string | null;
-}
-
 interface AllowedUser {
   userId: string;
   email: string;
@@ -61,11 +55,9 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [emailMissingError, setEmailMissingError] = useState(false);
 
-  // Fetch users for assignment - use employee user_id for direct mapping
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
-      // Get employees with user_id for direct auth user linking
       const { data: employees } = await supabase
         .from("employees")
         .select("name, email, employee_role, user_id")
@@ -93,7 +85,6 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     fetchUsers();
   }, [open]);
 
-  // Customer code lookup with debounce
   useEffect(() => {
     if (!customerCode.trim()) {
       setCustomerFound(null);
@@ -129,29 +120,16 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     return () => clearTimeout(timer);
   }, [customerCode]);
 
-  const isCustomerTask = !!customerCode.trim() && customerFound;
+  const isCustomerTicket = !!customerCode.trim() && customerFound;
 
   const handleSubmit = async () => {
     if (!title || !assignedTo) return;
 
-    // For customer tasks, require email
-    if (isCustomerTask && !customerEmail.trim()) {
+    if (isCustomerTicket && !customerEmail.trim()) {
       setEmailMissingError(true);
       return;
     }
     setEmailMissingError(false);
-    let attachmentUrl: string | undefined;
-    let attachmentName: string | undefined;
-
-    if (attachment) {
-      try {
-        const result = await uploadTaskAttachment(attachment);
-        attachmentUrl = result.url;
-        attachmentName = result.name;
-      } catch {
-        // Continue without attachment
-      }
-    }
 
     await createTask.mutateAsync({
       title,
@@ -163,8 +141,8 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
       company_name: companyName || undefined,
       customer_email: customerEmail || undefined,
       priority,
-      task_type: isCustomerTask ? "Customer" : "Internal",
-      customer_email_enabled: isCustomerTask ? customerEmailEnabled : false,
+      task_type: isCustomerTicket ? "Customer" : "Internal",
+      customer_email_enabled: isCustomerTicket ? customerEmailEnabled : false,
       assigned_to: assignedTo,
     });
 
@@ -193,22 +171,20 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>Create New Ticket</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Task Title */}
           <div>
-            <Label htmlFor="task-title">Task Title *</Label>
+            <Label htmlFor="task-title">Ticket Title *</Label>
             <Input
               id="task-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter task title"
+              placeholder="Enter ticket title"
             />
           </div>
 
-          {/* Assign To - Employee Names */}
           <div>
             <Label htmlFor="assign-to">Assign To *</Label>
             <Select value={assignedTo} onValueChange={setAssignedTo}>
@@ -225,7 +201,6 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </Select>
           </div>
 
-          {/* Priority */}
           <div>
             <Label>Priority</Label>
             <Select value={priority} onValueChange={setPriority}>
@@ -241,7 +216,6 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </Select>
           </div>
 
-          {/* Customer Code (Optional) */}
           <div>
             <Label htmlFor="customer-code">Customer Code (Optional)</Label>
             <div className="relative">
@@ -291,13 +265,12 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </div>
           )}
 
-          {/* Customer Email Communication Toggle - only for customer tasks */}
-          {isCustomerTask && (
+          {isCustomerTicket && (
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
                 <p className="text-sm font-medium">Enable Customer Email Communication</p>
                 <p className="text-xs text-muted-foreground">
-                  Send task updates to customer via email
+                  Send ticket updates to customer via email
                 </p>
               </div>
               <Switch
@@ -307,19 +280,17 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             </div>
           )}
 
-          {/* Description */}
           <div>
             <Label htmlFor="task-desc">Description / Remarks</Label>
             <Textarea
               id="task-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add task description or remarks..."
+              placeholder="Add ticket description or remarks..."
               rows={3}
             />
           </div>
 
-          {/* File Attachment */}
           <div>
             <Label>Attachment (Optional)</Label>
             {attachment ? (
@@ -345,7 +316,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
             )}
           </div>
 
-          {emailMissingError && isCustomerTask && (
+          {emailMissingError && isCustomerTicket && (
             <Alert variant="destructive">
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
@@ -378,7 +349,7 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
               {createTask.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
-              Create Task
+              Create Ticket
             </Button>
           </div>
         </div>
