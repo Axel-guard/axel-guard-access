@@ -23,6 +23,7 @@ import {
   BarChart3,
   Shield,
   ListTodo,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: Clock, label: "Pendency", path: "/pendency" },
   {
     icon: BarChart3,
     label: "Reports & Analytics",
