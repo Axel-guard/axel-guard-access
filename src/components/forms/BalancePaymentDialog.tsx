@@ -199,6 +199,51 @@ export const BalancePaymentDialog = ({
             </div>
           )}
 
+          {/* Order Items Table */}
+          {sale && (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Order Items
+              </h4>
+              {itemsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : orderItems && orderItems.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs w-8">#</TableHead>
+                        <TableHead className="text-xs">Product Name</TableHead>
+                        <TableHead className="text-xs text-center">Qty</TableHead>
+                        <TableHead className="text-xs text-right">Price</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderItems.map((item, idx) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-xs py-2">{idx + 1}</TableCell>
+                          <TableCell className="text-xs py-2 font-medium">{item.product_name}</TableCell>
+                          <TableCell className="text-xs py-2 text-center">{Number(item.quantity)}</TableCell>
+                          <TableCell className="text-xs py-2 text-right">₹{Number(item.unit_price).toLocaleString()}</TableCell>
+                          <TableCell className="text-xs py-2 text-right font-medium">₹{(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-3 text-muted-foreground text-xs bg-muted/30 rounded-lg">
+                  No order items found
+                </div>
+              )}
+            </div>
+          )}
+
           {sale && balanceAmount > 0 && (
             <>
               <div className="space-y-4">
