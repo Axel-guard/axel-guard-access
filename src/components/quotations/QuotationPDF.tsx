@@ -494,11 +494,25 @@ export const generateQuotationPDF = async (
   doc.setFont("helvetica", "bold");
   doc.text("Authorized Signatory", 14, finalY + 27);
 
-  // Bottom red bar
-  doc.setFillColor(...red);
-  doc.rect(0, ph - 8, pw, 8, "F");
+  // Add bottom red bar on every page
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFillColor(...red);
+    doc.rect(0, ph - 8, pw, 8, "F");
+  }
 
   return doc;
+};
+
+/** Generate the quotation PDF and return as base64 data URI string */
+export const generateQuotationPDFBase64 = async (
+  quotation: Quotation,
+  items: QuotationItem[]
+): Promise<string> => {
+  const doc = await generateQuotationPDF(quotation, items);
+  // Returns raw base64 string (no data URI prefix)
+  return doc.output("datauristring").split(",")[1];
 };
 
 /** Map Indian GST state codes to state names */

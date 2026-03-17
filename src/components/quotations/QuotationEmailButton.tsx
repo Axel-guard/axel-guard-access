@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Mail, MailCheck, RefreshCw, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { generateQuotationPDFBase64 } from "./QuotationPDF";
+import { Quotation, QuotationItem } from "@/hooks/useQuotations";
 
 interface QuotationEmailButtonProps {
   quotationId: string;
@@ -54,10 +56,41 @@ export const QuotationEmailButton = ({
 
   const sendEmailMutation = useMutation({
     mutationFn: async () => {
+      // Generate PDF client-side with full multi-page support
+      let pdfBase64: string | undefined;
+      try {
+        // Fetch quotation + items for PDF generation
+        const { data: quotation } = await supabase
+          .from("quotations")
+          .select("*")
+          .eq("id", quotationId)
+          .single();
+
+        const { data: items } = await supabase
+          .from("quotation_items")
+          .select("*")
+          .eq("quotation_id", quotationId)
+          .order("created_at", { ascending: true });
+
+        if (quotation && items) {
+          pdfBase64 = await generateQuotationPDFBase64(
+            quotation as unknown as Quotation,
+            items as unknown as QuotationItem[]
+          );
+          console.log(`PDF generated: ~${Math.round((pdfBase64?.length || 0) / 1024)}KB base64`);
+        }
+      } catch (pdfErr) {
+        console.error("PDF generation failed, sending without attachment:", pdfErr);
+      }
+
       const { error } = await supabase.functions.invoke("send-email", {
         body: {
           type: "quotation",
           quotationId,
+          pdfAttachment: pdfBase64 ? {
+            filename: `Quotation-${quotationNo}.pdf`,
+            content: pdfBase64,
+          } : undefined,
         },
       });
 

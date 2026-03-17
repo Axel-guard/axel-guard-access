@@ -18,6 +18,10 @@ interface EmailRequest {
     productName?: string;
     totalQuantity?: number;
   };
+  pdfAttachment?: {
+    filename: string;
+    content: string; // base64 encoded PDF
+  };
 }
  
  const CC_EMAIL = "mani@axel-guard.com";
@@ -607,6 +611,11 @@ const getEmailTemplate = (
    subject: string;
    body: string;
    isHtml?: boolean;
+   attachment?: {
+     filename: string;
+     content: string; // base64
+     contentType?: string;
+   };
  }): Promise<void> {
    const encoder = new TextEncoder();
    const decoder = new TextDecoder();
@@ -673,22 +682,58 @@ const getEmailTemplate = (
        throw new Error(`DATA command failed: ${response}`);
      }
  
-     const date = new Date().toUTCString();
-     const contentType = config.isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
-     
-     const emailContent = [
-       `From: AxelGuard <${config.from}>`,
-       `To: ${config.to}`,
-       config.cc ? `Cc: ${config.cc}` : null,
-       `Subject: ${config.subject}`,
-       `Date: ${date}`,
-       `MIME-Version: 1.0`,
-       `Content-Type: ${contentType}`,
-       ``,
-       config.body,
-     ]
-       .filter(Boolean)
-       .join("\r\n");
+      const date = new Date().toUTCString();
+      const boundary = "----=_Part_" + Date.now().toString(36);
+      
+      let emailContent: string;
+      
+      if (config.attachment) {
+        // MIME multipart with attachment
+        const contentType = config.isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
+        emailContent = [
+          `From: AxelGuard <${config.from}>`,
+          `To: ${config.to}`,
+          config.cc ? `Cc: ${config.cc}` : null,
+          `Subject: ${config.subject}`,
+          `Date: ${date}`,
+          `MIME-Version: 1.0`,
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          ``,
+          `--${boundary}`,
+          `Content-Type: ${contentType}`,
+          `Content-Transfer-Encoding: 7bit`,
+          ``,
+          config.body,
+          ``,
+          `--${boundary}`,
+          `Content-Type: ${config.attachment.contentType || "application/pdf"}`,
+          `Content-Transfer-Encoding: base64`,
+          `Content-Disposition: attachment; filename="${config.attachment.filename}"`,
+          ``,
+          // Split base64 into 76-char lines per RFC 2045
+          config.attachment.content.match(/.{1,76}/g)?.join("\r\n") || config.attachment.content,
+          ``,
+          `--${boundary}--`,
+        ]
+          .filter((line) => line !== null)
+          .join("\r\n");
+      } else {
+        // Simple email without attachment
+        const contentType = config.isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
+        emailContent = [
+          `From: AxelGuard <${config.from}>`,
+          `To: ${config.to}`,
+          config.cc ? `Cc: ${config.cc}` : null,
+          `Subject: ${config.subject}`,
+          `Date: ${date}`,
+          `MIME-Version: 1.0`,
+          `Content-Type: ${contentType}`,
+          ``,
+          config.body,
+        ]
+          .filter(Boolean)
+          .join("\r\n");
+      }
  
      await writer.write(encoder.encode(emailContent + "\r\n.\r\n"));
      response = await readResponse();
@@ -737,7 +782,7 @@ const getEmailTemplate = (
    }
  
    try {
-    const { type, orderId, quotationId, dispatchData }: EmailRequest = await req.json();
+    const { type, orderId, quotationId, dispatchData, pdfAttachment }: EmailRequest = await req.json();
 
     if (!type) {
       throw new Error("Missing required field: type");
@@ -963,6 +1008,11 @@ const getEmailTemplate = (
       subject,
       body,
       isHtml: true,
+      attachment: pdfAttachment ? {
+        filename: pdfAttachment.filename,
+        content: pdfAttachment.content,
+        contentType: "application/pdf",
+      } : undefined,
     }, 2);
 
     console.log(`Email sent successfully for ${type === "quotation" ? `quotation: ${quotationId}` : `order: ${orderId}`}`);
