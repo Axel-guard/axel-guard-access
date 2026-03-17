@@ -135,12 +135,24 @@ export const usePendency = () => {
       }
     });
 
-    // Tracking Pending - only for dispatch-pending orders that have a shipment but no tracking ID
-    const pendingOrderIds = new Set(dispatchRecords.map((r: any) => r.order_id));
-    const trackingRecords = (shipments || []).filter(s => {
-      if (!s.order_id) return false;
-      if (s.tracking_id && s.tracking_id.trim() !== "") return false;
-      return pendingOrderIds.has(s.order_id);
+    // Tracking Pending - dispatch-pending orders where tracking is missing
+    // An order needs tracking if: it has no shipment at all, OR has a shipment without tracking_id
+    const trackingRecords = dispatchRecords.filter((sale: any) => {
+      const orderShipments = (shipments || []).filter(s => s.order_id === sale.order_id);
+      if (orderShipments.length === 0) return true; // no shipment yet = needs tracking
+      // Has shipment(s) but at least one has no tracking ID
+      return orderShipments.some(s => !s.tracking_id || s.tracking_id.trim() === "");
+    }).map((sale: any) => {
+      const orderShipment = (shipments || []).find(s => s.order_id === sale.order_id);
+      return {
+        order_id: sale.order_id,
+        customer_name: sale.customer_name,
+        company_name: sale.company_name,
+        employee_name: sale.employee_name,
+        courier_partner: orderShipment?.courier_partner || "—",
+        shipping_mode: orderShipment?.shipping_mode || "—",
+        created_at: orderShipment?.created_at || sale.sale_date,
+      };
     });
 
     const records: PendencyRecords = {
