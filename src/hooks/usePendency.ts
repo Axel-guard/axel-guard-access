@@ -135,19 +135,12 @@ export const usePendency = () => {
       }
     });
 
-    // Tracking Pending - only from today onwards (IST timezone)
-    const todayIST = new Date();
-    // IST is UTC+5:30, get start of today in IST then convert to UTC
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const nowUTC = todayIST.getTime();
-    const nowIST = new Date(nowUTC + istOffset);
-    const startOfTodayIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
-    const startOfTodayUTC = new Date(startOfTodayIST.getTime() - istOffset);
-
+    // Tracking Pending - only for dispatch-pending orders that have a shipment but no tracking ID
+    const pendingOrderIds = new Set(dispatchRecords.map((r: any) => r.order_id));
     const trackingRecords = (shipments || []).filter(s => {
-      if (s.tracking_id && s.tracking_id.trim() !== "") return false; // has tracking, skip
-      const createdAt = new Date(s.created_at || 0);
-      return createdAt >= startOfTodayUTC;
+      if (!s.order_id) return false;
+      if (s.tracking_id && s.tracking_id.trim() !== "") return false;
+      return pendingOrderIds.has(s.order_id);
     });
 
     const records: PendencyRecords = {
