@@ -12,16 +12,18 @@ export interface PendencyCounts {
   pendingTickets: number;
 }
 
-/**
- * Reuses the exact same data sources as the actual module pages
- * to ensure counts always match.
- */
+export interface PendencyRecords {
+  balancePayment: any[];
+  dispatchPending: any[];
+  trackingPending: any[];
+  qcPending: any[];
+  pendingTickets: any[];
+}
+
 export const usePendency = () => {
-  // Reuse the same hooks the Dispatch page uses
   const { data: allSales, isLoading: salesLoading } = useAllDispatchSales();
   const { data: shipments, isLoading: shipmentsLoading } = useShipments();
 
-  // Fetch sale_items for dispatch status calculation (same as Dispatch page)
   const allOrderIds = useMemo(() => (allSales || []).map(s => s.order_id), [allSales]);
 
   const { data: allSaleItems, isLoading: saleItemsLoading } = useQuery({
@@ -29,9 +31,7 @@ export const usePendency = () => {
     queryFn: async () => {
       if (allOrderIds.length === 0) return [];
       const chunks: string[][] = [];
-      for (let i = 0; i < allOrderIds.length; i += 500) {
-        chunks.push(allOrderIds.slice(i, i + 500));
-      }
+      for (let i = 0; i < allOrderIds.length; i += 500) chunks.push(allOrderIds.slice(i, i + 500));
       const results = await Promise.all(chunks.map(async chunk => {
         const { data, error } = await supabase.from("sale_items").select("*").in("order_id", chunk);
         if (error) throw error;
@@ -40,6 +40,7 @@ export const usePendency = () => {
       return results.flat();
     },
     enabled: allOrderIds.length > 0,
+    refetchInterval: 10000,
   });
 
   const { data: dispatchedInventory, isLoading: invDispatchLoading } = useQuery({
@@ -47,9 +48,7 @@ export const usePendency = () => {
     queryFn: async () => {
       if (allOrderIds.length === 0) return [];
       const chunks: string[][] = [];
-      for (let i = 0; i < allOrderIds.length; i += 500) {
-        chunks.push(allOrderIds.slice(i, i + 500));
-      }
+      for (let i = 0; i < allOrderIds.length; i += 500) chunks.push(allOrderIds.slice(i, i + 500));
       const results = await Promise.all(chunks.map(async chunk => {
         const { data, error } = await supabase.from("inventory").select("order_id").eq("status", "Dispatched").in("order_id", chunk);
         if (error) throw error;
@@ -58,6 +57,7 @@ export const usePendency = () => {
       return results.flat();
     },
     enabled: allOrderIds.length > 0,
+    refetchInterval: 10000,
   });
 
   const { data: productTypesData } = useQuery({
@@ -67,51 +67,61 @@ export const usePendency = () => {
       if (error) throw error;
       const map: Record<string, string> = {};
       (data || []).forEach(p => {
-        const isSkip = p.product_name === "MDVR Connector";
-        map[p.product_name] = isSkip ? "service" : (p.product_type || "physical");
+        map[p.product_name] = p.product_name === "MDVR Connector" ? "service" : (p.product_type || "physical");
       });
       return map;
     },
   });
 
-  // QC Pending count
-  const { data: qcPendingData, isLoading: qcLoading } = useQuery({
-    queryKey: ["pendency-qc"],
+  // QC Pending records
+  const { data: qcPendingRecords, isLoading: qcLoading } = useQuery({
+    queryKey: ["pendency-qc-records"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("inventory")
-        .select("*", { count: "exact", head: true })
-        .eq("qc_result", "Pending");
-      if (error) throw error;
-      return count || 0;
+      const allRecords: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("inventory")
+          .select("id, serial_number, product_name, category, in_date, qc_result, status")
+          .eq("qc_result", "Pending")
+          .order("in_date", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        if (data && data.length > 0) { allRecords.push(...data); from += PAGE; hasMore = data.length === PAGE; }
+        else hasMore = false;
+      }
+      return allRecords;
     },
+    refetchInterval: 10000,
   });
 
-  // Pending Tickets count (tasks table, status != 'Closed')
-  const { data: ticketsData, isLoading: ticketsLoading } = useQuery({
-    queryKey: ["pendency-tickets"],
+  // Pending Tickets records
+  const { data: ticketRecords, isLoading: ticketsLoading } = useQuery({
+    queryKey: ["pendency-ticket-records"],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("tasks")
-        .select("*", { count: "exact", head: true })
-        .neq("status", "Closed");
+        .select("id, title, status, priority, customer_name, company_name, assigned_to, created_at")
+        .neq("status", "Closed")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return count || 0;
+      return data || [];
     },
+    refetchInterval: 10000,
   });
 
-  // Compute dispatch-related counts using exact same logic as Dispatch page
-  const counts = useMemo<PendencyCounts>(() => {
+  const result = useMemo(() => {
     const isServiceProduct = (name: string) => (productTypesData || {})[name] === "service";
 
     // Balance Payment Pending
-    const balancePayment = (allSales || []).filter(s => Number(s.balance_amount) > 0).length;
+    const balanceRecords = (allSales || []).filter(s => Number(s.balance_amount) > 0);
 
-    // Dispatch Pending (same getOrderStatus logic as Dispatch page)
-    let dispatchPending = 0;
+    // Dispatch Pending
+    const dispatchRecords: any[] = [];
     (allSales || []).forEach(sale => {
-      if ((sale as any).dispatch_status_override === "Done") return; // Completed
-
+      if ((sale as any).dispatch_status_override === "Done") return;
       const orderSaleItems = (allSaleItems || []).filter(i => i.order_id === sale.order_id);
       const totalItems = orderSaleItems.reduce((sum, i) => sum + Number(i.quantity), 0);
       const physicalDispatched = (dispatchedInventory || []).filter(i => i.order_id === sale.order_id).length;
@@ -120,27 +130,35 @@ export const usePendency = () => {
         ? orderSaleItems.filter(i => isServiceProduct(i.product_name)).reduce((sum, i) => sum + Number(i.quantity), 0)
         : 0;
       const dispatched = physicalDispatched + serviceDispatched;
-
-      if (dispatched === 0) dispatchPending++;
-      else if (dispatched < totalItems) dispatchPending++;
-      // else Completed – don't count
+      if (dispatched < totalItems || (dispatched === 0 && totalItems === 0)) {
+        dispatchRecords.push({ ...sale, totalItems, dispatched, remaining: totalItems - dispatched });
+      }
     });
 
-    // Tracking Pending: shipments without tracking_id
-    const trackingPending = (shipments || []).filter(
-      s => !s.tracking_id || s.tracking_id.trim() === ""
-    ).length;
+    // Tracking Pending
+    const trackingRecords = (shipments || []).filter(s => !s.tracking_id || s.tracking_id.trim() === "");
 
-    return {
-      balancePayment,
-      dispatchPending,
-      trackingPending,
-      qcPending: qcPendingData || 0,
-      pendingTickets: ticketsData || 0,
+    const records: PendencyRecords = {
+      balancePayment: balanceRecords,
+      dispatchPending: dispatchRecords,
+      trackingPending: trackingRecords,
+      qcPending: qcPendingRecords || [],
+      pendingTickets: ticketRecords || [],
     };
-  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingData, ticketsData]);
+
+    const counts: PendencyCounts = {
+      balancePayment: records.balancePayment.length,
+      dispatchPending: records.dispatchPending.length,
+      trackingPending: records.trackingPending.length,
+      qcPending: records.qcPending.length,
+      pendingTickets: records.pendingTickets.length,
+    };
+
+    return { counts, records };
+  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords]);
+
 
   const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading;
 
-  return { counts, isLoading };
+  return { counts: result.counts, records: result.records, isLoading };
 };
