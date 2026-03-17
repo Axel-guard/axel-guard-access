@@ -7,17 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, Lock, Loader2, Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Mail, Loader2, AlertCircle, ShieldCheck, ArrowLeft } from "lucide-react";
 import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { LoadingTimeout } from "@/components/ui/LoadingTimeout";
 import { toast } from "sonner";
 import { z } from "zod";
 import { hardResetAndReload } from "@/lib/authUtils";
 import {
-  AuthTimeoutError,
   isAuthNetworkError,
   validateAuthConfig,
-  withTimeout,
 } from "@/lib/authNetwork";
 import {
   InputOTP,
@@ -25,35 +23,25 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+const emailSchema = z.string().email("Please enter a valid email address");
 
-const LOGIN_TIMEOUT_MS = 20000;
-
-type AuthStep = "credentials" | "otp";
+type AuthStep = "email" | "otp";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { user, checkEmailAllowed, isLoading } = useAuth();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
 
   // OTP state
-  const [authStep, setAuthStep] = useState<AuthStep>("credentials");
+  const [authStep, setAuthStep] = useState<AuthStep>("email");
   const [otpValue, setOtpValue] = useState("");
   const [otpSending, setOtpSending] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
-
-  // Store credentials temporarily for OTP flow
-  const pendingCredentials = useRef<{ email: string; password: string } | null>(null);
+  const verifiedEmail = useRef<string>("");
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -104,13 +92,13 @@ const Auth = () => {
     }
   };
 
-  const handleCredentialSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
 
     setError(null);
 
-    const validation = loginSchema.safeParse({ email, password });
+    const validation = emailSchema.safeParse(email);
     if (!validation.success) {
       setError(validation.error.errors[0].message);
       return;
@@ -119,7 +107,6 @@ const Auth = () => {
     const configValidation = validateAuthConfig();
     if (!configValidation.ok) {
       setError(configValidation.message);
-      toast.error(configValidation.message);
       return;
     }
 
@@ -134,75 +121,16 @@ const Auth = () => {
         return;
       }
 
-      if (isSignUp) {
-        // Sign up flow - no OTP needed
-        const { error: signUpError } = await withTimeout(
-          supabase.auth.signUp({
-            email: normalizedEmail,
-            password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/`,
-            },
-          }),
-          LOGIN_TIMEOUT_MS,
-          "Sign up request timed out"
-        );
-
-        if (signUpError) {
-          if (signUpError.message.includes("already registered")) {
-            setError("This email is already registered. Please sign in instead.");
-          } else if (isAuthNetworkError(signUpError)) {
-            setError("Network issue. Please check connection.");
-          } else {
-            setError(signUpError.message);
-          }
-          return;
-        }
-
-        toast.success("Account created successfully! Please check your email to verify your account.");
-        setIsSignUp(false);
-      } else {
-        // Login flow - verify credentials first, then send OTP
-        const { error: signInError } = await withTimeout(
-          supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          }),
-          LOGIN_TIMEOUT_MS,
-          "Login request timed out"
-        );
-
-        if (signInError) {
-          if (signInError.message.includes("Invalid login credentials")) {
-            setError("Invalid email or password. Please try again.");
-          } else if (signInError.message.includes("Email not confirmed")) {
-            setError("Please verify your email address before signing in.");
-          } else if (isAuthNetworkError(signInError)) {
-            setError("Network issue. Please check connection.");
-          } else {
-            setError(signInError.message);
-          }
-          return;
-        }
-
-        // Credentials valid — sign out temporarily and proceed to OTP
-        await supabase.auth.signOut({ scope: "local" });
-
-        // Store credentials for after OTP verification
-        pendingCredentials.current = { email: normalizedEmail, password };
-
-        // Send OTP
-        const sent = await sendOtp(normalizedEmail);
-        if (sent) {
-          setAuthStep("otp");
-          setOtpValue("");
-        }
+      // Send OTP
+      verifiedEmail.current = normalizedEmail;
+      const sent = await sendOtp(normalizedEmail);
+      if (sent) {
+        setAuthStep("otp");
+        setOtpValue("");
       }
     } catch (err: any) {
       console.error("Auth error:", err);
-      if (err instanceof AuthTimeoutError) {
-        setError("Network is slow or server is temporarily unreachable. Please try again.");
-      } else if (isAuthNetworkError(err)) {
+      if (isAuthNetworkError(err)) {
         setError("Network issue. Please check connection.");
       } else {
         setError("An unexpected error occurred. Please try again.");
@@ -219,73 +147,64 @@ const Auth = () => {
     setSubmitting(true);
 
     try {
-      const creds = pendingCredentials.current;
-      if (!creds) {
+      const targetEmail = verifiedEmail.current;
+      if (!targetEmail) {
         setError("Session expired. Please start over.");
-        setAuthStep("credentials");
+        setAuthStep("email");
         return;
       }
 
-      // Verify OTP via database function
-      const { data: isValid, error: rpcError } = await supabase.rpc("verify_otp", {
-        _email: creds.email,
-        _otp: otpValue,
+      // Call verify-otp-login edge function which verifies OTP and returns a magic link token
+      const { data, error: fnError } = await supabase.functions.invoke("verify-otp-login", {
+        body: { email: targetEmail, otp: otpValue },
       });
 
-      if (rpcError) {
-        console.error("OTP verify error:", rpcError);
+      if (fnError) {
         setError("Failed to verify OTP. Please try again.");
-        return;
-      }
-
-      if (!isValid) {
-        setError("Invalid or expired OTP. Please try again.");
         setOtpValue("");
         return;
       }
 
-      // OTP verified — now sign in for real
-      const { error: signInError } = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: creds.email,
-          password: creds.password,
-        }),
-        LOGIN_TIMEOUT_MS,
-        "Login request timed out"
-      );
-
-      if (signInError) {
-        setError(signInError.message);
+      if (!data?.success) {
+        setError(data?.error || "Invalid or expired OTP. Please try again.");
+        setOtpValue("");
         return;
       }
 
-      pendingCredentials.current = null;
+      // Use the token_hash to complete sign-in via Supabase
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash,
+        type: "magiclink",
+      });
+
+      if (verifyError) {
+        console.error("Token verify error:", verifyError);
+        setError("Login failed. Please try again.");
+        return;
+      }
+
       toast.success("Welcome back!");
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("OTP verify error:", err);
-      if (err instanceof AuthTimeoutError) {
-        setError("Request timed out. Please try again.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleResendOtp = async () => {
-    if (otpCountdown > 0 || !pendingCredentials.current) return;
+    if (otpCountdown > 0 || !verifiedEmail.current) return;
     setError(null);
-    await sendOtp(pendingCredentials.current.email);
+    await sendOtp(verifiedEmail.current);
     setOtpValue("");
   };
 
-  const handleBackToCredentials = () => {
-    setAuthStep("credentials");
+  const handleBackToEmail = () => {
+    setAuthStep("email");
     setOtpValue("");
     setError(null);
-    pendingCredentials.current = null;
+    verifiedEmail.current = "";
   };
 
   if (isLoading) {
@@ -310,9 +229,7 @@ const Auth = () => {
             <CardDescription className="text-muted-foreground mt-1">
               {authStep === "otp"
                 ? "Enter the verification code"
-                : isSignUp
-                ? "Create your account"
-                : "Sign in to your account"}
+                : "Sign in with your email"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -334,7 +251,7 @@ const Auth = () => {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   We sent a 6-digit code to<br />
-                  <span className="font-medium text-foreground">{pendingCredentials.current?.email}</span>
+                  <span className="font-medium text-foreground">{verifiedEmail.current}</span>
                 </p>
               </div>
 
@@ -376,7 +293,7 @@ const Auth = () => {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleBackToCredentials}
+                  onClick={handleBackToEmail}
                   className="text-muted-foreground"
                 >
                   <ArrowLeft className="mr-1 h-4 w-4" />
@@ -401,9 +318,9 @@ const Auth = () => {
               </div>
             </div>
           ) : (
-            /* ---- CREDENTIALS STEP ---- */
+            /* ---- EMAIL STEP ---- */
             <>
-              <form onSubmit={handleCredentialSubmit} className="space-y-4">
+              <form onSubmit={handleEmailSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
@@ -424,83 +341,21 @@ const Auth = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        setError(null);
-                      }}
-                      disabled={submitting}
-                      className="h-11 pr-10"
-                      autoComplete={isSignUp ? "new-password" : "current-password"}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-11 w-11 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                      tabIndex={-1}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
                 <Button
                   type="submit"
                   className="w-full h-11 text-base font-medium"
-                  disabled={submitting || !email || !password}
+                  disabled={submitting || !email}
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isSignUp ? "Creating account..." : "Verifying..."}
+                      Sending OTP...
                     </>
-                  ) : isSignUp ? (
-                    "Create Account"
                   ) : (
-                    "Continue"
+                    "Send OTP"
                   )}
                 </Button>
               </form>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    {isSignUp ? "Already have an account?" : "New to AxelGuard?"}
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError(null);
-                  setPassword("");
-                }}
-              >
-                {isSignUp ? "Sign in instead" : "Create an account"}
-              </Button>
 
               <Button
                 type="button"

@@ -182,8 +182,8 @@ export const TaskDetailDialog = ({
     }
   };
 
-  const canUpdate =
-    user?.id === task.created_by || user?.id === task.assigned_to;
+  // All authenticated users can update open tickets
+  const canUpdate = !!user;
 
   const isTerminal = task.status === "Closed";
   const isPendingApproval = task.status === "Pending Master Approval";
