@@ -600,6 +600,8 @@ const getEmailTemplate = (
    return btoa(str);
  }
  
+ const BLOCKED_EMAILS = ["pawanchauhan7266@gmail.com"];
+
  async function sendSmtpEmail(config: {
    host: string;
    port: number;
@@ -617,6 +619,14 @@ const getEmailTemplate = (
      contentType?: string;
    };
  }): Promise<void> {
+   // Block emails to specific addresses
+   if (BLOCKED_EMAILS.includes(config.to.toLowerCase())) {
+     console.log(`Blocked email to ${config.to}, skipping send`);
+     return;
+   }
+   if (config.cc && BLOCKED_EMAILS.includes(config.cc.toLowerCase())) {
+     config.cc = undefined;
+   }
    const encoder = new TextEncoder();
    const decoder = new TextDecoder();
  
