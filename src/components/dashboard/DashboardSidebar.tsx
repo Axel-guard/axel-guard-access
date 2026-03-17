@@ -39,11 +39,19 @@ interface DashboardSidebarProps {
   onClose: () => void;
 }
 
+interface NavChild {
+  icon: React.ElementType;
+  label: string;
+  path: string;
+  adminOnly?: boolean;
+  masterAdminOnly?: boolean;
+}
+
 interface NavItem {
   icon: React.ElementType;
   label: string;
   path?: string;
-  children?: { icon: React.ElementType; label: string; path: string }[];
+  children?: NavChild[];
   adminOnly?: boolean;
   masterAdminOnly?: boolean;
 }
@@ -85,21 +93,28 @@ const navItems: NavItem[] = [
       { icon: Truck, label: "Dispatch", path: "/dispatch" },
       { icon: ClipboardCheck, label: "Quality Check", path: "/quality-check" },
       { icon: FileText, label: "Reports", path: "/reports?tab=inventory" },
+      { icon: ClipboardCheck, label: "Bulk QC Approvals", path: "/bulk-qc-approvals", masterAdminOnly: true },
     ],
   },
   { icon: ListTodo, label: "Tickets", path: "/tasks" },
-  { icon: ClipboardCheck, label: "Bulk QC Approvals", path: "/bulk-qc-approvals", masterAdminOnly: true },
-  { icon: Tag, label: "Pricing", path: "/pricing" },
   {
     icon: Database,
     label: "Database",
     children: [
       { icon: Users, label: "Leads Database", path: "/leads" },
       { icon: Package, label: "Products Database", path: "/products" },
+      { icon: Tag, label: "Pricing", path: "/pricing" },
     ],
   },
-  { icon: Users, label: "Employee Management", path: "/employee-management", masterAdminOnly: true },
-  { icon: Shield, label: "User Management", path: "/user-management", masterAdminOnly: true },
+  {
+    icon: Shield,
+    label: "User Management",
+    masterAdminOnly: true,
+    children: [
+      { icon: Shield, label: "User Settings", path: "/user-management" },
+      { icon: Users, label: "Employee Management", path: "/employee-management" },
+    ],
+  },
   { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
 ];
 
