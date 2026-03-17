@@ -1008,6 +1008,11 @@ const getEmailTemplate = (
       subject,
       body,
       isHtml: true,
+      attachment: pdfAttachment ? {
+        filename: pdfAttachment.filename,
+        content: pdfAttachment.content,
+        contentType: "application/pdf",
+      } : undefined,
     }, 2);
 
     console.log(`Email sent successfully for ${type === "quotation" ? `quotation: ${quotationId}` : `order: ${orderId}`}`);
