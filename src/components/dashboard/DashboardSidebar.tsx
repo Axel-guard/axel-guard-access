@@ -149,11 +149,21 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
   };
 
   // Filter nav items based on admin/master admin status
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.masterAdminOnly) return isMasterAdmin;
-    if (item.adminOnly) return isAdmin;
-    return true;
-  });
+  const filteredNavItems = navItems
+    .filter((item) => {
+      if (item.masterAdminOnly) return isMasterAdmin;
+      if (item.adminOnly) return isAdmin;
+      return true;
+    })
+    .map((item) => {
+      if (!item.children) return item;
+      const filteredChildren = item.children.filter((child) => {
+        if (child.masterAdminOnly) return isMasterAdmin;
+        if (child.adminOnly) return isAdmin;
+        return true;
+      });
+      return { ...item, children: filteredChildren };
+    });
 
   // Get user initials
   const getUserInitials = () => {
