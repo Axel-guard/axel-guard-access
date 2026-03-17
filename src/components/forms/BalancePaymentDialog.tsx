@@ -15,8 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUpdateBalancePayment, useSales } from "@/hooks/useSales";
-import { IndianRupee, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { IndianRupee, Search, Package } from "lucide-react";
 import { createNotification } from "@/hooks/useNotifications";
 
 interface SaleData {
@@ -55,6 +66,22 @@ export const BalancePaymentDialog = ({
   const totalAmount = sale ? Number(sale.total_amount) || 0 : 0;
   const amountReceived = sale ? Number(sale.amount_received) || 0 : 0;
   const balanceAmount = Math.max(0, totalAmount - amountReceived);
+
+  // Fetch order items for this sale
+  const { data: orderItems, isLoading: itemsLoading } = useQuery({
+    queryKey: ["sale-items", sale?.order_id],
+    queryFn: async () => {
+      if (!sale?.order_id) return [];
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("*")
+        .eq("order_id", sale.order_id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!sale?.order_id,
+  });
 
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [amount, setAmount] = useState<string>("");
@@ -121,7 +148,7 @@ export const BalancePaymentDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Balance Payment Update</DialogTitle>
         </DialogHeader>
@@ -169,6 +196,51 @@ export const BalancePaymentDialog = ({
                 <span>Balance:</span>
                 <span className="text-destructive flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{balanceAmount.toLocaleString()}</span>
               </div>
+            </div>
+          )}
+
+          {/* Order Items Table */}
+          {sale && (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Order Items
+              </h4>
+              {itemsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : orderItems && orderItems.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs w-8">#</TableHead>
+                        <TableHead className="text-xs">Product Name</TableHead>
+                        <TableHead className="text-xs text-center">Qty</TableHead>
+                        <TableHead className="text-xs text-right">Price</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderItems.map((item, idx) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-xs py-2">{idx + 1}</TableCell>
+                          <TableCell className="text-xs py-2 font-medium">{item.product_name}</TableCell>
+                          <TableCell className="text-xs py-2 text-center">{Number(item.quantity)}</TableCell>
+                          <TableCell className="text-xs py-2 text-right">₹{Number(item.unit_price).toLocaleString()}</TableCell>
+                          <TableCell className="text-xs py-2 text-right font-medium">₹{(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-3 text-muted-foreground text-xs bg-muted/30 rounded-lg">
+                  No order items found
+                </div>
+              )}
             </div>
           )}
 
