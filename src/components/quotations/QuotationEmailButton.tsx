@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Mail, MailCheck, RefreshCw, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { generateQuotationPDFBase64 } from "./QuotationPDF";
+import { Quotation, QuotationItem } from "@/hooks/useQuotations";
 
 interface QuotationEmailButtonProps {
   quotationId: string;
