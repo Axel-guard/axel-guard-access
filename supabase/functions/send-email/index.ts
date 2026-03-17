@@ -18,6 +18,10 @@ interface EmailRequest {
     productName?: string;
     totalQuantity?: number;
   };
+  pdfAttachment?: {
+    filename: string;
+    content: string; // base64 encoded PDF
+  };
 }
  
  const CC_EMAIL = "mani@axel-guard.com";
