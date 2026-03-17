@@ -611,6 +611,11 @@ const getEmailTemplate = (
    subject: string;
    body: string;
    isHtml?: boolean;
+   attachment?: {
+     filename: string;
+     content: string; // base64
+     contentType?: string;
+   };
  }): Promise<void> {
    const encoder = new TextEncoder();
    const decoder = new TextDecoder();
