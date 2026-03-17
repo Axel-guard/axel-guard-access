@@ -23,6 +23,7 @@ import {
   BarChart3,
   Shield,
   ListTodo,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
