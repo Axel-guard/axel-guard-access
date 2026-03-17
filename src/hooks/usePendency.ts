@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllDispatchSales } from "@/hooks/useAllDispatchSales";
 import { useShipments } from "@/hooks/useShipments";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 
 export interface PendencyCounts {
   balancePayment: number;
