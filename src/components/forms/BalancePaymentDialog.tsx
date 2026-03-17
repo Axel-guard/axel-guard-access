@@ -67,6 +67,22 @@ export const BalancePaymentDialog = ({
   const amountReceived = sale ? Number(sale.amount_received) || 0 : 0;
   const balanceAmount = Math.max(0, totalAmount - amountReceived);
 
+  // Fetch order items for this sale
+  const { data: orderItems, isLoading: itemsLoading } = useQuery({
+    queryKey: ["sale-items", sale?.order_id],
+    queryFn: async () => {
+      if (!sale?.order_id) return [];
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("*")
+        .eq("order_id", sale.order_id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!sale?.order_id,
+  });
+
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [amount, setAmount] = useState<string>("");
   const [accountReceived, setAccountReceived] = useState("Cash");
