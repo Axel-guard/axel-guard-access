@@ -407,7 +407,7 @@ serve(async (req) => {
           subject: email.subject, body: email.body,
         });
       } else {
-        // Internal-only notification
+        // Internal notification - send to all team members
         const email = getInternalTicketEmail(task, "updated", remarks, statusChange, updaterName);
         const internalRecipients = [assigneeEmail];
         const cc = buildCcList(assigneeEmail);
