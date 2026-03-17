@@ -15,8 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUpdateBalancePayment, useSales } from "@/hooks/useSales";
-import { IndianRupee, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { IndianRupee, Search, Package } from "lucide-react";
 import { createNotification } from "@/hooks/useNotifications";
 
 interface SaleData {
