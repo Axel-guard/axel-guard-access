@@ -782,7 +782,7 @@ const getEmailTemplate = (
    }
  
    try {
-    const { type, orderId, quotationId, dispatchData }: EmailRequest = await req.json();
+    const { type, orderId, quotationId, dispatchData, pdfAttachment }: EmailRequest = await req.json();
 
     if (!type) {
       throw new Error("Missing required field: type");
