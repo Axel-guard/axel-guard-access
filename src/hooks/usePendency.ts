@@ -135,8 +135,20 @@ export const usePendency = () => {
       }
     });
 
-    // Tracking Pending
-    const trackingRecords = (shipments || []).filter(s => !s.tracking_id || s.tracking_id.trim() === "");
+    // Tracking Pending - only from today onwards (IST timezone)
+    const todayIST = new Date();
+    // IST is UTC+5:30, get start of today in IST then convert to UTC
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const nowUTC = todayIST.getTime();
+    const nowIST = new Date(nowUTC + istOffset);
+    const startOfTodayIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
+    const startOfTodayUTC = new Date(startOfTodayIST.getTime() - istOffset);
+
+    const trackingRecords = (shipments || []).filter(s => {
+      if (s.tracking_id && s.tracking_id.trim() !== "") return false; // has tracking, skip
+      const createdAt = new Date(s.created_at || 0);
+      return createdAt >= startOfTodayUTC;
+    });
 
     const records: PendencyRecords = {
       balancePayment: balanceRecords,
