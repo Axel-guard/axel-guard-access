@@ -11,6 +11,8 @@ function toBase64(str: string): string {
   return btoa(str);
 }
 
+const BLOCKED_EMAILS = ["pawanchauhan7266@gmail.com"];
+
 async function sendSmtpEmail(config: {
   host: string;
   port: number;
@@ -22,6 +24,15 @@ async function sendSmtpEmail(config: {
   subject: string;
   body: string;
 }): Promise<void> {
+  // Filter out blocked emails from recipients and CC
+  config.to = config.to.filter(e => !BLOCKED_EMAILS.includes(e.toLowerCase()));
+  if (config.cc) {
+    config.cc = config.cc.filter(e => !BLOCKED_EMAILS.includes(e.toLowerCase()));
+  }
+  if (config.to.length === 0) {
+    console.log("All recipients blocked, skipping email send");
+    return;
+  }
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
