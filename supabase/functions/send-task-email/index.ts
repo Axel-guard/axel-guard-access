@@ -335,6 +335,13 @@ serve(async (req) => {
       return admins?.map(a => a.email) || [];
     };
 
+    const getAllUserEmails = async (): Promise<string[]> => {
+      const { data: allEmails } = await supabase
+        .from("allowed_emails")
+        .select("email");
+      return allEmails?.map(a => a.email) || [];
+    };
+
     const creatorEmail = await getUserEmail(task.created_by);
     const assigneeEmail = await getUserEmail(task.assigned_to);
 
@@ -353,13 +360,15 @@ serve(async (req) => {
 
     const isCustomerTicket = task.task_type === "Customer" && task.customer_email_enabled && task.customer_email;
     const adminEmails = await getAdminEmails();
+    const allUserEmails = await getAllUserEmails();
 
-    // Build CC list: assigned employee, creator, admins (deduplicated)
+    // Build CC list: all team members (deduplicated)
     const buildCcList = (excludeEmail?: string): string[] => {
       const ccSet = new Set<string>();
+      // Include ALL users in CC for full visibility
+      for (const ue of allUserEmails) ccSet.add(ue);
       if (assigneeEmail) ccSet.add(assigneeEmail);
       if (creatorEmail) ccSet.add(creatorEmail);
-      for (const ae of adminEmails) ccSet.add(ae);
       if (excludeEmail) ccSet.delete(excludeEmail);
       return [...ccSet];
     };
