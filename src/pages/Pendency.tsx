@@ -1,31 +1,79 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePendency } from "@/hooks/usePendency";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import {
   CreditCard, Truck, MapPin, ClipboardCheck, AlertCircle,
-  RefreshCw, Layers, Search,
+  RefreshCw, Search, Activity, TrendingDown,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
-type Category = "all" | "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets";
+type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets";
 
-const categoryConfig = {
-  balancePayment: { title: "Balance Payment", icon: CreditCard, color: "text-amber-600", bgColor: "bg-amber-50 dark:bg-amber-950/30" },
-  dispatchPending: { title: "Dispatch", icon: Truck, color: "text-blue-600", bgColor: "bg-blue-50 dark:bg-blue-950/30" },
-  trackingPending: { title: "Tracking", icon: MapPin, color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950/30" },
-  qcPending: { title: "QC", icon: ClipboardCheck, color: "text-orange-600", bgColor: "bg-orange-50 dark:bg-orange-950/30" },
-  pendingTickets: { title: "Tickets", icon: AlertCircle, color: "text-red-600", bgColor: "bg-red-50 dark:bg-red-950/30" },
-} as const;
+const categoryConfig: Record<Category, {
+  title: string;
+  shortTitle: string;
+  icon: React.ElementType;
+  gradient: string;
+  iconBg: string;
+  textColor: string;
+  ringColor: string;
+}> = {
+  balancePayment: {
+    title: "Balance Payment",
+    shortTitle: "Balance",
+    icon: CreditCard,
+    gradient: "from-amber-500 to-orange-500",
+    iconBg: "bg-amber-500/10",
+    textColor: "text-amber-600 dark:text-amber-400",
+    ringColor: "ring-amber-500/30",
+  },
+  dispatchPending: {
+    title: "Dispatch Pending",
+    shortTitle: "Dispatch",
+    icon: Truck,
+    gradient: "from-blue-500 to-indigo-500",
+    iconBg: "bg-blue-500/10",
+    textColor: "text-blue-600 dark:text-blue-400",
+    ringColor: "ring-blue-500/30",
+  },
+  trackingPending: {
+    title: "Tracking Pending",
+    shortTitle: "Tracking",
+    icon: MapPin,
+    gradient: "from-violet-500 to-purple-500",
+    iconBg: "bg-violet-500/10",
+    textColor: "text-violet-600 dark:text-violet-400",
+    ringColor: "ring-violet-500/30",
+  },
+  qcPending: {
+    title: "QC Pending",
+    shortTitle: "QC",
+    icon: ClipboardCheck,
+    gradient: "from-emerald-500 to-teal-500",
+    iconBg: "bg-emerald-500/10",
+    textColor: "text-emerald-600 dark:text-emerald-400",
+    ringColor: "ring-emerald-500/30",
+  },
+  pendingTickets: {
+    title: "Pending Tickets",
+    shortTitle: "Tickets",
+    icon: AlertCircle,
+    gradient: "from-rose-500 to-pink-500",
+    iconBg: "bg-rose-500/10",
+    textColor: "text-rose-600 dark:text-rose-400",
+    ringColor: "ring-rose-500/30",
+  },
+};
 
-const cats: (keyof typeof categoryConfig)[] = ["balancePayment", "dispatchPending", "trackingPending", "qcPending", "pendingTickets"];
+const cats: Category[] = ["balancePayment", "dispatchPending", "trackingPending", "qcPending", "pendingTickets"];
 
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
@@ -36,10 +84,10 @@ const fmtCurrency = (v: number | null) => v == null ? "₹0" : `₹${Number(v).t
 const PendencyPage = () => {
   const { counts, records, isLoading } = usePendency();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Category>("all");
+  const [activeTab, setActiveTab] = useState<Category>("balancePayment");
   const [search, setSearch] = useState("");
 
-  // Realtime subscriptions for live updates
+  // Realtime subscriptions
   useEffect(() => {
     const channel = supabase
       .channel("pendency-realtime")
@@ -60,7 +108,6 @@ const PendencyPage = () => {
         queryClient.invalidateQueries({ queryKey: ["all-dispatch-sales"] });
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
@@ -75,208 +122,181 @@ const PendencyPage = () => {
 
   const totalPending = counts ? cats.reduce((sum, c) => sum + counts[c], 0) : 0;
 
+  // Filtered rows for active tab
+  const filteredRows = useMemo(() => {
+    const raw = records?.[activeTab] || [];
+    if (!search) return raw;
+    const q = search.toLowerCase();
+    return raw.filter((r: any) =>
+      Object.values(r).some(v => String(v || "").toLowerCase().includes(q))
+    );
+  }, [records, activeTab, search]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-20 rounded-2xl" />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         </div>
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-72 rounded-2xl" />
       </div>
     );
   }
 
-  // Build table rows based on active tab
-  const getTableData = () => {
-    const lowerSearch = search.toLowerCase();
-    const filterBySearch = (rows: any[], fields: string[]) =>
-      lowerSearch ? rows.filter(r => fields.some(f => String(r[f] || "").toLowerCase().includes(lowerSearch))) : rows;
-
-    if (activeTab === "balancePayment" || activeTab === "all") {
-      const rows = filterBySearch(records.balancePayment, ["order_id", "customer_name", "company_name", "employee_name"]);
-      if (activeTab !== "all") return { key: "balance", rows };
-    }
-    if (activeTab === "dispatchPending" || activeTab === "all") {
-      const rows = filterBySearch(records.dispatchPending, ["order_id", "customer_name", "company_name", "employee_name"]);
-      if (activeTab !== "all") return { key: "dispatch", rows };
-    }
-    if (activeTab === "trackingPending" || activeTab === "all") {
-      const rows = filterBySearch(records.trackingPending, ["order_id", "courier_partner"]);
-      if (activeTab !== "all") return { key: "tracking", rows };
-    }
-    if (activeTab === "qcPending" || activeTab === "all") {
-      const rows = filterBySearch(records.qcPending, ["serial_number", "product_name", "category"]);
-      if (activeTab !== "all") return { key: "qc", rows };
-    }
-    if (activeTab === "pendingTickets" || activeTab === "all") {
-      const rows = filterBySearch(records.pendingTickets, ["title", "customer_name", "company_name"]);
-      if (activeTab !== "all") return { key: "tickets", rows };
-    }
-    return null;
-  };
-
-  const tableData = getTableData();
+  const activeCfg = categoryConfig[activeTab];
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Pendency Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalPending} Total Pending • Live synced
-          </p>
+      {/* ── Hero Header ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/8 via-background to-accent/5 border border-border/50 p-5 sm:p-6">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
+              <Activity className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Pendency Control Center</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-sm text-muted-foreground">Live synced</span>
+                <span className="text-sm text-muted-foreground">•</span>
+                <span className="text-sm font-semibold text-foreground">{totalPending} pending</span>
+              </div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2 rounded-xl bg-card/80 backdrop-blur-sm hover:bg-card">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2">
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </Button>
       </div>
 
-      {/* Summary Cards - always visible */}
+      {/* ── Metric Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {cats.map((key) => {
           const cfg = categoryConfig[key];
           const count = counts?.[key] || 0;
           const Icon = cfg.icon;
           const isActive = activeTab === key;
+
           return (
-            <Card
+            <button
               key={key}
-              className={`cursor-pointer transition-all hover:shadow-md border-2 ${isActive ? "border-primary ring-2 ring-primary/20" : count > 0 ? "border-border" : "border-border/40 opacity-60"}`}
-              onClick={() => setActiveTab(key)}
+              onClick={() => { setActiveTab(key); setSearch(""); }}
+              className={cn(
+                "group relative overflow-hidden rounded-2xl border-2 bg-card p-4 text-left transition-all duration-200",
+                isActive
+                  ? `border-transparent ring-2 ${cfg.ringColor} shadow-lg scale-[1.02]`
+                  : "border-border/50 hover:border-border hover:shadow-md hover:-translate-y-0.5",
+                count === 0 && !isActive && "opacity-50"
+              )}
             >
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className={`p-1.5 rounded-lg ${cfg.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${cfg.color}`} />
-                  </div>
-                  {count > 0 && <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-auto">!</Badge>}
+              {/* Active gradient indicator */}
+              {isActive && (
+                <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.gradient}`} />
+              )}
+
+              <div className="flex items-center justify-between mb-3">
+                <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-colors", cfg.iconBg)}>
+                  <Icon className={cn("h-5 w-5", cfg.textColor)} />
                 </div>
-                <p className={`text-2xl sm:text-3xl font-bold ${count > 0 ? cfg.color : "text-muted-foreground"}`}>{count}</p>
-                <p className="text-xs font-medium text-muted-foreground mt-0.5 truncate">{cfg.title}</p>
-              </CardContent>
-            </Card>
+                {count > 0 && (
+                  <div className={cn(
+                    "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white bg-gradient-to-r",
+                    cfg.gradient
+                  )}>
+                    {count > 99 ? "99+" : count}
+                  </div>
+                )}
+              </div>
+
+              <p className={cn("text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight", cfg.textColor)}>
+                {count.toLocaleString()}
+              </p>
+              <p className="text-xs font-medium text-muted-foreground mt-0.5 truncate">
+                {cfg.shortTitle}
+              </p>
+            </button>
           );
         })}
       </div>
 
-      {/* Tabs + Search */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Category); setSearch(""); }} className="flex-1">
-          <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-            <TabsTrigger value="all" className="text-xs sm:text-sm gap-1">
-              <Layers className="h-3.5 w-3.5" /> All ({totalPending})
-            </TabsTrigger>
-            {cats.map(key => {
-              const cfg = categoryConfig[key];
-              const Icon = cfg.icon;
-              return (
-                <TabsTrigger key={key} value={key} className="text-xs sm:text-sm gap-1">
-                  <Icon className="h-3.5 w-3.5" /> {cfg.title} ({counts?.[key] || 0})
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
-        {activeTab !== "all" && (
+      {/* ── Detail Section ── */}
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
+        {/* Table Header Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-border/50 bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", activeCfg.iconBg)}>
+              <activeCfg.icon className={cn("h-4 w-4", activeCfg.textColor)} />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">{activeCfg.title}</h2>
+              <p className="text-xs text-muted-foreground">{filteredRows.length} record{filteredRows.length !== 1 ? "s" : ""}</p>
+            </div>
+          </div>
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={`Search ${activeCfg.shortTitle.toLowerCase()}...`}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 h-9 rounded-xl bg-background/80 border-border/50"
+            />
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Data Table - inline, no navigation */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            {activeTab === "all" ? (
-              <AllPendencyTable records={records} counts={counts} onTabSwitch={setActiveTab} />
-            ) : tableData?.key === "balance" ? (
-              <BalanceTable rows={tableData.rows} />
-            ) : tableData?.key === "dispatch" ? (
-              <DispatchTable rows={tableData.rows} />
-            ) : tableData?.key === "tracking" ? (
-              <TrackingTable rows={tableData.rows} />
-            ) : tableData?.key === "qc" ? (
-              <QCTable rows={tableData.rows} />
-            ) : tableData?.key === "tickets" ? (
-              <TicketsTable rows={tableData.rows} />
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Table Content */}
+        <div className="overflow-x-auto">
+          {activeTab === "balancePayment" && <BalanceTable rows={filteredRows} />}
+          {activeTab === "dispatchPending" && <DispatchTable rows={filteredRows} />}
+          {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} />}
+          {activeTab === "qcPending" && <QCTable rows={filteredRows} />}
+          {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} />}
+        </div>
+      </div>
     </div>
   );
 };
 
-// ── "All" tab: summary rows per category ──
-const AllPendencyTable = ({ records, counts, onTabSwitch }: { records: any; counts: any; onTabSwitch: (c: Category) => void }) => (
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Category</TableHead>
-        <TableHead className="text-right">Pending Count</TableHead>
-        <TableHead className="text-right">Action</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {cats.map(key => {
-        const cfg = categoryConfig[key];
-        const Icon = cfg.icon;
-        const count = counts?.[key] || 0;
-        return (
-          <TableRow key={key} className="cursor-pointer hover:bg-muted/50" onClick={() => onTabSwitch(key)}>
-            <TableCell>
-              <div className="flex items-center gap-2.5">
-                <div className={`p-1.5 rounded-lg ${cfg.bgColor}`}><Icon className={`h-4 w-4 ${cfg.color}`} /></div>
-                <span className="font-medium">{cfg.title} Pending</span>
-              </div>
-            </TableCell>
-            <TableCell className="text-right">
-              <Badge variant={count > 0 ? "destructive" : "secondary"} className="text-sm px-3">{count}</Badge>
-            </TableCell>
-            <TableCell className="text-right">
-              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onTabSwitch(key); }}>
-                View →
-              </Button>
-            </TableCell>
-          </TableRow>
-        );
-      })}
-    </TableBody>
-  </Table>
+// ── Empty State ──
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="flex flex-col items-center justify-center py-16 px-4">
+    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 mb-4">
+      <TrendingDown className="h-7 w-7 text-muted-foreground/50" />
+    </div>
+    <p className="text-sm font-medium text-muted-foreground">{message}</p>
+    <p className="text-xs text-muted-foreground/60 mt-1">All caught up!</p>
+  </div>
 );
 
 // ── Balance Table ──
 const BalanceTable = ({ rows }: { rows: any[] }) => (
+  rows.length === 0 ? <EmptyState message="No pending balance payments" /> :
   <Table>
     <TableHeader>
-      <TableRow>
-        <TableHead>Order ID</TableHead>
-        <TableHead>Customer</TableHead>
-        <TableHead>Company</TableHead>
-        <TableHead>Employee</TableHead>
-        <TableHead className="text-right">Total</TableHead>
-        <TableHead className="text-right">Received</TableHead>
-        <TableHead className="text-right">Balance</TableHead>
-        <TableHead>Date</TableHead>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="font-semibold">Order ID</TableHead>
+        <TableHead className="font-semibold">Customer</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
+        <TableHead className="font-semibold hidden md:table-cell">Employee</TableHead>
+        <TableHead className="font-semibold text-right">Total</TableHead>
+        <TableHead className="font-semibold text-right hidden sm:table-cell">Received</TableHead>
+        <TableHead className="font-semibold text-right">Balance</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {rows.length === 0 ? (
-        <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No pending balance payments</TableCell></TableRow>
-      ) : rows.map((r: any) => (
-        <TableRow key={r.order_id}>
-          <TableCell className="font-medium">{r.order_id}</TableCell>
-          <TableCell>{r.customer_name || "—"}</TableCell>
-          <TableCell>{r.company_name || "—"}</TableCell>
-          <TableCell>{r.employee_name}</TableCell>
-          <TableCell className="text-right">{fmtCurrency(r.total_amount)}</TableCell>
-          <TableCell className="text-right">{fmtCurrency(r.amount_received)}</TableCell>
-          <TableCell className="text-right font-semibold text-destructive">{fmtCurrency(r.balance_amount)}</TableCell>
-          <TableCell>{fmtDate(r.sale_date)}</TableCell>
+      {rows.map((r: any) => (
+        <TableRow key={r.order_id} className="group">
+          <TableCell className="font-mono font-semibold text-primary">{r.order_id}</TableCell>
+          <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
+          <TableCell className="hidden md:table-cell text-muted-foreground">{r.employee_name}</TableCell>
+          <TableCell className="text-right tabular-nums">{fmtCurrency(r.total_amount)}</TableCell>
+          <TableCell className="text-right tabular-nums hidden sm:table-cell text-emerald-600">{fmtCurrency(r.amount_received)}</TableCell>
+          <TableCell className="text-right tabular-nums font-semibold text-destructive">{fmtCurrency(r.balance_amount)}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.sale_date)}</TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -285,32 +305,33 @@ const BalanceTable = ({ rows }: { rows: any[] }) => (
 
 // ── Dispatch Table ──
 const DispatchTable = ({ rows }: { rows: any[] }) => (
+  rows.length === 0 ? <EmptyState message="No pending dispatches" /> :
   <Table>
     <TableHeader>
-      <TableRow>
-        <TableHead>Order ID</TableHead>
-        <TableHead>Customer</TableHead>
-        <TableHead>Company</TableHead>
-        <TableHead>Employee</TableHead>
-        <TableHead className="text-right">Total Items</TableHead>
-        <TableHead className="text-right">Dispatched</TableHead>
-        <TableHead className="text-right">Remaining</TableHead>
-        <TableHead>Sale Date</TableHead>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="font-semibold">Order ID</TableHead>
+        <TableHead className="font-semibold">Customer</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
+        <TableHead className="font-semibold hidden md:table-cell">Employee</TableHead>
+        <TableHead className="font-semibold text-center">Total</TableHead>
+        <TableHead className="font-semibold text-center">Done</TableHead>
+        <TableHead className="font-semibold text-center">Left</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {rows.length === 0 ? (
-        <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No pending dispatches</TableCell></TableRow>
-      ) : rows.map((r: any) => (
-        <TableRow key={r.order_id}>
-          <TableCell className="font-medium">{r.order_id}</TableCell>
-          <TableCell>{r.customer_name || "—"}</TableCell>
-          <TableCell>{r.company_name || "—"}</TableCell>
-          <TableCell>{r.employee_name}</TableCell>
-          <TableCell className="text-right">{r.totalItems}</TableCell>
-          <TableCell className="text-right">{r.dispatched}</TableCell>
-          <TableCell className="text-right font-semibold text-destructive">{r.remaining}</TableCell>
-          <TableCell>{fmtDate(r.sale_date)}</TableCell>
+      {rows.map((r: any) => (
+        <TableRow key={r.order_id} className="group">
+          <TableCell className="font-mono font-semibold text-primary">{r.order_id}</TableCell>
+          <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
+          <TableCell className="hidden md:table-cell text-muted-foreground">{r.employee_name}</TableCell>
+          <TableCell className="text-center tabular-nums font-medium">{r.totalItems}</TableCell>
+          <TableCell className="text-center tabular-nums text-emerald-600 font-medium">{r.dispatched}</TableCell>
+          <TableCell className="text-center">
+            <Badge variant="destructive" className="tabular-nums font-bold text-xs px-2">{r.remaining}</Badge>
+          </TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.sale_date)}</TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -319,24 +340,27 @@ const DispatchTable = ({ rows }: { rows: any[] }) => (
 
 // ── Tracking Table ──
 const TrackingTable = ({ rows }: { rows: any[] }) => (
+  rows.length === 0 ? <EmptyState message="No pending tracking" /> :
   <Table>
     <TableHeader>
-      <TableRow>
-        <TableHead>Order ID</TableHead>
-        <TableHead>Courier Partner</TableHead>
-        <TableHead>Shipping Mode</TableHead>
-        <TableHead>Dispatch Date</TableHead>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="font-semibold">Order ID</TableHead>
+        <TableHead className="font-semibold">Customer</TableHead>
+        <TableHead className="font-semibold hidden md:table-cell">Company</TableHead>
+        <TableHead className="font-semibold hidden sm:table-cell">Courier</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Mode</TableHead>
+        <TableHead className="font-semibold">Date</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {rows.length === 0 ? (
-        <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No pending tracking</TableCell></TableRow>
-      ) : rows.map((r: any, i: number) => (
-        <TableRow key={`${r.order_id}-${i}`}>
-          <TableCell className="font-medium">{r.order_id || "—"}</TableCell>
-          <TableCell>{r.courier_partner || "—"}</TableCell>
-          <TableCell>{r.shipping_mode || "—"}</TableCell>
-          <TableCell>{fmtDate(r.created_at)}</TableCell>
+      {rows.map((r: any, i: number) => (
+        <TableRow key={`${r.order_id}-${i}`} className="group">
+          <TableCell className="font-mono font-semibold text-primary">{r.order_id || "—"}</TableCell>
+          <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
+          <TableCell className="hidden md:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
+          <TableCell className="hidden sm:table-cell text-muted-foreground">{r.courier_partner || "—"}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{r.shipping_mode || "—"}</TableCell>
+          <TableCell className="text-muted-foreground text-xs">{fmtDate(r.created_at)}</TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -345,26 +369,29 @@ const TrackingTable = ({ rows }: { rows: any[] }) => (
 
 // ── QC Table ──
 const QCTable = ({ rows }: { rows: any[] }) => (
+  rows.length === 0 ? <EmptyState message="No pending QC items" /> :
   <Table>
     <TableHeader>
-      <TableRow>
-        <TableHead>Serial Number</TableHead>
-        <TableHead>Product</TableHead>
-        <TableHead>Category</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>In Date</TableHead>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="font-semibold">Serial Number</TableHead>
+        <TableHead className="font-semibold">Product</TableHead>
+        <TableHead className="font-semibold hidden md:table-cell">Category</TableHead>
+        <TableHead className="font-semibold">Status</TableHead>
+        <TableHead className="font-semibold hidden sm:table-cell">In Date</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {rows.length === 0 ? (
-        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No pending QC</TableCell></TableRow>
-      ) : rows.map((r: any) => (
-        <TableRow key={r.id}>
-          <TableCell className="font-medium">{r.serial_number}</TableCell>
-          <TableCell>{r.product_name}</TableCell>
-          <TableCell>{r.category || "—"}</TableCell>
-          <TableCell><Badge variant="outline">{r.qc_result}</Badge></TableCell>
-          <TableCell>{fmtDate(r.in_date)}</TableCell>
+      {rows.map((r: any) => (
+        <TableRow key={r.id} className="group">
+          <TableCell className="font-mono font-semibold text-primary">{r.serial_number}</TableCell>
+          <TableCell className="font-medium">{r.product_name}</TableCell>
+          <TableCell className="hidden md:table-cell text-muted-foreground">{r.category || "—"}</TableCell>
+          <TableCell>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 text-xs">
+              {r.qc_result}
+            </Badge>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{fmtDate(r.in_date)}</TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -373,28 +400,40 @@ const QCTable = ({ rows }: { rows: any[] }) => (
 
 // ── Tickets Table ──
 const TicketsTable = ({ rows }: { rows: any[] }) => (
+  rows.length === 0 ? <EmptyState message="No pending tickets" /> :
   <Table>
     <TableHeader>
-      <TableRow>
-        <TableHead>Title</TableHead>
-        <TableHead>Customer</TableHead>
-        <TableHead>Company</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Priority</TableHead>
-        <TableHead>Created</TableHead>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="font-semibold">Title</TableHead>
+        <TableHead className="font-semibold hidden md:table-cell">Customer</TableHead>
+        <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
+        <TableHead className="font-semibold">Status</TableHead>
+        <TableHead className="font-semibold">Priority</TableHead>
+        <TableHead className="font-semibold hidden sm:table-cell">Created</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {rows.length === 0 ? (
-        <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No pending tickets</TableCell></TableRow>
-      ) : rows.map((r: any) => (
-        <TableRow key={r.id}>
-          <TableCell className="font-medium max-w-[200px] truncate">{r.title}</TableCell>
-          <TableCell>{r.customer_name || "—"}</TableCell>
-          <TableCell>{r.company_name || "—"}</TableCell>
-          <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
-          <TableCell><Badge variant={r.priority === "Urgent" ? "destructive" : "secondary"}>{r.priority}</Badge></TableCell>
-          <TableCell>{fmtDate(r.created_at)}</TableCell>
+      {rows.map((r: any) => (
+        <TableRow key={r.id} className="group">
+          <TableCell className="font-medium max-w-[220px] truncate">{r.title}</TableCell>
+          <TableCell className="hidden md:table-cell text-muted-foreground">{r.customer_name || "—"}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
+          <TableCell>
+            <Badge variant="outline" className="text-xs">{r.status}</Badge>
+          </TableCell>
+          <TableCell>
+            <Badge
+              className={cn("text-xs border-0", {
+                "bg-rose-500/10 text-rose-600": r.priority === "Urgent",
+                "bg-amber-500/10 text-amber-600": r.priority === "High",
+                "bg-blue-500/10 text-blue-600": r.priority === "Normal",
+                "bg-muted text-muted-foreground": !["Urgent", "High", "Normal"].includes(r.priority),
+              })}
+            >
+              {r.priority}
+            </Badge>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{fmtDate(r.created_at)}</TableCell>
         </TableRow>
       ))}
     </TableBody>
