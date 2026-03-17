@@ -3,10 +3,12 @@ import { Outlet } from "react-router-dom";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 
 export const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useRealtimeSync();
+  useInactivityLogout();
 
   // Close sidebar on resize to desktop
   useEffect(() => {

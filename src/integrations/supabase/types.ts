@@ -1154,6 +1154,7 @@ export type Database = {
       is_email_allowed: { Args: { _email: string }; Returns: boolean }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       is_master_admin_email: { Args: { _email: string }; Returns: boolean }
+      verify_otp: { Args: { _email: string; _otp: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user" | "master_admin"
