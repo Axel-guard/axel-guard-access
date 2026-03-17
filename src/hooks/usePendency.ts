@@ -157,8 +157,6 @@ export const usePendency = () => {
     return { counts, records };
   }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords]);
 
-  // Realtime subscriptions for instant updates
-  const queryClient = useQuery({ queryKey: ["__noop__"], queryFn: () => null, enabled: false });
 
   const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading;
 
