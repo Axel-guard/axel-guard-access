@@ -59,6 +59,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: Clock, label: "Pendency", path: "/pendency" },
   {
     icon: BarChart3,
     label: "Reports & Analytics",
