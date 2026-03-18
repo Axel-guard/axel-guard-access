@@ -506,16 +506,26 @@ export const generateQuotationPDF = async (
   finalY += 6;
 
   // ===== AUTHORIZED SIGNATORY =====
-  checkPageBreak(35);
+  checkPageBreak(50);
   doc.setTextColor(...muted);
   doc.setFontSize(9);
   doc.text("For : RealTrack Technology", 14, finalY);
+  finalY += 6;
+
+  // Signature image
+  if (signatureBase64) {
+    doc.addImage(signatureBase64, "PNG", 14, finalY, 45, 18, undefined, "FAST");
+    finalY += 20;
+  } else {
+    finalY += 14;
+  }
+
   doc.setDrawColor(...muted);
-  doc.line(14, finalY + 20, 70, finalY + 20);
+  doc.line(14, finalY, 70, finalY);
   doc.setTextColor(...dark);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Authorized Signatory", 14, finalY + 27);
+  doc.text("Authorized Signatory", 14, finalY + 7);
 
   // Add bottom red bar on every page
   const totalPages = doc.getNumberOfPages();
