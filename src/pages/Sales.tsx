@@ -49,6 +49,7 @@ const SalesPage = () => {
   const [balanceSale, setBalanceSale] = useState<any | null>(null);
   const [editSale, setEditSale] = useState<any | null>(null);
   const [deleteSale, setDeleteSale] = useState<any | null>(null);
+  const [docSale, setDocSale] = useState<any | null>(null);
   const [sendingEmailOrderId, setSendingEmailOrderId] = useState<string | null>(null);
   const { sendSaleEmail } = useEmail();
 
