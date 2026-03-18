@@ -256,6 +256,10 @@ const CurrentMonthSalesPage = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
+                              <FileText className="mr-2 h-4 w-4" />
+                              Documents
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
