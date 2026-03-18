@@ -237,7 +237,13 @@ const CurrentMonthSalesPage = () => {
                       <TableCell className="text-right font-medium text-destructive">
                         ₹{Number(sale.balance_amount || 0).toLocaleString()}
                       </TableCell>
-                      <TableCell>{getStatusBadge(sale)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {getStatusBadge(sale)}
+                          {sale.invoice_url && <span title="Invoice"><FileText className="h-3.5 w-3.5 text-primary" /></span>}
+                          {sale.eway_bill_url && <span title="E-Way Bill"><Truck className="h-3.5 w-3.5 text-success" /></span>}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
