@@ -286,6 +286,22 @@ const CurrentMonthSalesPage = () => {
       />
 
       <NewSaleDialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen} />
+
+      {/* Documents Dialog */}
+      <Dialog open={!!docSale} onOpenChange={(open) => !open && setDocSale(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Documents — Order {docSale?.order_id}</DialogTitle>
+          </DialogHeader>
+          {docSale && (
+            <SaleDocumentManager
+              orderId={docSale.order_id}
+              invoiceUrl={docSale.invoice_url}
+              ewayBillUrl={docSale.eway_bill_url}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
