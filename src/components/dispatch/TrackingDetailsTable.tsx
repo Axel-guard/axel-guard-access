@@ -23,6 +23,8 @@ import {
 import { useState } from "react";
 import { useDeleteShipment } from "@/hooks/useShipments";
 import { useEmail } from "@/hooks/useEmail";
+import { supabase } from "@/integrations/supabase/client";
+import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 
 interface Shipment {
   id: string;
@@ -44,8 +46,22 @@ interface TrackingDetailsTableProps {
 export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTableProps) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const deleteShipment = useDeleteShipment();
   const { sendEmail } = useEmail();
+
+  const handleOrderClick = async (orderId: string) => {
+    const { data } = await supabase
+      .from("sales")
+      .select("*")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (data) {
+      setSelectedSale(data);
+      setSaleDialogOpen(true);
+    }
+  };
 
   const getTypeBadge = (type: string) => {
     if (type === "Replacement") {
@@ -148,8 +164,13 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
                   <TableCell>
                     {getTypeBadge(shipment.shipment_type)}
                   </TableCell>
-                  <TableCell className="font-semibold">
-                    {shipment.order_id?.replace("ORD", "") || "N/A"}
+                  <TableCell>
+                    <button
+                      onClick={() => shipment.order_id && handleOrderClick(shipment.order_id)}
+                      className="font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      {shipment.order_id?.replace("ORD", "") || "N/A"}
+                    </button>
                   </TableCell>
                   <TableCell className="font-medium">
                     {shipment.courier_partner || "-"}
@@ -233,6 +254,13 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Sale Details Dialog */}
+      <SaleDetailsDialog
+        sale={selectedSale}
+        open={saleDialogOpen}
+        onOpenChange={setSaleDialogOpen}
+      />
     </>
   );
 };
