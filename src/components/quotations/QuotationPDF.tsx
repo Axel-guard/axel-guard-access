@@ -88,9 +88,9 @@ export const generateQuotationPDF = async (
   doc.setDrawColor(...border);
   doc.line(0, 42, pw, 42);
 
-  // Logo
+  // Logo - maintain aspect ratio, sharp rendering
   if (logoBase64) {
-    doc.addImage(logoBase64, "PNG", 10, 4, 28, 11);
+    doc.addImage(logoBase64, "PNG", 10, 3, 34, 13, undefined, "FAST");
   }
 
   // Company info - left side
