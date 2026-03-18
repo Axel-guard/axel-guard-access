@@ -310,7 +310,7 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
 
               {/* ===== REMARKS ===== */}
               {(quotation as any).remarks && (
-                <div className="border rounded-lg p-4 bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
+                <div className="border rounded-lg p-4 bg-accent/30 border-accent">
                   <h4 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">Remarks</h4>
                   <p className="text-sm text-foreground leading-relaxed">{(quotation as any).remarks}</p>
                 </div>
