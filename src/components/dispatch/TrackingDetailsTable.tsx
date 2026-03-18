@@ -46,8 +46,22 @@ interface TrackingDetailsTableProps {
 export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTableProps) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const deleteShipment = useDeleteShipment();
   const { sendEmail } = useEmail();
+
+  const handleOrderClick = async (orderId: string) => {
+    const { data } = await supabase
+      .from("sales")
+      .select("*")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (data) {
+      setSelectedSale(data);
+      setSaleDialogOpen(true);
+    }
+  };
 
   const getTypeBadge = (type: string) => {
     if (type === "Replacement") {
