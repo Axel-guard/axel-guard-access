@@ -23,6 +23,8 @@ import {
 import { useState } from "react";
 import { useDeleteShipment } from "@/hooks/useShipments";
 import { useEmail } from "@/hooks/useEmail";
+import { supabase } from "@/integrations/supabase/client";
+import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 
 interface Shipment {
   id: string;
