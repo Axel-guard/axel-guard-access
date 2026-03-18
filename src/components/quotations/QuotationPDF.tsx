@@ -5,6 +5,7 @@ import { numberToWords } from "@/lib/numberToWords";
 import { format } from "date-fns";
 
 const LOGO_URL = "/images/axelguard-logo.png";
+const SIGNATURE_URL = "/images/signature.png";
 
 const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   try {
