@@ -172,7 +172,6 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
                       {shipment.order_id?.replace("ORD", "") || "N/A"}
                     </button>
                   </TableCell>
-                  </TableCell>
                   <TableCell className="font-medium">
                     {shipment.courier_partner || "-"}
                   </TableCell>
