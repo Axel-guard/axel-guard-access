@@ -254,6 +254,13 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Sale Details Dialog */}
+      <SaleDetailsDialog
+        sale={selectedSale}
+        open={saleDialogOpen}
+        onOpenChange={setSaleDialogOpen}
+      />
     </>
   );
 };
