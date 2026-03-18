@@ -279,7 +279,10 @@ const DispatchPage = () => {
   const filteredShipments = useMemo(() => {
     if (!shipments) return [];
     
+    // Only show shipments that have a tracking_id (filter out dispatch-only records)
     return shipments.filter(shipment => {
+      if (!shipment.tracking_id) return false;
+      
       const search = trackingSearch.toLowerCase();
       return trackingSearch === "" ||
         (shipment.order_id?.toLowerCase() || "").includes(search) ||
