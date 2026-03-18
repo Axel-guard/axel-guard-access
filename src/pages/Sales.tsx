@@ -229,6 +229,9 @@ const SalesPage = () => {
                             )}
                             Send Email
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
+                            <FileText className="mr-2 h-4 w-4" /> Documents
+                          </DropdownMenuItem>
                           {/* Admin & Master Admin: Edit */}
                           {(isMasterAdmin || isAdmin) && (
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditSale(sale); }}>
