@@ -200,8 +200,8 @@ const SalesPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {getStatusBadge(sale)}
-                        {sale.invoice_url && <FileText className="h-3.5 w-3.5 text-primary" title="Invoice" />}
-                        {sale.eway_bill_url && <Truck className="h-3.5 w-3.5 text-emerald-500" title="E-Way Bill" />}
+                        {sale.invoice_url && <span title="Invoice"><FileText className="h-3.5 w-3.5 text-primary" /></span>}
+                        {sale.eway_bill_url && <span title="E-Way Bill"><Truck className="h-3.5 w-3.5 text-success" /></span>}
                       </div>
                     </TableCell>
                     <TableCell>
