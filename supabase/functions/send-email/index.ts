@@ -563,8 +563,21 @@ const getEmailTemplate = (
         <div style="font-size: 13px; color: #374151;">${qRemarks}</div>
       </div>` : ''}
 
+      <div class="section-card" style="margin-top: 20px;">
+        <div class="section-title">📜 Terms & Conditions</div>
+        <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #374151; line-height: 2;">
+          <li>Quotation is valid for 7 days.</li>
+          <li>Advance payment is required to confirm the order.</li>
+          <li>Material will be dispatched on the same or next working day after payment (subject to availability).</li>
+          <li>All products come with a 1-year warranty (except cables).</li>
+          <li>No return or exchange once sold.</li>
+          <li>Warranty will be void in case of physical damage, improper installation, or tampering.</li>
+          <li>The company is not responsible for delivery delays caused by courier/transport.</li>
+        </ol>
+      </div>
+
       <div class="validity-box">
-        <p style="margin: 0; font-weight: 600; color: #92400e;">⏰ This quotation is valid for 15 days from the date of issue</p>
+        <p style="margin: 0; font-weight: 600; color: #92400e;">⏰ This quotation is valid for 7 days from the date of issue</p>
       </div>
 
       <div class="section-card" style="margin-top: 20px;">

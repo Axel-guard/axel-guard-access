@@ -470,17 +470,36 @@ export const generateQuotationPDF = async (
     finalY += 10 + remarkLines.length * 4;
   }
 
-  // ===== TERMS =====
-  checkPageBreak(30);
+  // ===== TERMS & CONDITIONS =====
+  const termsAndConditions = [
+    "Quotation is valid for 7 days.",
+    "Advance payment is required to confirm the order.",
+    "Material will be dispatched on the same or next working day after payment (subject to availability).",
+    "All products come with a 1-year warranty (except cables).",
+    "No return or exchange once sold.",
+    "Warranty will be void in case of physical damage, improper installation, or tampering.",
+    "The company is not responsible for delivery delays caused by courier/transport.",
+  ];
+
+  // Estimate space needed: heading + 7 items × ~5mm each + padding
+  checkPageBreak(60);
   doc.setTextColor(...red);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("Terms And Conditions", 14, finalY);
-  doc.setTextColor(...dark);
-  doc.setFontSize(9);
+  doc.text("Terms & Conditions", 14, finalY);
+  finalY += 8;
+
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text("Thanks for doing business with us!", 14, finalY + 8);
-  finalY += 20;
+  doc.setTextColor(...dark);
+  termsAndConditions.forEach((term, idx) => {
+    checkPageBreak(8);
+    const termText = `${idx + 1}. ${term}`;
+    const lines = doc.splitTextToSize(termText, pw - 28);
+    doc.text(lines, 14, finalY);
+    finalY += lines.length * 4.5;
+  });
+  finalY += 6;
 
   // ===== AUTHORIZED SIGNATORY =====
   checkPageBreak(35);
