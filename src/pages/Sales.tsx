@@ -13,11 +13,13 @@ import { format } from "date-fns";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2, FileText, Truck } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
+import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
 
