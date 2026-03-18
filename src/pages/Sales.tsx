@@ -197,7 +197,13 @@ const SalesPage = () => {
                     <TableCell><Badge variant="outline">{sale.sale_type || "-"}</Badge></TableCell>
                     <TableCell className="text-right font-medium">₹{Number(sale.total_amount).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-destructive">₹{getBalance(sale).toLocaleString()}</TableCell>
-                    <TableCell>{getStatusBadge(sale)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {getStatusBadge(sale)}
+                        {sale.invoice_url && <FileText className="h-3.5 w-3.5 text-primary" title="Invoice" />}
+                        {sale.eway_bill_url && <Truck className="h-3.5 w-3.5 text-emerald-500" title="E-Way Bill" />}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
