@@ -5,6 +5,7 @@ import { numberToWords } from "@/lib/numberToWords";
 import { format } from "date-fns";
 
 const LOGO_URL = "/images/axelguard-logo.png";
+const SIGNATURE_URL = "/images/signature.png";
 
 const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -80,7 +81,10 @@ export const generateQuotationPDF = async (
   const lightBg: [number, number, number] = [249, 250, 251];
   const border: [number, number, number] = [229, 231, 235];
 
-  const logoBase64 = await loadImageAsBase64(LOGO_URL);
+  const [logoBase64, signatureBase64] = await Promise.all([
+    loadImageAsBase64(LOGO_URL),
+    loadImageAsBase64(SIGNATURE_URL),
+  ]);
 
   // ===== HEADER BAR =====
   doc.setFillColor(248, 248, 248);
@@ -88,9 +92,9 @@ export const generateQuotationPDF = async (
   doc.setDrawColor(...border);
   doc.line(0, 42, pw, 42);
 
-  // Logo
+  // Logo - maintain aspect ratio, sharp rendering
   if (logoBase64) {
-    doc.addImage(logoBase64, "PNG", 10, 4, 28, 11);
+    doc.addImage(logoBase64, "PNG", 10, 3, 34, 13, undefined, "FAST");
   }
 
   // Company info - left side
@@ -502,16 +506,26 @@ export const generateQuotationPDF = async (
   finalY += 6;
 
   // ===== AUTHORIZED SIGNATORY =====
-  checkPageBreak(35);
+  checkPageBreak(50);
   doc.setTextColor(...muted);
   doc.setFontSize(9);
   doc.text("For : RealTrack Technology", 14, finalY);
+  finalY += 6;
+
+  // Signature image
+  if (signatureBase64) {
+    doc.addImage(signatureBase64, "PNG", 14, finalY, 45, 18, undefined, "FAST");
+    finalY += 20;
+  } else {
+    finalY += 14;
+  }
+
   doc.setDrawColor(...muted);
-  doc.line(14, finalY + 20, 70, finalY + 20);
+  doc.line(14, finalY, 70, finalY);
   doc.setTextColor(...dark);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Authorized Signatory", 14, finalY + 27);
+  doc.text("Authorized Signatory", 14, finalY + 7);
 
   // Add bottom red bar on every page
   const totalPages = doc.getNumberOfPages();
