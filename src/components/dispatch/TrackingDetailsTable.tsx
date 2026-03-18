@@ -164,8 +164,14 @@ export const TrackingDetailsTable = ({ shipments, onEdit }: TrackingDetailsTable
                   <TableCell>
                     {getTypeBadge(shipment.shipment_type)}
                   </TableCell>
-                  <TableCell className="font-semibold">
-                    {shipment.order_id?.replace("ORD", "") || "N/A"}
+                  <TableCell>
+                    <button
+                      onClick={() => shipment.order_id && handleOrderClick(shipment.order_id)}
+                      className="font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      {shipment.order_id?.replace("ORD", "") || "N/A"}
+                    </button>
+                  </TableCell>
                   </TableCell>
                   <TableCell className="font-medium">
                     {shipment.courier_partner || "-"}
