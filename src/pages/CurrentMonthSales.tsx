@@ -57,6 +57,7 @@ const CurrentMonthSalesPage = () => {
   const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [docSale, setDocSale] = useState<any | null>(null);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
 
   // Get current month name for display
