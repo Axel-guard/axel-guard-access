@@ -81,7 +81,10 @@ export const generateQuotationPDF = async (
   const lightBg: [number, number, number] = [249, 250, 251];
   const border: [number, number, number] = [229, 231, 235];
 
-  const logoBase64 = await loadImageAsBase64(LOGO_URL);
+  const [logoBase64, signatureBase64] = await Promise.all([
+    loadImageAsBase64(LOGO_URL),
+    loadImageAsBase64(SIGNATURE_URL),
+  ]);
 
   // ===== HEADER BAR =====
   doc.setFillColor(248, 248, 248);
