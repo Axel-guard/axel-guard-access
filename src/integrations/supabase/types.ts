@@ -803,8 +803,10 @@ export type Database = {
           customer_name: string | null
           dispatch_status_override: string | null
           employee_name: string
+          eway_bill_url: string | null
           gst_amount: number | null
           id: string
+          invoice_url: string | null
           order_id: string
           payment_reference: string | null
           remarks: string | null
@@ -828,8 +830,10 @@ export type Database = {
           customer_name?: string | null
           dispatch_status_override?: string | null
           employee_name: string
+          eway_bill_url?: string | null
           gst_amount?: number | null
           id?: string
+          invoice_url?: string | null
           order_id: string
           payment_reference?: string | null
           remarks?: string | null
@@ -853,8 +857,10 @@ export type Database = {
           customer_name?: string | null
           dispatch_status_override?: string | null
           employee_name?: string
+          eway_bill_url?: string | null
           gst_amount?: number | null
           id?: string
+          invoice_url?: string | null
           order_id?: string
           payment_reference?: string | null
           remarks?: string | null

@@ -21,8 +21,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Calendar } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Calendar, FileText, Truck } from "lucide-react";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
+import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 
 // Fetch current month sales only
@@ -55,6 +57,7 @@ const CurrentMonthSalesPage = () => {
   const [sortField, setSortField] = useState<"sale_date" | "order_id">("order_id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [docSale, setDocSale] = useState<any | null>(null);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
 
   // Get current month name for display
@@ -234,7 +237,13 @@ const CurrentMonthSalesPage = () => {
                       <TableCell className="text-right font-medium text-destructive">
                         ₹{Number(sale.balance_amount || 0).toLocaleString()}
                       </TableCell>
-                      <TableCell>{getStatusBadge(sale)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {getStatusBadge(sale)}
+                          {sale.invoice_url && <span title="Invoice"><FileText className="h-3.5 w-3.5 text-primary" /></span>}
+                          {sale.eway_bill_url && <span title="E-Way Bill"><Truck className="h-3.5 w-3.5 text-success" /></span>}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -246,6 +255,10 @@ const CurrentMonthSalesPage = () => {
                             <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
+                              <FileText className="mr-2 h-4 w-4" />
+                              Documents
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -273,6 +286,22 @@ const CurrentMonthSalesPage = () => {
       />
 
       <NewSaleDialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen} />
+
+      {/* Documents Dialog */}
+      <Dialog open={!!docSale} onOpenChange={(open) => !open && setDocSale(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Documents — Order {docSale?.order_id}</DialogTitle>
+          </DialogHeader>
+          {docSale && (
+            <SaleDocumentManager
+              orderId={docSale.order_id}
+              invoiceUrl={docSale.invoice_url}
+              ewayBillUrl={docSale.eway_bill_url}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

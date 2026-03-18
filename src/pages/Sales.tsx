@@ -13,11 +13,13 @@ import { format } from "date-fns";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2, FileText, Truck } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
+import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
 
@@ -47,6 +49,7 @@ const SalesPage = () => {
   const [balanceSale, setBalanceSale] = useState<any | null>(null);
   const [editSale, setEditSale] = useState<any | null>(null);
   const [deleteSale, setDeleteSale] = useState<any | null>(null);
+  const [docSale, setDocSale] = useState<any | null>(null);
   const [sendingEmailOrderId, setSendingEmailOrderId] = useState<string | null>(null);
   const { sendSaleEmail } = useEmail();
 
@@ -194,7 +197,13 @@ const SalesPage = () => {
                     <TableCell><Badge variant="outline">{sale.sale_type || "-"}</Badge></TableCell>
                     <TableCell className="text-right font-medium">₹{Number(sale.total_amount).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-destructive">₹{getBalance(sale).toLocaleString()}</TableCell>
-                    <TableCell>{getStatusBadge(sale)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {getStatusBadge(sale)}
+                        {sale.invoice_url && <span title="Invoice"><FileText className="h-3.5 w-3.5 text-primary" /></span>}
+                        {sale.eway_bill_url && <span title="E-Way Bill"><Truck className="h-3.5 w-3.5 text-success" /></span>}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -219,6 +228,9 @@ const SalesPage = () => {
                               <Mail className="mr-2 h-4 w-4" />
                             )}
                             Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
+                            <FileText className="mr-2 h-4 w-4" /> Documents
                           </DropdownMenuItem>
                           {/* Admin & Master Admin: Edit */}
                           {(isMasterAdmin || isAdmin) && (
@@ -279,6 +291,22 @@ const SalesPage = () => {
           onOpenChange={(open) => !open && setDeleteSale(null)}
         />
       )}
+
+      {/* Documents Dialog */}
+      <Dialog open={!!docSale} onOpenChange={(open) => !open && setDocSale(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Documents — Order {docSale?.order_id}</DialogTitle>
+          </DialogHeader>
+          {docSale && (
+            <SaleDocumentManager
+              orderId={docSale.order_id}
+              invoiceUrl={docSale.invoice_url}
+              ewayBillUrl={docSale.eway_bill_url}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
