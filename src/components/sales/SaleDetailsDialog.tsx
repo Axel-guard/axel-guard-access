@@ -379,6 +379,38 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     }
   };
 
+  // Fetch payment history
+  const { data: paymentHistory = [] } = useQuery({
+    queryKey: ["payment-history-detail", sale.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_history")
+        .select("*")
+        .eq("order_id", sale.order_id)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale.order_id && open && !isEditMode,
+  });
+
+  // Fetch shipments/tracking for this order
+  const { data: orderShipments = [] } = useQuery({
+    queryKey: ["order-shipments", sale.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select("*")
+        .eq("order_id", sale.order_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale.order_id && open && !isEditMode,
+  });
+
+  const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
+
   // ===================== VIEW MODE =====================
   const renderViewMode = () => (
     <div className="space-y-6">
@@ -479,6 +511,178 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           </div>
         </div>
       </div>
+
+      {/* Payment History */}
+      {paymentHistory.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <IndianRupee className="h-4 w-4 text-primary" />
+              Payment History
+            </h4>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="text-xs">DATE</TableHead>
+                    <TableHead className="text-xs">ACCOUNT</TableHead>
+                    <TableHead className="text-xs">REFERENCE</TableHead>
+                    <TableHead className="text-xs text-right">AMOUNT</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentHistory.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-sm">{format(new Date(p.payment_date), "dd/MM/yyyy")}</TableCell>
+                      <TableCell className="text-sm">{p.account_received}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.payment_reference || "-"}</TableCell>
+                      <TableCell className="text-sm text-right font-medium text-success">₹{Number(p.amount).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Remarks */}
+      {sale.remarks && (
+        <>
+          <Separator />
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">Remarks</h4>
+            <p className="text-sm text-muted-foreground rounded-lg bg-muted/50 p-3">{sale.remarks}</p>
+          </div>
+        </>
+      )}
+
+      {/* Invoice PDF - Auto Display */}
+      {sale.invoice_url && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Invoice
+            </h4>
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/20">
+              <iframe
+                src={`${sale.invoice_url}?t=${Date.now()}`}
+                className="w-full rounded-lg"
+                style={{ height: "500px" }}
+                title="Invoice PDF"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  const fallback = target.nextElementSibling;
+                  if (fallback) (fallback as HTMLElement).style.display = "flex";
+                }}
+              />
+              <div className="hidden items-center justify-center gap-2 p-8 text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                <span className="text-sm">Unable to load invoice document</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* E-Way Bill PDF - Auto Display */}
+      {sale.eway_bill_url && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <Truck className="h-4 w-4 text-primary" />
+              E-Way Bill
+            </h4>
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/20">
+              <iframe
+                src={`${sale.eway_bill_url}?t=${Date.now()}`}
+                className="w-full rounded-lg"
+                style={{ height: "500px" }}
+                title="E-Way Bill PDF"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  const fallback = target.nextElementSibling;
+                  if (fallback) (fallback as HTMLElement).style.display = "flex";
+                }}
+              />
+              <div className="hidden items-center justify-center gap-2 p-8 text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                <span className="text-sm">Unable to load e-way bill document</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Dispatch & Tracking */}
+      {shipmentsWithTracking.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              Dispatch & Tracking Details
+            </h4>
+            <div className="space-y-3">
+              {shipmentsWithTracking.map((shipment: any) => (
+                <div key={shipment.id} className="rounded-lg border border-border p-4 space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Shipment Type</p>
+                      <p className="font-medium">{shipment.shipment_type || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
+                      <p className="font-medium">{shipment.courier_partner || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
+                      <p className="font-medium">{shipment.shipping_mode || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Tracking ID</p>
+                      <p className="font-medium font-mono text-primary">{shipment.tracking_id}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
+                      <p className="font-medium">{shipment.weight_kg ? `${shipment.weight_kg} kg` : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
+                      <p className="font-medium">{shipment.shipping_cost ? `₹${Number(shipment.shipping_cost).toLocaleString()}` : "-"}</p>
+                    </div>
+                    {shipment.created_at && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">Dispatch Date</p>
+                        <p className="font-medium">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Show "Tracking not added" only if there are shipments but none with tracking */}
+      {orderShipments.length > 0 && shipmentsWithTracking.length === 0 && (
+        <>
+          <Separator />
+          <div className="rounded-lg border border-border p-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <MapPinned className="h-4 w-4" />
+              <span className="text-sm">Tracking not added yet</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-2 border-t border-border">
