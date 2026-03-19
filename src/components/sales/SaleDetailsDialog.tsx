@@ -17,7 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X, FileText, Truck, Package, MapPinned, AlertCircle } from "lucide-react";
+import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X, FileText, Truck, Package, MapPinned, AlertCircle, ExternalLink, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useEmail } from "@/hooks/useEmail";
 import { useAuth } from "@/contexts/AuthContext";
