@@ -567,24 +567,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
               <FileText className="h-4 w-4 text-primary" />
               Invoice
             </h4>
-            <div className="rounded-lg border border-border overflow-hidden bg-muted/20">
-              <iframe
-                src={`${sale.invoice_url}?t=${Date.now()}`}
-                className="w-full rounded-lg"
-                style={{ height: "500px" }}
-                title="Invoice PDF"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = "none";
-                  const fallback = target.nextElementSibling;
-                  if (fallback) (fallback as HTMLElement).style.display = "flex";
-                }}
-              />
-              <div className="hidden items-center justify-center gap-2 p-8 text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                <span className="text-sm">Unable to load invoice document</span>
-              </div>
-            </div>
+            <DocumentViewer url={sale.invoice_url} title="Invoice" />
           </div>
         </>
       )}
@@ -598,28 +581,10 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
               <Truck className="h-4 w-4 text-primary" />
               E-Way Bill
             </h4>
-            <div className="rounded-lg border border-border overflow-hidden bg-muted/20">
-              <iframe
-                src={`${sale.eway_bill_url}?t=${Date.now()}`}
-                className="w-full rounded-lg"
-                style={{ height: "500px" }}
-                title="E-Way Bill PDF"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = "none";
-                  const fallback = target.nextElementSibling;
-                  if (fallback) (fallback as HTMLElement).style.display = "flex";
-                }}
-              />
-              <div className="hidden items-center justify-center gap-2 p-8 text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                <span className="text-sm">Unable to load e-way bill document</span>
-              </div>
-            </div>
+            <DocumentViewer url={sale.eway_bill_url} title="E-Way Bill" />
           </div>
         </>
       )}
-
       {/* Dispatch & Tracking */}
       {shipmentsWithTracking.length > 0 && (
         <>
