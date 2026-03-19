@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,64 +30,204 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProductCategories } from "@/hooks/useProductCategories";
 
 const SALE_TYPES = ["With GST (18%)", "Without GST"];
+const PDF_VIEWER_MIN_HEIGHT = 600;
+const PDF_LOAD_TIMEOUT_MS = 8000;
+
+const isValidHttpsDocumentUrl = (value: string) => {
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const withCacheBust = (value: string) => `${value}${value.includes("?") ? "&" : "?"}t=${Date.now()}`;
+const buildGoogleViewerUrl = (value: string) => `https://docs.google.com/gview?url=${encodeURIComponent(value)}&embedded=true`;
 
 const DocumentViewer = ({ url, title }: { url: string; title: string }) => {
-  const [loadError, setLoadError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const cacheBustedUrl = `${url}?t=${Date.now()}`;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [viewerMode, setViewerMode] = useState<"direct" | "google" | "error">("direct");
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const lowercaseTitle = title.toLowerCase();
 
-  if (loadError) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 p-6 text-center space-y-3">
-        <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto" />
-        <p className="text-sm text-muted-foreground">{title} not available</p>
-        <Button variant="outline" size="sm" asChild className="gap-2">
-          <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3.5 w-3.5" /> Try opening in new tab
-          </a>
-        </Button>
-      </div>
+  const normalizedUrl = useMemo(() => {
+    const trimmedUrl = url?.trim();
+    if (!trimmedUrl || !isValidHttpsDocumentUrl(trimmedUrl)) {
+      return null;
+    }
+
+    return trimmedUrl;
+  }, [url]);
+
+  const directViewerUrl = useMemo(
+    () => (normalizedUrl ? withCacheBust(normalizedUrl) : null),
+    [normalizedUrl],
+  );
+
+  const googleViewerUrl = useMemo(
+    () => (directViewerUrl ? buildGoogleViewerUrl(directViewerUrl) : null),
+    [directViewerUrl],
+  );
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || isVisible) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "240px 0px" },
     );
-  }
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
+  useEffect(() => {
+    setViewerMode("direct");
+    setIsLoading(true);
+    setHasLoaded(false);
+  }, [directViewerUrl]);
+
+  useEffect(() => {
+    if (!isVisible || !normalizedUrl) return;
+
+    let cancelled = false;
+
+    const validateDocument = async () => {
+      try {
+        const response = await fetch(normalizedUrl, { method: "HEAD" });
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setViewerMode("error");
+          setIsLoading(false);
+          return;
+        }
+
+        const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+        if (contentType && !contentType.includes("pdf") && !contentType.includes("octet-stream")) {
+          setViewerMode("error");
+          setIsLoading(false);
+        }
+      } catch {
+        // Ignore HEAD failures here: direct iframe embedding can still succeed even when HEAD is blocked.
+      }
+    };
+
+    validateDocument();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isVisible, normalizedUrl]);
+
+  useEffect(() => {
+    if (!isVisible || !normalizedUrl || hasLoaded || viewerMode === "error") return;
+
+    const timeoutId = window.setTimeout(() => {
+      if (viewerMode === "direct" && googleViewerUrl) {
+        setViewerMode("google");
+        setIsLoading(true);
+        return;
+      }
+
+      setViewerMode("error");
+      setIsLoading(false);
+    }, PDF_LOAD_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [googleViewerUrl, hasLoaded, isVisible, normalizedUrl, viewerMode]);
+
+  const handleViewerLoad = () => {
+    setHasLoaded(true);
+    setIsLoading(false);
+  };
+
+  const handleViewerError = () => {
+    if (viewerMode === "direct" && googleViewerUrl) {
+      setViewerMode("google");
+      setIsLoading(true);
+      return;
+    }
+
+    setViewerMode("error");
+    setIsLoading(false);
+  };
+
+  const fallbackUrl = directViewerUrl ?? normalizedUrl ?? url;
+  const activeViewerUrl = viewerMode === "google" ? googleViewerUrl : directViewerUrl;
+  const showViewer = isVisible && !!normalizedUrl && viewerMode !== "error" && !!activeViewerUrl;
+  const showErrorState = !normalizedUrl || viewerMode === "error";
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden bg-muted/20 relative">
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/40 z-10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading {title}...</span>
+    <div ref={containerRef} className="rounded-xl border border-border bg-card overflow-hidden">
+      {showViewer && (
+        <div className="relative min-h-[600px] bg-muted/20">
+          {isLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Loading {lowercaseTitle}...
+              </div>
+            </div>
+          )}
+
+          <iframe
+            key={`${viewerMode}-${activeViewerUrl}`}
+            src={activeViewerUrl ?? undefined}
+            title={`${title} PDF viewer`}
+            className="h-[600px] w-full border-0"
+            loading="lazy"
+            onLoad={handleViewerLoad}
+            onError={handleViewerError}
+          />
         </div>
       )}
-      <div className="flex items-center justify-end gap-2 p-2 border-b border-border bg-muted/30">
-        <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs h-7">
-          <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3 w-3" /> Open
-          </a>
-        </Button>
-        <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs h-7">
-          <a href={cacheBustedUrl} download>
-            <Download className="h-3 w-3" /> Download
-          </a>
-        </Button>
-      </div>
-      <object
-        data={cacheBustedUrl}
-        type="application/pdf"
-        className="w-full"
-        style={{ height: "500px" }}
-        onLoad={() => setLoading(false)}
-        onError={() => { setLoading(false); setLoadError(true); }}
-      >
-        <div className="flex flex-col items-center justify-center gap-3 p-8">
-          <AlertCircle className="h-6 w-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">PDF viewer not supported in this browser</p>
-          <Button variant="outline" size="sm" asChild className="gap-2">
-            <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3.5 w-3.5" /> Open {title} in new tab
-            </a>
-          </Button>
+
+      {!isVisible && !showErrorState && (
+        <div className="flex min-h-[600px] items-center justify-center bg-muted/20 p-6">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Preparing {lowercaseTitle} preview...
+          </div>
         </div>
-      </object>
+      )}
+
+      {showErrorState && (
+        <div className="flex min-h-[600px] flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background">
+            <AlertCircle className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-base font-medium text-foreground">Unable to load {lowercaseTitle}</p>
+            <p className="text-sm text-muted-foreground">
+              {normalizedUrl ? `${title} not available.` : `${title} URL is invalid or not secure.`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button variant="outline" asChild className="gap-2">
+              <a href={fallbackUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                Open {title}
+              </a>
+            </Button>
+            <Button variant="outline" asChild className="gap-2">
+              <a href={fallbackUrl} download>
+                <Download className="h-4 w-4" />
+                Download {title}
+              </a>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
