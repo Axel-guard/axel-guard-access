@@ -31,6 +31,67 @@ import { useProductCategories } from "@/hooks/useProductCategories";
 
 const SALE_TYPES = ["With GST (18%)", "Without GST"];
 
+const DocumentViewer = ({ url, title }: { url: string; title: string }) => {
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const cacheBustedUrl = `${url}?t=${Date.now()}`;
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 p-6 text-center space-y-3">
+        <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto" />
+        <p className="text-sm text-muted-foreground">{title} not available</p>
+        <Button variant="outline" size="sm" asChild className="gap-2">
+          <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5" /> Try opening in new tab
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden bg-muted/20 relative">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/40 z-10">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading {title}...</span>
+        </div>
+      )}
+      <div className="flex items-center justify-end gap-2 p-2 border-b border-border bg-muted/30">
+        <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs h-7">
+          <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3 w-3" /> Open
+          </a>
+        </Button>
+        <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs h-7">
+          <a href={cacheBustedUrl} download>
+            <Download className="h-3 w-3" /> Download
+          </a>
+        </Button>
+      </div>
+      <object
+        data={cacheBustedUrl}
+        type="application/pdf"
+        className="w-full"
+        style={{ height: "500px" }}
+        onLoad={() => setLoading(false)}
+        onError={() => { setLoading(false); setLoadError(true); }}
+      >
+        <div className="flex flex-col items-center justify-center gap-3 p-8">
+          <AlertCircle className="h-6 w-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">PDF viewer not supported in this browser</p>
+          <Button variant="outline" size="sm" asChild className="gap-2">
+            <a href={cacheBustedUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5" /> Open {title} in new tab
+            </a>
+          </Button>
+        </div>
+      </object>
+    </div>
+  );
+};
+
 const findCategoryForProduct = (productName: string, productsByCategory: Record<string, string[]>): string => {
   for (const [cat, products] of Object.entries(productsByCategory)) {
     if (products.includes(productName)) return cat;
