@@ -17,7 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X } from "lucide-react";
+import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X, FileText, Truck, Package, MapPinned, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useEmail } from "@/hooks/useEmail";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +26,7 @@ import { useUpdateSale } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
 import { createNotification } from "@/hooks/useNotifications";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProductCategories } from "@/hooks/useProductCategories";
 
 const SALE_TYPES = ["With GST (18%)", "Without GST"];
