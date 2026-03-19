@@ -207,6 +207,38 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     }
   }, [isEditMode, sale, saleItems]);
 
+  // Fetch payment history
+  const { data: paymentHistory = [] } = useQuery({
+    queryKey: ["payment-history-detail", sale?.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_history")
+        .select("*")
+        .eq("order_id", sale!.order_id)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale?.order_id && open && !isEditMode,
+  });
+
+  // Fetch shipments/tracking for this order
+  const { data: orderShipments = [] } = useQuery({
+    queryKey: ["order-shipments", sale?.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select("*")
+        .eq("order_id", sale!.order_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale?.order_id && open && !isEditMode,
+  });
+
+  const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
+
   if (!sale) return null;
 
   const totalAmount = Number(sale.total_amount) || 0;
@@ -378,38 +410,6 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       toast.error(`Failed to update sale: ${error.message}`);
     }
   };
-
-  // Fetch payment history
-  const { data: paymentHistory = [] } = useQuery({
-    queryKey: ["payment-history-detail", sale.order_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payment_history")
-        .select("*")
-        .eq("order_id", sale.order_id)
-        .order("payment_date", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!sale.order_id && open && !isEditMode,
-  });
-
-  // Fetch shipments/tracking for this order
-  const { data: orderShipments = [] } = useQuery({
-    queryKey: ["order-shipments", sale.order_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shipments")
-        .select("*")
-        .eq("order_id", sale.order_id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!sale.order_id && open && !isEditMode,
-  });
-
-  const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
 
   // ===================== VIEW MODE =====================
   const renderViewMode = () => (
