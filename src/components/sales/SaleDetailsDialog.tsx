@@ -874,7 +874,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => { if (!o) setIsEditMode(false); onOpenChange(o); }}>
-        <DialogContent className={`max-h-[90vh] overflow-y-auto ${isEditMode ? "max-w-4xl" : "sm:max-w-2xl"}`}>
+        <DialogContent className={`max-h-[90vh] overflow-y-auto ${isEditMode ? "max-w-4xl" : "sm:max-w-3xl"}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
