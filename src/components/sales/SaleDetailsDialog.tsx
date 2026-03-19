@@ -63,6 +63,8 @@ interface SaleDetailsDialogProps {
     courier_cost?: number | null;
     gst_amount?: number | null;
     subtotal?: number | null;
+    invoice_url?: string | null;
+    eway_bill_url?: string | null;
   } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
