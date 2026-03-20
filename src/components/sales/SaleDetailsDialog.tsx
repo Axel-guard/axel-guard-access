@@ -266,6 +266,7 @@ interface SaleDetailsDialogProps {
     subtotal?: number | null;
     invoice_url?: string | null;
     eway_bill_url?: string | null;
+    delivery_challan_url?: string | null;
   } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
