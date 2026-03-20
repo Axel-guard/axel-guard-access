@@ -801,6 +801,7 @@ export type Database = {
           customer_email: string | null
           customer_id: string | null
           customer_name: string | null
+          delivery_challan_url: string | null
           dispatch_status_override: string | null
           employee_name: string
           eway_bill_url: string | null
@@ -828,6 +829,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          delivery_challan_url?: string | null
           dispatch_status_override?: string | null
           employee_name: string
           eway_bill_url?: string | null
@@ -855,6 +857,7 @@ export type Database = {
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          delivery_challan_url?: string | null
           dispatch_status_override?: string | null
           employee_name?: string
           eway_bill_url?: string | null
