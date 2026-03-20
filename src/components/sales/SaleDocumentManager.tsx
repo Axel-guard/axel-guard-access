@@ -91,7 +91,7 @@ export const SaleDocumentManager = ({
       if (uploadError) throw uploadError;
 
       const publicUrl = getPublicUrl(path);
-      const column = type === "invoice" ? "invoice_url" : "eway_bill_url";
+      const column = type === "invoice" ? "invoice_url" : type === "eway_bill" ? "eway_bill_url" : "delivery_challan_url";
 
       const { error: dbError } = await supabase
         .from("sales")
