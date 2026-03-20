@@ -715,10 +715,19 @@ const getEmailTemplate = (
       
       let emailContent: string;
       
+      // Collect all attachments into a single list
+      const allAttachments: Array<{ filename: string; content: string; contentType?: string }> = [];
       if (config.attachment) {
-        // MIME multipart with attachment
+        allAttachments.push(config.attachment);
+      }
+      if (config.attachments) {
+        allAttachments.push(...config.attachments);
+      }
+      
+      if (allAttachments.length > 0) {
+        // MIME multipart with attachment(s)
         const contentType = config.isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
-        emailContent = [
+        const parts = [
           `From: AxelGuard <${config.from}>`,
           `To: ${config.to}`,
           config.cc ? `Cc: ${config.cc}` : null,
@@ -733,16 +742,23 @@ const getEmailTemplate = (
           ``,
           config.body,
           ``,
-          `--${boundary}`,
-          `Content-Type: ${config.attachment.contentType || "application/pdf"}`,
-          `Content-Transfer-Encoding: base64`,
-          `Content-Disposition: attachment; filename="${config.attachment.filename}"`,
-          ``,
-          // Split base64 into 76-char lines per RFC 2045
-          config.attachment.content.match(/.{1,76}/g)?.join("\r\n") || config.attachment.content,
-          ``,
-          `--${boundary}--`,
-        ]
+        ];
+        
+        for (const att of allAttachments) {
+          parts.push(
+            `--${boundary}`,
+            `Content-Type: ${att.contentType || "application/pdf"}`,
+            `Content-Transfer-Encoding: base64`,
+            `Content-Disposition: attachment; filename="${att.filename}"`,
+            ``,
+            att.content.match(/.{1,76}/g)?.join("\r\n") || att.content,
+            ``,
+          );
+        }
+        
+        parts.push(`--${boundary}--`);
+        
+        emailContent = parts
           .filter((line) => line !== null)
           .join("\r\n");
       } else {
