@@ -334,6 +334,7 @@ const getEmailTemplate = (
       <p class="closing-text">${isPartialDispatch 
         ? 'The remaining items will be dispatched soon. Courier & tracking details will be shared separately.'
         : 'Courier & tracking details will be shared soon.'}</p>
+      <p class="closing-text" style="margin-top: 8px; font-style: italic;">📎 Please find the relevant documents (Tax Invoice, E-Way Bill, Delivery Challan) attached to this email for your records, if applicable.</p>
      </div>
      <div class="footer">
       <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
@@ -631,6 +632,11 @@ const getEmailTemplate = (
      content: string; // base64
      contentType?: string;
    };
+   attachments?: Array<{
+     filename: string;
+     content: string; // base64
+     contentType?: string;
+   }>;
  }): Promise<void> {
    // Block emails to specific addresses
    if (BLOCKED_EMAILS.includes(config.to.toLowerCase())) {
@@ -710,10 +716,19 @@ const getEmailTemplate = (
       
       let emailContent: string;
       
+      // Collect all attachments into a single list
+      const allAttachments: Array<{ filename: string; content: string; contentType?: string }> = [];
       if (config.attachment) {
-        // MIME multipart with attachment
+        allAttachments.push(config.attachment);
+      }
+      if (config.attachments) {
+        allAttachments.push(...config.attachments);
+      }
+      
+      if (allAttachments.length > 0) {
+        // MIME multipart with attachment(s)
         const contentType = config.isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
-        emailContent = [
+        const parts = [
           `From: AxelGuard <${config.from}>`,
           `To: ${config.to}`,
           config.cc ? `Cc: ${config.cc}` : null,
@@ -728,16 +743,23 @@ const getEmailTemplate = (
           ``,
           config.body,
           ``,
-          `--${boundary}`,
-          `Content-Type: ${config.attachment.contentType || "application/pdf"}`,
-          `Content-Transfer-Encoding: base64`,
-          `Content-Disposition: attachment; filename="${config.attachment.filename}"`,
-          ``,
-          // Split base64 into 76-char lines per RFC 2045
-          config.attachment.content.match(/.{1,76}/g)?.join("\r\n") || config.attachment.content,
-          ``,
-          `--${boundary}--`,
-        ]
+        ];
+        
+        for (const att of allAttachments) {
+          parts.push(
+            `--${boundary}`,
+            `Content-Type: ${att.contentType || "application/pdf"}`,
+            `Content-Transfer-Encoding: base64`,
+            `Content-Disposition: attachment; filename="${att.filename}"`,
+            ``,
+            att.content.match(/.{1,76}/g)?.join("\r\n") || att.content,
+            ``,
+          );
+        }
+        
+        parts.push(`--${boundary}--`);
+        
+        emailContent = parts
           .filter((line) => line !== null)
           .join("\r\n");
       } else {
@@ -893,6 +915,15 @@ const getEmailTemplate = (
         throw new Error(`Sale not found for order ID: ${orderId}`);
       }
 
+      // Block emails for "Without Bill" sales
+      if (sale.sale_type === "Without") {
+        console.log(`Skipping ${type} email for "Without Bill" sale: ${orderId}`);
+        return new Response(
+          JSON.stringify({ success: true, message: "Email skipped for Without Bill sale" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
        // Use customer_email from sale record first, fallback to leads
        customerEmail = sale.customer_email || null;
        if (!customerEmail && sale.customer_code) {
@@ -1020,6 +1051,40 @@ const getEmailTemplate = (
 
     console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
 
+    // Fetch PDF attachments for dispatch emails (With Bill sales only)
+    const dispatchAttachments: Array<{ filename: string; content: string; contentType: string }> = [];
+    if (type === "dispatch" && type !== "quotation") {
+      // sale variable is in scope from the sale-based email block above
+      const saleRecord = (await supabase.from("sales").select("invoice_url, eway_bill_url, delivery_challan_url").eq("order_id", orderId).single()).data;
+      if (saleRecord) {
+        const docUrls: Array<{ url: string | null; name: string }> = [
+          { url: saleRecord.invoice_url, name: `Invoice_${orderId}.pdf` },
+          { url: saleRecord.eway_bill_url, name: `EWayBill_${orderId}.pdf` },
+          { url: saleRecord.delivery_challan_url, name: `DeliveryChallan_${orderId}.pdf` },
+        ];
+        for (const doc of docUrls) {
+          if (doc.url) {
+            try {
+              const res = await fetch(doc.url);
+              if (res.ok) {
+                const arrayBuf = await res.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuf);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+                }
+                const base64Content = btoa(binary);
+                dispatchAttachments.push({ filename: doc.name, content: base64Content, contentType: "application/pdf" });
+                console.log(`Attached: ${doc.name} (${bytes.length} bytes)`);
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch attachment ${doc.name}:`, err);
+            }
+          }
+        }
+      }
+    }
+
     await sendEmailWithRetry({
       host: smtpHost,
       port: smtpPort,
@@ -1036,6 +1101,7 @@ const getEmailTemplate = (
         content: pdfAttachment.content,
         contentType: "application/pdf",
       } : undefined,
+      attachments: dispatchAttachments.length > 0 ? dispatchAttachments : undefined,
     }, 2);
 
     console.log(`Email sent successfully for ${type === "quotation" ? `quotation: ${quotationId}` : `order: ${orderId}`}`);

@@ -303,6 +303,7 @@ const SalesPage = () => {
               orderId={docSale.order_id}
               invoiceUrl={docSale.invoice_url}
               ewayBillUrl={docSale.eway_bill_url}
+              deliveryChallanUrl={(docSale as any).delivery_challan_url ?? null}
             />
           )}
         </DialogContent>

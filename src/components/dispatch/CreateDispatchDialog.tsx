@@ -39,8 +39,15 @@ import {
   Send,
   AlertTriangle,
   Plus,
-  Trash2
+  Trash2,
+  ShieldAlert
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -239,6 +246,18 @@ export const CreateDispatchDialog = ({
   const isFullDispatch = allRemainingScanned && serviceProducts.every(p => true);
   
   const hasOnlyServiceProducts = physicalProducts.length === 0 && serviceProducts.length > 0 && completedProducts.every(p => p.isServiceProduct || p.remaining_qty === 0);
+
+  // Document validation for "With Bill" sales
+  const isWithBill = order?.sale_type === "With";
+  const totalAmount = Number(order?.total_amount) || 0;
+  const invoiceMissing = isWithBill && !(order as any)?.invoice_url;
+  const ewayBillMissing = isWithBill && totalAmount > 50000 && !(order as any)?.eway_bill_url;
+  const documentBlockReason = invoiceMissing 
+    ? "Tax Invoice is required for 'With Bill' sales. Please upload it first."
+    : ewayBillMissing 
+    ? "E-Way Bill is required for orders above ₹50,000. Please upload it first."
+    : null;
+  const isDocumentBlocked = !!documentBlockReason;
 
   // Summary counts
   const totalOrderItems = productsToDispatch.reduce((sum, p) => sum + p.total_qty, 0);
@@ -541,15 +560,18 @@ export const CreateDispatchDialog = ({
         .map(p => p.product_name)
         .join(", ");
       
-      sendDispatchEmail(order.order_id, {
-        dispatchDate: format(new Date(dispatchDate), "dd/MM/yyyy"),
-        serialNumbers,
-        productSerials: scannedDevices.map(d => ({ product_name: d.product_name, serial_number: d.serial_number })),
-        productName: productNames,
-        totalQuantity: totalThisDispatch,
-      }).catch(emailError => {
-        console.error("Failed to send dispatch email:", emailError);
-      });
+      // Send dispatch email only for "With Bill" sales (non-blocking)
+      if (isWithBill) {
+        sendDispatchEmail(order.order_id, {
+          dispatchDate: format(new Date(dispatchDate), "dd/MM/yyyy"),
+          serialNumbers,
+          productSerials: scannedDevices.map(d => ({ product_name: d.product_name, serial_number: d.serial_number })),
+          productName: productNames,
+          totalQuantity: totalThisDispatch,
+        }).catch(emailError => {
+          console.error("Failed to send dispatch email:", emailError);
+        });
+      }
 
       onOpenChange(false);
     } catch (error: any) {
@@ -905,6 +927,16 @@ export const CreateDispatchDialog = ({
             </div>
           </div>
 
+          {/* Document blocking warning */}
+          {isDocumentBlocked && (
+            <div className="border-t px-6 py-3 bg-destructive/5 shrink-0">
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>{documentBlockReason}</span>
+              </div>
+            </div>
+          )}
+
           {/* Footer Actions - Sticky */}
           <div className="border-t px-6 py-4 bg-background shrink-0 flex gap-3">
             <Button
@@ -915,17 +947,30 @@ export const CreateDispatchDialog = ({
               <ArrowLeft className="h-4 w-4" />
               Back to Order Selection
             </Button>
-            <Button
-              className={`flex-1 gap-2 ${canDispatch ? "bg-success hover:bg-success/90" : "bg-muted text-muted-foreground"}`}
-              disabled={!canDispatch || isProcessing}
-              onClick={() => setShowConfirmDialog(true)}
-            >
-              <Send className="h-4 w-4" />
-              {hasOnlyServiceProducts 
-                ? `Activate Service (${serviceProducts.length} item${serviceProducts.length > 1 ? 's' : ''})`
-                : `Create Dispatch (${totalThisDispatch} item${totalThisDispatch !== 1 ? 's' : ''})`
-              }
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      className={`w-full gap-2 ${canDispatch && !isDocumentBlocked ? "bg-success hover:bg-success/90" : "bg-muted text-muted-foreground"}`}
+                      disabled={!canDispatch || isProcessing || isDocumentBlocked}
+                      onClick={() => setShowConfirmDialog(true)}
+                    >
+                      <Send className="h-4 w-4" />
+                      {hasOnlyServiceProducts 
+                        ? `Activate Service (${serviceProducts.length} item${serviceProducts.length > 1 ? 's' : ''})`
+                        : `Create Dispatch (${totalThisDispatch} item${totalThisDispatch !== 1 ? 's' : ''})`
+                      }
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isDocumentBlocked && (
+                  <TooltipContent side="top" className="max-w-[300px]">
+                    <p>{documentBlockReason}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </DialogContent>
       </Dialog>

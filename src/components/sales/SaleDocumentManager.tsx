@@ -30,12 +30,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type DocType = "invoice" | "eway_bill";
+type DocType = "invoice" | "eway_bill" | "delivery_challan";
 
 interface SaleDocumentManagerProps {
   orderId: string;
   invoiceUrl: string | null;
   ewayBillUrl: string | null;
+  deliveryChallanUrl: string | null;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -44,6 +45,7 @@ export const SaleDocumentManager = ({
   orderId,
   invoiceUrl,
   ewayBillUrl,
+  deliveryChallanUrl,
 }: SaleDocumentManagerProps) => {
   const [uploading, setUploading] = useState<DocType | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export const SaleDocumentManager = ({
   const [deleting, setDeleting] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const ewayInputRef = useRef<HTMLInputElement>(null);
+  const challanInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const getStoragePath = (type: DocType) =>
@@ -88,7 +91,7 @@ export const SaleDocumentManager = ({
       if (uploadError) throw uploadError;
 
       const publicUrl = getPublicUrl(path);
-      const column = type === "invoice" ? "invoice_url" : "eway_bill_url";
+      const column = type === "invoice" ? "invoice_url" : type === "eway_bill" ? "eway_bill_url" : "delivery_challan_url";
 
       const { error: dbError } = await supabase
         .from("sales")
@@ -117,7 +120,7 @@ export const SaleDocumentManager = ({
       await supabase.storage.from("sale-documents").remove([path]);
 
       const column =
-        deleteDoc === "invoice" ? "invoice_url" : "eway_bill_url";
+        deleteDoc === "invoice" ? "invoice_url" : deleteDoc === "eway_bill" ? "eway_bill_url" : "delivery_challan_url";
       await supabase
         .from("sales")
         .update({ [column]: null })
@@ -126,7 +129,7 @@ export const SaleDocumentManager = ({
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
       queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
       toast.success(
-        `${deleteDoc === "invoice" ? "Invoice" : "E-Way Bill"} deleted`
+        `${deleteDoc === "invoice" ? "Invoice" : deleteDoc === "eway_bill" ? "E-Way Bill" : "Delivery Challan"} deleted`
       );
     } catch (err: any) {
       toast.error(`Delete failed: ${err.message}`);
@@ -241,6 +244,13 @@ export const SaleDocumentManager = ({
           <Truck className="h-5 w-5 text-primary" />,
           ewayBillUrl,
           ewayInputRef as React.RefObject<HTMLInputElement>
+        )}
+        {renderDocSection(
+          "delivery_challan",
+          "Delivery Challan PDF",
+          <FileText className="h-5 w-5 text-primary" />,
+          deliveryChallanUrl,
+          challanInputRef as React.RefObject<HTMLInputElement>
         )}
       </div>
 
