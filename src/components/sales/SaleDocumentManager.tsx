@@ -120,7 +120,7 @@ export const SaleDocumentManager = ({
       await supabase.storage.from("sale-documents").remove([path]);
 
       const column =
-        deleteDoc === "invoice" ? "invoice_url" : "eway_bill_url";
+        deleteDoc === "invoice" ? "invoice_url" : deleteDoc === "eway_bill" ? "eway_bill_url" : "delivery_challan_url";
       await supabase
         .from("sales")
         .update({ [column]: null })
