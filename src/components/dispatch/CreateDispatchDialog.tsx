@@ -927,6 +927,16 @@ export const CreateDispatchDialog = ({
             </div>
           </div>
 
+          {/* Document blocking warning */}
+          {isDocumentBlocked && (
+            <div className="border-t px-6 py-3 bg-destructive/5 shrink-0">
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>{documentBlockReason}</span>
+              </div>
+            </div>
+          )}
+
           {/* Footer Actions - Sticky */}
           <div className="border-t px-6 py-4 bg-background shrink-0 flex gap-3">
             <Button
@@ -937,17 +947,30 @@ export const CreateDispatchDialog = ({
               <ArrowLeft className="h-4 w-4" />
               Back to Order Selection
             </Button>
-            <Button
-              className={`flex-1 gap-2 ${canDispatch ? "bg-success hover:bg-success/90" : "bg-muted text-muted-foreground"}`}
-              disabled={!canDispatch || isProcessing}
-              onClick={() => setShowConfirmDialog(true)}
-            >
-              <Send className="h-4 w-4" />
-              {hasOnlyServiceProducts 
-                ? `Activate Service (${serviceProducts.length} item${serviceProducts.length > 1 ? 's' : ''})`
-                : `Create Dispatch (${totalThisDispatch} item${totalThisDispatch !== 1 ? 's' : ''})`
-              }
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      className={`w-full gap-2 ${canDispatch && !isDocumentBlocked ? "bg-success hover:bg-success/90" : "bg-muted text-muted-foreground"}`}
+                      disabled={!canDispatch || isProcessing || isDocumentBlocked}
+                      onClick={() => setShowConfirmDialog(true)}
+                    >
+                      <Send className="h-4 w-4" />
+                      {hasOnlyServiceProducts 
+                        ? `Activate Service (${serviceProducts.length} item${serviceProducts.length > 1 ? 's' : ''})`
+                        : `Create Dispatch (${totalThisDispatch} item${totalThisDispatch !== 1 ? 's' : ''})`
+                      }
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isDocumentBlocked && (
+                  <TooltipContent side="top" className="max-w-[300px]">
+                    <p>{documentBlockReason}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </DialogContent>
       </Dialog>
