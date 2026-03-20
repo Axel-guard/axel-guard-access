@@ -247,6 +247,18 @@ export const CreateDispatchDialog = ({
   
   const hasOnlyServiceProducts = physicalProducts.length === 0 && serviceProducts.length > 0 && completedProducts.every(p => p.isServiceProduct || p.remaining_qty === 0);
 
+  // Document validation for "With Bill" sales
+  const isWithBill = order?.sale_type === "With";
+  const totalAmount = Number(order?.total_amount) || 0;
+  const invoiceMissing = isWithBill && !order?.invoice_url;
+  const ewayBillMissing = isWithBill && totalAmount > 50000 && !order?.eway_bill_url;
+  const documentBlockReason = invoiceMissing 
+    ? "Tax Invoice is required for 'With Bill' sales. Please upload it first."
+    : ewayBillMissing 
+    ? "E-Way Bill is required for orders above ₹50,000. Please upload it first."
+    : null;
+  const isDocumentBlocked = !!documentBlockReason;
+
   // Summary counts
   const totalOrderItems = productsToDispatch.reduce((sum, p) => sum + p.total_qty, 0);
   const totalAlreadyDispatched = productsToDispatch.reduce((sum, p) => sum + p.already_dispatched, 0);
