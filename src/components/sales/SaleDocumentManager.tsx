@@ -54,6 +54,7 @@ export const SaleDocumentManager = ({
   const [deleting, setDeleting] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const ewayInputRef = useRef<HTMLInputElement>(null);
+  const challanInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const getStoragePath = (type: DocType) =>
