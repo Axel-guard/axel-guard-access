@@ -251,10 +251,12 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
         })),
     });
 
-    // Send sale confirmation email automatically (non-blocking)
-    sendSaleEmail(createdOrderId).catch(emailError => {
-      console.error("Failed to send sale email:", emailError);
-    });
+    // Send sale confirmation email only for "With Bill" sales (non-blocking)
+    if (isWithGST) {
+      sendSaleEmail(createdOrderId).catch(emailError => {
+        console.error("Failed to send sale email:", emailError);
+      });
+    }
 
     onOpenChange(false);
     resetForm();
