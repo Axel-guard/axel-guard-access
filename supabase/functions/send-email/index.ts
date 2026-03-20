@@ -631,6 +631,11 @@ const getEmailTemplate = (
      content: string; // base64
      contentType?: string;
    };
+   attachments?: Array<{
+     filename: string;
+     content: string; // base64
+     contentType?: string;
+   }>;
  }): Promise<void> {
    // Block emails to specific addresses
    if (BLOCKED_EMAILS.includes(config.to.toLowerCase())) {
