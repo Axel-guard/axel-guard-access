@@ -783,7 +783,21 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
               <Truck className="h-4 w-4 text-primary" />
               E-Way Bill
             </h4>
-            <DocumentViewer url={sale.eway_bill_url} title="E-Way Bill" />
+           <DocumentViewer url={sale.eway_bill_url} title="E-Way Bill" />
+          </div>
+        </>
+      )}
+
+      {/* Delivery Challan PDF - Auto Display */}
+      {(sale as any).delivery_challan_url && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Delivery Challan
+            </h4>
+            <DocumentViewer url={(sale as any).delivery_challan_url} title="Delivery Challan" />
           </div>
         </>
       )}
