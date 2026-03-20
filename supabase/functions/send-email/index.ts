@@ -893,6 +893,15 @@ const getEmailTemplate = (
         throw new Error(`Sale not found for order ID: ${orderId}`);
       }
 
+      // Block emails for "Without Bill" sales
+      if (sale.sale_type === "Without") {
+        console.log(`Skipping ${type} email for "Without Bill" sale: ${orderId}`);
+        return new Response(
+          JSON.stringify({ success: true, message: "Email skipped for Without Bill sale" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
        // Use customer_email from sale record first, fallback to leads
        customerEmail = sale.customer_email || null;
        if (!customerEmail && sale.customer_code) {
