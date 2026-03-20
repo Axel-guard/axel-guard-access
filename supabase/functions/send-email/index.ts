@@ -1050,6 +1050,40 @@ const getEmailTemplate = (
 
     console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
 
+    // Fetch PDF attachments for dispatch emails (With Bill sales only)
+    const dispatchAttachments: Array<{ filename: string; content: string; contentType: string }> = [];
+    if (type === "dispatch" && type !== "quotation") {
+      // sale variable is in scope from the sale-based email block above
+      const saleRecord = (await supabase.from("sales").select("invoice_url, eway_bill_url, delivery_challan_url").eq("order_id", orderId).single()).data;
+      if (saleRecord) {
+        const docUrls: Array<{ url: string | null; name: string }> = [
+          { url: saleRecord.invoice_url, name: `Invoice_${orderId}.pdf` },
+          { url: saleRecord.eway_bill_url, name: `EWayBill_${orderId}.pdf` },
+          { url: saleRecord.delivery_challan_url, name: `DeliveryChallan_${orderId}.pdf` },
+        ];
+        for (const doc of docUrls) {
+          if (doc.url) {
+            try {
+              const res = await fetch(doc.url);
+              if (res.ok) {
+                const arrayBuf = await res.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuf);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+                }
+                const base64Content = btoa(binary);
+                dispatchAttachments.push({ filename: doc.name, content: base64Content, contentType: "application/pdf" });
+                console.log(`Attached: ${doc.name} (${bytes.length} bytes)`);
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch attachment ${doc.name}:`, err);
+            }
+          }
+        }
+      }
+    }
+
     await sendEmailWithRetry({
       host: smtpHost,
       port: smtpPort,
@@ -1066,6 +1100,7 @@ const getEmailTemplate = (
         content: pdfAttachment.content,
         contentType: "application/pdf",
       } : undefined,
+      attachments: dispatchAttachments.length > 0 ? dispatchAttachments : undefined,
     }, 2);
 
     console.log(`Email sent successfully for ${type === "quotation" ? `quotation: ${quotationId}` : `order: ${orderId}`}`);
