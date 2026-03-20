@@ -129,7 +129,7 @@ export const SaleDocumentManager = ({
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
       queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
       toast.success(
-        `${deleteDoc === "invoice" ? "Invoice" : "E-Way Bill"} deleted`
+        `${deleteDoc === "invoice" ? "Invoice" : deleteDoc === "eway_bill" ? "E-Way Bill" : "Delivery Challan"} deleted`
       );
     } catch (err: any) {
       toast.error(`Delete failed: ${err.message}`);
