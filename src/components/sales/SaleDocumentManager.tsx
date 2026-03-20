@@ -245,6 +245,13 @@ export const SaleDocumentManager = ({
           ewayBillUrl,
           ewayInputRef as React.RefObject<HTMLInputElement>
         )}
+        {renderDocSection(
+          "delivery_challan",
+          "Delivery Challan PDF",
+          <FileText className="h-5 w-5 text-primary" />,
+          deliveryChallanUrl,
+          challanInputRef as React.RefObject<HTMLInputElement>
+        )}
       </div>
 
       {/* PDF Preview Dialog */}
