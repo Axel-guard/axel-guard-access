@@ -250,8 +250,8 @@ export const CreateDispatchDialog = ({
   // Document validation for "With Bill" sales
   const isWithBill = order?.sale_type === "With";
   const totalAmount = Number(order?.total_amount) || 0;
-  const invoiceMissing = isWithBill && !order?.invoice_url;
-  const ewayBillMissing = isWithBill && totalAmount > 50000 && !order?.eway_bill_url;
+  const invoiceMissing = isWithBill && !(order as any)?.invoice_url;
+  const ewayBillMissing = isWithBill && totalAmount > 50000 && !(order as any)?.eway_bill_url;
   const documentBlockReason = invoiceMissing 
     ? "Tax Invoice is required for 'With Bill' sales. Please upload it first."
     : ewayBillMissing 
