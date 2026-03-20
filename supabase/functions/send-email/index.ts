@@ -334,6 +334,7 @@ const getEmailTemplate = (
       <p class="closing-text">${isPartialDispatch 
         ? 'The remaining items will be dispatched soon. Courier & tracking details will be shared separately.'
         : 'Courier & tracking details will be shared soon.'}</p>
+      <p class="closing-text" style="margin-top: 8px; font-style: italic;">📎 Please find the relevant documents (Tax Invoice, E-Way Bill, Delivery Challan) attached to this email for your records, if applicable.</p>
      </div>
      <div class="footer">
       <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
