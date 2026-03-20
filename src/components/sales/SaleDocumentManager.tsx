@@ -30,12 +30,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type DocType = "invoice" | "eway_bill";
+type DocType = "invoice" | "eway_bill" | "delivery_challan";
 
 interface SaleDocumentManagerProps {
   orderId: string;
   invoiceUrl: string | null;
   ewayBillUrl: string | null;
+  deliveryChallanUrl: string | null;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -44,6 +45,7 @@ export const SaleDocumentManager = ({
   orderId,
   invoiceUrl,
   ewayBillUrl,
+  deliveryChallanUrl,
 }: SaleDocumentManagerProps) => {
   const [uploading, setUploading] = useState<DocType | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
