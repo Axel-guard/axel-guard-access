@@ -439,6 +439,22 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     enabled: !!sale?.order_id && open && !isEditMode,
   });
 
+  // Fetch dispatched devices (inventory) for this order
+  const { data: dispatchedDevices = [] } = useQuery({
+    queryKey: ["dispatched-devices", sale?.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("serial_number, product_name, category, dispatch_date, status, order_id")
+        .eq("order_id", sale!.order_id)
+        .eq("status", "Dispatched")
+        .order("dispatch_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale?.order_id && open && !isEditMode,
+  });
+
   const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
 
   // ===================== SLIDE NAVIGATION STATE (must be before early return) =====================
