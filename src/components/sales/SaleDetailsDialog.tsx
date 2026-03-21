@@ -506,7 +506,163 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
   const amountReceived = Number(sale.amount_received) || 0;
   const balanceAmount = Number(sale.balance_amount) || Math.max(0, totalAmount - amountReceived);
 
-  // ---- Page renderers ----
+  const location = sale.remarks?.startsWith("Location: ")
+    ? sale.remarks.replace("Location: ", "")
+    : sale.remarks || "-";
+
+  const getStatusBadge = () => {
+    if (balanceAmount === 0 && totalAmount > 0) {
+      return <Badge className="bg-success/10 text-success border-success/20">Paid</Badge>;
+    }
+    if (amountReceived > 0) {
+      return <Badge className="bg-warning/10 text-warning border-warning/20">Partial</Badge>;
+    }
+    return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Pending</Badge>;
+  };
+
+  const handleSendEmail = async () => {
+    await sendEmail("sale", sale.order_id);
+  };
+
+  // ---- Edit mode helpers ----
+  const addProduct = () => {
+    if (products.length < 10) {
+      setProducts([...products, { category: "", product_name: "", quantity: "", unit_price: "" }]);
+    }
+  };
+
+  const removeProduct = (index: number) => {
+    if (products.length > 1) {
+      setProducts(products.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateProduct = (index: number, field: keyof ProductItem, value: string) => {
+    setProducts(prev => {
+      const updated = [...prev];
+      if (field === "category") {
+        updated[index] = { ...updated[index], category: value, product_name: "" };
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      return updated;
+    });
+  };
+
+  // Calculations for edit mode
+  const editSubtotal = products.reduce((sum, p) => {
+    const qty = parseFloat(p.quantity) || 0;
+    const price = parseFloat(p.unit_price) || 0;
+    return sum + qty * price;
+  }, 0);
+  const isWithGST = formData.saleType === "With GST (18%)";
+  const editCourierGST = isWithGST ? formData.courierCost * 0.18 : 0;
+  const editProductGST = isWithGST ? editSubtotal * 0.18 : 0;
+  const editTotalGST = editProductGST + editCourierGST;
+  const editTotalAmount = editSubtotal + formData.courierCost + editTotalGST;
+  const editBalanceAmount = Math.max(0, editTotalAmount - formData.amountReceived);
+
+  const handleSubmitClick = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.amountReceived < 0) {
+      toast.error("Amount received cannot be negative");
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmedSave = async () => {
+    setConfirmOpen(false);
+    if (!sale) return;
+
+    const saleTypeValue = isWithGST ? "With" : "Without";
+    const oldValues: Record<string, any> = {};
+    const newValues: Record<string, any> = {};
+
+    if (formData.employeeName !== sale.employee_name) {
+      oldValues.employee_name = sale.employee_name;
+      newValues.employee_name = formData.employeeName;
+    }
+    if (saleTypeValue !== sale.sale_type) {
+      oldValues.sale_type = sale.sale_type;
+      newValues.sale_type = saleTypeValue;
+    }
+    if (formData.customerName !== (sale.customer_name || "")) {
+      oldValues.customer_name = sale.customer_name;
+      newValues.customer_name = formData.customerName;
+    }
+    if (formData.companyName !== (sale.company_name || "")) {
+      oldValues.company_name = sale.company_name;
+      newValues.company_name = formData.companyName;
+    }
+    if (formData.customerContact !== (sale.customer_contact || "")) {
+      oldValues.customer_contact = sale.customer_contact;
+      newValues.customer_contact = formData.customerContact;
+    }
+    if (formData.customerCode !== sale.customer_code) {
+      oldValues.customer_code = sale.customer_code;
+      newValues.customer_code = formData.customerCode;
+    }
+
+    const updates: any = {
+      subtotal: editSubtotal,
+      gst_amount: editTotalGST,
+      courier_cost: formData.courierCost,
+      total_amount: editTotalAmount,
+      amount_received: formData.amountReceived,
+      balance_amount: editBalanceAmount,
+      sale_date: new Date(formData.saleDate).toISOString(),
+      employee_name: formData.employeeName,
+      sale_type: saleTypeValue,
+      customer_code: formData.customerCode,
+      customer_name: formData.customerName,
+      company_name: formData.companyName,
+      customer_contact: formData.customerContact,
+      remarks: formData.remarks,
+    };
+
+    try {
+      await updateSale.mutateAsync({ orderId: sale.order_id, updates });
+      await supabase.from("sale_items").delete().eq("order_id", sale.order_id);
+      const validItems = products.filter(p => p.product_name);
+      if (validItems.length > 0) {
+        await supabase.from("sale_items").insert(
+          validItems.map(p => ({
+            order_id: sale.order_id,
+            product_name: p.product_name,
+            quantity: parseFloat(p.quantity) || 0,
+            unit_price: parseFloat(p.unit_price) || 0,
+          }))
+        );
+      }
+      await supabase.from("sale_edit_logs").insert({
+        order_id: sale.order_id,
+        edited_by: user?.id,
+        edit_type: newValues.employee_name ? "employee_change" : "update",
+        old_values: { ...oldValues, old_total: Number(sale.total_amount) },
+        new_values: { ...newValues, new_total: editTotalAmount },
+      });
+      if (newValues.employee_name) {
+        await createNotification(
+          "Sale Reassigned",
+          `Sale ${sale.order_id} reassigned from ${sale.employee_name} to ${formData.employeeName}`,
+          "sale",
+          { order_id: sale.order_id, old_employee: sale.employee_name, new_employee: formData.employeeName }
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
+      toast.success("Sale Updated Successfully");
+      setIsEditMode(false);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(`Failed to update sale: ${error.message}`);
+    }
+  };
+
   const renderSalePage = () => (
     <div className="space-y-5 animate-fade-in">
       {/* Customer & Sale Info */}
