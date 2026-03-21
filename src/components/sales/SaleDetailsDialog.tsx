@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -17,7 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X, FileText, Truck, Package, MapPinned, AlertCircle, ExternalLink, Download } from "lucide-react";
+import { Calendar, User, Phone, MapPin, Hash, IndianRupee, Mail, Loader2, Pencil, Plus, X, FileText, Truck, Package, MapPinned, AlertCircle, ExternalLink, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { useEmail } from "@/hooks/useEmail";
 import { useAuth } from "@/contexts/AuthContext";
@@ -441,6 +441,65 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
 
   const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
 
+  // ===================== SLIDE NAVIGATION STATE (must be before early return) =====================
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // Reset to page 0 when dialog opens
+  useEffect(() => {
+    if (open) setCurrentPage(0);
+  }, [open, sale?.order_id]);
+
+  // Build dynamic pages array
+  const pages = useMemo(() => {
+    if (!sale) return [{ id: "sale", title: "Sale Details", icon: <Hash className="h-4 w-4" /> }];
+    const p: { id: string; title: string; icon: React.ReactNode }[] = [
+      { id: "sale", title: "Sale Details", icon: <Hash className="h-4 w-4" /> },
+    ];
+    if (sale.invoice_url) {
+      p.push({ id: "invoice", title: "Invoice", icon: <FileText className="h-4 w-4" /> });
+    }
+    if (sale.eway_bill_url) {
+      p.push({ id: "eway", title: "E-Way Bill", icon: <Truck className="h-4 w-4" /> });
+    }
+    if (sale.delivery_challan_url) {
+      p.push({ id: "challan", title: "Delivery Challan", icon: <FileText className="h-4 w-4" /> });
+    }
+    if (orderShipments.length > 0) {
+      p.push({ id: "dispatch", title: "Dispatch Details", icon: <Package className="h-4 w-4" /> });
+    }
+    if (shipmentsWithTracking.length > 0) {
+      p.push({ id: "tracking", title: "Tracking Details", icon: <MapPinned className="h-4 w-4" /> });
+    }
+    return p;
+  }, [sale?.invoice_url, sale?.eway_bill_url, sale?.delivery_challan_url, orderShipments.length, shipmentsWithTracking.length, sale]);
+
+  const totalPages = pages.length;
+  const safePage = Math.min(currentPage, totalPages - 1);
+
+  const goNext = useCallback(() => setCurrentPage(p => Math.min(p + 1, totalPages - 1)), [totalPages]);
+  const goPrev = useCallback(() => setCurrentPage(p => Math.max(p - 1, 0)), []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!open || isEditMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, isEditMode, goNext, goPrev]);
+
+  // Touch/swipe support
+  const touchStartX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) { diff > 0 ? goNext() : goPrev(); }
+    touchStartX.current = null;
+  };
+
   if (!sale) return null;
 
   const totalAmount = Number(sale.total_amount) || 0;
@@ -515,10 +574,8 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
   const handleConfirmedSave = async () => {
     setConfirmOpen(false);
     if (!sale) return;
-    console.log("Updating sale:", sale.order_id);
 
     const saleTypeValue = isWithGST ? "With" : "Without";
-
     const oldValues: Record<string, any> = {};
     const newValues: Record<string, any> = {};
 
@@ -566,8 +623,6 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
 
     try {
       await updateSale.mutateAsync({ orderId: sale.order_id, updates });
-
-      // Update sale items
       await supabase.from("sale_items").delete().eq("order_id", sale.order_id);
       const validItems = products.filter(p => p.product_name);
       if (validItems.length > 0) {
@@ -580,8 +635,6 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           }))
         );
       }
-
-      // Log the edit
       await supabase.from("sale_edit_logs").insert({
         order_id: sale.order_id,
         edited_by: user?.id,
@@ -589,7 +642,6 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
         old_values: { ...oldValues, old_total: Number(sale.total_amount) },
         new_values: { ...newValues, new_total: editTotalAmount },
       });
-
       if (newValues.employee_name) {
         await createNotification(
           "Sale Reassigned",
@@ -598,13 +650,11 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           { order_id: sale.order_id, old_employee: sale.employee_name, new_employee: formData.employeeName }
         );
       }
-
       queryClient.invalidateQueries({ queryKey: ["sales-with-items"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
-
       toast.success("Sale Updated Successfully");
       setIsEditMode(false);
       onOpenChange(false);
@@ -613,27 +663,22 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     }
   };
 
-  // ===================== VIEW MODE =====================
-  const renderViewMode = () => (
-    <div className="space-y-6">
-      {/* Order & Customer Info */}
-      <div className="grid grid-cols-2 gap-6">
+  const renderSalePage = () => (
+    <div className="space-y-5 animate-fade-in">
+      {/* Customer & Sale Info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-3 rounded-lg border border-border p-4">
-          <h4 className="font-semibold text-sm">Customer Details</h4>
+          <h4 className="font-semibold text-sm flex items-center gap-2"><User className="h-3.5 w-3.5 text-primary" /> Customer Details</h4>
           <div className="space-y-2 text-sm">
             <p><span className="text-muted-foreground">Code:</span> <span className="font-medium">{sale.customer_code}</span></p>
             <p><span className="text-muted-foreground">Name:</span> <span className="font-medium">{sale.customer_name || "-"}</span></p>
-            {sale.company_name && (
-              <p><span className="text-muted-foreground">Company:</span> <span className="font-medium">{sale.company_name}</span></p>
-            )}
+            {sale.company_name && <p><span className="text-muted-foreground">Company:</span> <span className="font-medium">{sale.company_name}</span></p>}
             <p><span className="text-muted-foreground">Contact:</span> <span className="font-medium">{sale.customer_contact || "-"}</span></p>
-            {sale.customer_email && (
-              <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{sale.customer_email}</span></p>
-            )}
+            {sale.customer_email && <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{sale.customer_email}</span></p>}
           </div>
         </div>
         <div className="space-y-3 rounded-lg border border-border p-4">
-          <h4 className="font-semibold text-sm">Sale Info</h4>
+          <h4 className="font-semibold text-sm flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-primary" /> Sale Info</h4>
           <div className="space-y-2 text-sm">
             <p><span className="text-muted-foreground">Date:</span> <span className="font-medium">{sale.sale_date ? format(new Date(sale.sale_date), "dd/MM/yyyy") : "-"}</span></p>
             <p><span className="text-muted-foreground">Employee:</span> <span className="font-medium">{sale.employee_name || "-"}</span></p>
@@ -646,29 +691,23 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       <div className="space-y-3">
         <h4 className="font-semibold text-sm">Products</h4>
         {loadingItems ? (
-          <div className="flex items-center gap-2 py-4 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading products...
-          </div>
+          <div className="flex items-center gap-2 py-4 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading products...</div>
         ) : saleItems.length > 0 ? (
           <div className="rounded-lg border border-border overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-xs">PRODUCT</TableHead>
-                  <TableHead className="text-xs text-center w-20">QTY</TableHead>
-                  <TableHead className="text-xs text-right w-28">UNIT PRICE</TableHead>
-                  <TableHead className="text-xs text-right w-28">TOTAL</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow className="bg-muted/50">
+                <TableHead className="text-xs">PRODUCT</TableHead>
+                <TableHead className="text-xs text-center w-20">QTY</TableHead>
+                <TableHead className="text-xs text-right w-28">UNIT PRICE</TableHead>
+                <TableHead className="text-xs text-right w-28">TOTAL</TableHead>
+              </TableRow></TableHeader>
               <TableBody>
                 {saleItems.map((item: any) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id || item.product_name}>
                     <TableCell className="text-sm font-medium">{item.product_name}</TableCell>
                     <TableCell className="text-sm text-center">{item.quantity}</TableCell>
                     <TableCell className="text-sm text-right">₹{Number(item.unit_price).toLocaleString()}</TableCell>
-                    <TableCell className="text-sm text-right font-semibold">
-                      ₹{(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-sm text-right font-semibold">₹{(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -677,9 +716,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
         ) : (
           <div className="rounded-lg border border-border p-4 text-center">
             <p className="text-sm text-muted-foreground">Product line items were not recorded for this historical sale.</p>
-            {Number(sale.subtotal) > 0 && (
-              <p className="text-sm mt-1 text-muted-foreground">Sale subtotal: <span className="font-medium text-foreground">₹{Number(sale.subtotal).toLocaleString()}</span></p>
-            )}
+            {Number(sale.subtotal) > 0 && <p className="text-sm mt-1 text-muted-foreground">Sale subtotal: <span className="font-medium text-foreground">₹{Number(sale.subtotal).toLocaleString()}</span></p>}
           </div>
         )}
       </div>
@@ -689,27 +726,18 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       {/* Payment Information */}
       <div className="space-y-4">
         <h4 className="font-semibold text-sm text-muted-foreground">Payment Information</h4>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-muted/50 rounded-lg p-4 text-center">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-muted/50 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
-            <p className="text-lg font-bold flex items-center justify-center gap-1">
-              <IndianRupee className="h-4 w-4" />
-              {totalAmount.toLocaleString()}
-            </p>
+            <p className="text-base font-bold flex items-center justify-center gap-1"><IndianRupee className="h-3.5 w-3.5" />{totalAmount.toLocaleString()}</p>
           </div>
-          <div className="bg-success/10 rounded-lg p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Amount Received</p>
-            <p className="text-lg font-bold text-success flex items-center justify-center gap-1">
-              <IndianRupee className="h-4 w-4" />
-              {amountReceived.toLocaleString()}
-            </p>
+          <div className="bg-success/10 rounded-lg p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Received</p>
+            <p className="text-base font-bold text-success flex items-center justify-center gap-1"><IndianRupee className="h-3.5 w-3.5" />{amountReceived.toLocaleString()}</p>
           </div>
-          <div className="bg-destructive/10 rounded-lg p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Balance Amount</p>
-            <p className="text-lg font-bold text-destructive flex items-center justify-center gap-1">
-              <IndianRupee className="h-4 w-4" />
-              {balanceAmount.toLocaleString()}
-            </p>
+          <div className="bg-destructive/10 rounded-lg p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Balance</p>
+            <p className="text-base font-bold text-destructive flex items-center justify-center gap-1"><IndianRupee className="h-3.5 w-3.5" />{balanceAmount.toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -719,20 +747,15 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
         <>
           <Separator />
           <div className="space-y-3">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <IndianRupee className="h-4 w-4 text-primary" />
-              Payment History
-            </h4>
+            <h4 className="font-semibold text-sm flex items-center gap-2"><IndianRupee className="h-4 w-4 text-primary" /> Payment History</h4>
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="text-xs">DATE</TableHead>
-                    <TableHead className="text-xs">ACCOUNT</TableHead>
-                    <TableHead className="text-xs">REFERENCE</TableHead>
-                    <TableHead className="text-xs text-right">AMOUNT</TableHead>
-                  </TableRow>
-                </TableHeader>
+                <TableHeader><TableRow className="bg-muted/50">
+                  <TableHead className="text-xs">DATE</TableHead>
+                  <TableHead className="text-xs">ACCOUNT</TableHead>
+                  <TableHead className="text-xs">REFERENCE</TableHead>
+                  <TableHead className="text-xs text-right">AMOUNT</TableHead>
+                </TableRow></TableHeader>
                 <TableBody>
                   {paymentHistory.map((p: any) => (
                     <TableRow key={p.id}>
@@ -760,111 +783,6 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
         </>
       )}
 
-      {/* Invoice PDF - Auto Display */}
-      {sale.invoice_url && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              Invoice
-            </h4>
-            <DocumentViewer url={sale.invoice_url} title="Invoice" />
-          </div>
-        </>
-      )}
-
-      {/* E-Way Bill PDF - Auto Display */}
-      {sale.eway_bill_url && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <Truck className="h-4 w-4 text-primary" />
-              E-Way Bill
-            </h4>
-           <DocumentViewer url={sale.eway_bill_url} title="E-Way Bill" />
-          </div>
-        </>
-      )}
-
-      {/* Delivery Challan PDF - Auto Display */}
-      {(sale as any).delivery_challan_url && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              Delivery Challan
-            </h4>
-            <DocumentViewer url={(sale as any).delivery_challan_url} title="Delivery Challan" />
-          </div>
-        </>
-      )}
-      {/* Dispatch & Tracking */}
-      {shipmentsWithTracking.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <Package className="h-4 w-4 text-primary" />
-              Dispatch & Tracking Details
-            </h4>
-            <div className="space-y-3">
-              {shipmentsWithTracking.map((shipment: any) => (
-                <div key={shipment.id} className="rounded-lg border border-border p-4 space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Shipment Type</p>
-                      <p className="font-medium">{shipment.shipment_type || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
-                      <p className="font-medium">{shipment.courier_partner || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
-                      <p className="font-medium">{shipment.shipping_mode || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Tracking ID</p>
-                      <p className="font-medium font-mono text-primary">{shipment.tracking_id}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
-                      <p className="font-medium">{shipment.weight_kg ? `${shipment.weight_kg} kg` : "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
-                      <p className="font-medium">{shipment.shipping_cost ? `₹${Number(shipment.shipping_cost).toLocaleString()}` : "-"}</p>
-                    </div>
-                    {shipment.created_at && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Dispatch Date</p>
-                        <p className="font-medium">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Show "Tracking not added" only if there are shipments but none with tracking */}
-      {orderShipments.length > 0 && shipmentsWithTracking.length === 0 && (
-        <>
-          <Separator />
-          <div className="rounded-lg border border-border p-4 text-center">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <MapPinned className="h-4 w-4" />
-              <span className="text-sm">Tracking not added yet</span>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-2 border-t border-border">
         <Button variant="outline" size="sm" onClick={handleSendEmail} disabled={emailLoading} className="gap-2">
@@ -872,10 +790,160 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
           Send Mail
         </Button>
         {canEdit && (
-          <Button size="sm" onClick={() => { console.log("Edit clicked"); console.log("Edit Mode:", true); console.log("User Role:", role); setIsEditMode(true); }} className="gap-2">
+          <Button size="sm" onClick={() => { setIsEditMode(true); }} className="gap-2">
             <Pencil className="h-4 w-4" /> Edit Sale
           </Button>
         )}
+      </div>
+    </div>
+  );
+
+  const renderDocumentPage = (url: string, title: string) => (
+    <div className="space-y-4 animate-fade-in">
+      <DocumentViewer url={url} title={title} />
+    </div>
+  );
+
+  const renderDispatchPage = () => (
+    <div className="space-y-4 animate-fade-in">
+      {orderShipments.map((shipment: any) => (
+        <div key={shipment.id} className="rounded-lg border border-border p-4 space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Shipment Type</p>
+              <p className="font-medium">{shipment.shipment_type || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
+              <p className="font-medium">{shipment.courier_partner || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
+              <p className="font-medium">{shipment.shipping_mode || "-"}</p>
+            </div>
+            {shipment.created_at && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Dispatch Date</p>
+                <p className="font-medium">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
+              <p className="font-medium">{shipment.weight_kg ? `${shipment.weight_kg} kg` : "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
+              <p className="font-medium">{shipment.shipping_cost ? `₹${Number(shipment.shipping_cost).toLocaleString()}` : "-"}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderTrackingPage = () => (
+    <div className="space-y-4 animate-fade-in">
+      {shipmentsWithTracking.map((shipment: any) => (
+        <div key={shipment.id} className="rounded-lg border border-border p-4 space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Tracking ID</p>
+              <p className="font-medium font-mono text-primary">{shipment.tracking_id}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
+              <p className="font-medium">{shipment.courier_partner || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
+              <p className="font-medium">{shipment.shipping_mode || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
+              <p className="font-medium">{shipment.weight_kg ? `${shipment.weight_kg} kg` : "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
+              <p className="font-medium">{shipment.shipping_cost ? `₹${Number(shipment.shipping_cost).toLocaleString()}` : "-"}</p>
+            </div>
+            {shipment.created_at && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Dispatch Date</p>
+                <p className="font-medium">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderCurrentPage = () => {
+    const page = pages[safePage];
+    if (!page) return null;
+    switch (page.id) {
+      case "sale": return renderSalePage();
+      case "invoice": return renderDocumentPage(sale.invoice_url!, "Invoice");
+      case "eway": return renderDocumentPage(sale.eway_bill_url!, "E-Way Bill");
+      case "challan": return renderDocumentPage(sale.delivery_challan_url!, "Delivery Challan");
+      case "dispatch": return renderDispatchPage();
+      case "tracking": return renderTrackingPage();
+      default: return null;
+    }
+  };
+
+  const renderViewMode = () => (
+    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {/* Navigation Header */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goPrev}
+            disabled={safePage === 0}
+            className="h-8 w-8 rounded-full"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              {pages[safePage]?.icon}
+              <span>{pages[safePage]?.title}</span>
+            </div>
+            {/* Dot indicators */}
+            <div className="flex items-center gap-1.5">
+              {pages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`rounded-full transition-all duration-200 ${
+                    i === safePage
+                      ? "h-2.5 w-2.5 bg-primary"
+                      : "h-2 w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">{safePage + 1} / {totalPages}</span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goNext}
+            disabled={safePage === totalPages - 1}
+            className="h-8 w-8 rounded-full"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Page Content */}
+      <div className="min-h-[400px]">
+        {renderCurrentPage()}
       </div>
     </div>
   );
