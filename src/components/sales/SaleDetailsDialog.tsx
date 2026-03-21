@@ -439,6 +439,22 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     enabled: !!sale?.order_id && open && !isEditMode,
   });
 
+  // Fetch dispatched devices (inventory) for this order
+  const { data: dispatchedDevices = [] } = useQuery({
+    queryKey: ["dispatched-devices", sale?.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("serial_number, product_name, category, dispatch_date, status, order_id")
+        .eq("order_id", sale!.order_id)
+        .eq("status", "Dispatched")
+        .order("dispatch_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sale?.order_id && open && !isEditMode,
+  });
+
   const shipmentsWithTracking = orderShipments.filter((s: any) => s.tracking_id);
 
   // ===================== SLIDE NAVIGATION STATE (must be before early return) =====================
@@ -804,42 +820,116 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
     </div>
   );
 
-  const renderDispatchPage = () => (
-    <div className="space-y-4 animate-fade-in">
-      {orderShipments.map((shipment: any) => (
-        <div key={shipment.id} className="rounded-lg border border-border p-4 space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Shipment Type</p>
-              <p className="font-medium">{shipment.shipment_type || "-"}</p>
+  const renderDispatchPage = () => {
+    // Group devices by dispatch date to loosely associate with shipments
+    const devicesByProduct: Record<string, { serial_number: string; category: string | null }[]> = {};
+    dispatchedDevices.forEach((d: any) => {
+      if (!devicesByProduct[d.product_name]) devicesByProduct[d.product_name] = [];
+      devicesByProduct[d.product_name].push({ serial_number: d.serial_number, category: d.category });
+    });
+
+    return (
+      <div className="space-y-4 animate-fade-in">
+        {/* Dispatch Status Banner */}
+        <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
+          <span className="text-sm text-muted-foreground">Dispatch Status:</span>
+          {orderShipments.length > 0 ? (
+            <Badge className="bg-success/10 text-success border-success/20">Dispatch Completed ✅</Badge>
+          ) : (
+            <Badge className="bg-warning/10 text-warning border-warning/20">Dispatch Pending ⏳</Badge>
+          )}
+          <span className="ml-auto text-xs text-muted-foreground">{orderShipments.length} shipment(s)</span>
+        </div>
+
+        {/* Shipment Cards */}
+        {orderShipments.map((shipment: any, idx: number) => (
+          <div key={shipment.id} className="rounded-lg border border-border overflow-hidden">
+            <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center justify-between">
+              <span className="text-sm font-semibold">Shipment {idx + 1}</span>
+              {shipment.created_at && (
+                <span className="text-xs text-muted-foreground">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</span>
+              )}
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
-              <p className="font-medium">{shipment.courier_partner || "-"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
-              <p className="font-medium">{shipment.shipping_mode || "-"}</p>
-            </div>
-            {shipment.created_at && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Dispatch Date</p>
-                <p className="font-medium">{format(new Date(shipment.created_at), "dd/MM/yyyy")}</p>
+            <div className="p-4 space-y-4">
+              {/* Basic & Courier Info */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                {shipment.shipment_type && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Shipment Type</p>
+                    <p className="font-medium">{shipment.shipment_type}</p>
+                  </div>
+                )}
+                {shipment.courier_partner && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Courier Partner</p>
+                    <p className="font-medium">{shipment.courier_partner}</p>
+                  </div>
+                )}
+                {shipment.shipping_mode && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Mode</p>
+                    <p className="font-medium">{shipment.shipping_mode}</p>
+                  </div>
+                )}
+                {shipment.tracking_id && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Tracking ID</p>
+                    <p className="font-medium font-mono text-primary">{shipment.tracking_id}</p>
+                  </div>
+                )}
+                {shipment.weight_kg && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
+                    <p className="font-medium">{shipment.weight_kg} kg</p>
+                  </div>
+                )}
+                {shipment.shipping_cost && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
+                    <p className="font-medium">₹{Number(shipment.shipping_cost).toLocaleString()}</p>
+                  </div>
+                )}
               </div>
-            )}
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Weight</p>
-              <p className="font-medium">{shipment.weight_kg ? `${shipment.weight_kg} kg` : "-"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Shipping Cost</p>
-              <p className="font-medium">{shipment.shipping_cost ? `₹${Number(shipment.shipping_cost).toLocaleString()}` : "-"}</p>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+
+        {/* Dispatched Devices Section */}
+        {dispatchedDevices.length > 0 && (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="bg-primary/5 px-4 py-2 border-b border-border">
+              <span className="text-sm font-semibold flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                Dispatched Devices ({dispatchedDevices.length})
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="text-xs w-10">#</TableHead>
+                    <TableHead className="text-xs">DEVICE ID / SERIAL</TableHead>
+                    <TableHead className="text-xs">PRODUCT</TableHead>
+                    <TableHead className="text-xs">CATEGORY</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dispatchedDevices.map((device: any, i: number) => (
+                    <TableRow key={device.serial_number}>
+                      <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-mono text-sm font-semibold text-primary">{device.serial_number}</TableCell>
+                      <TableCell className="text-sm">{device.product_name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{device.category || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderTrackingPage = () => (
     <div className="space-y-4 animate-fade-in">
