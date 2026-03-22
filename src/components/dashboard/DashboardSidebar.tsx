@@ -125,7 +125,7 @@ export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => 
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAdmin, isMasterAdmin, role } = useAuth();
-  const [openGroups, setOpenGroups] = useState<string[]>(["Sale", "Inventory"]);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   const handleNavClick = (path: string) => {
     navigate(path);
