@@ -59,12 +59,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Clock, label: "Pendency", path: "/pendency" },
   {
     icon: BarChart3,
     label: "Reports & Analytics",
     children: [
       { icon: FileText, label: "Sales Reports", path: "/reports" },
+      { icon: Clock, label: "Pendency", path: "/pendency" },
+      { icon: ClipboardCheck, label: "Today's Work Done", path: "/reports?tab=today" },
     ],
   },
   {

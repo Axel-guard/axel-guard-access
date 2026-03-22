@@ -5,8 +5,9 @@ import { QCReportSection } from "@/components/reports/QCReportSection";
 import { SalesReportSection } from "@/components/reports/SalesReportSection";
 import { EmployeePerformanceSection } from "@/components/reports/EmployeePerformanceSection";
 import { QuarterlyReportSection } from "@/components/reports/QuarterlyReportSection";
+import { TodayWorkDoneSection } from "@/components/reports/TodayWorkDoneSection";
 import { useSearchParams } from "react-router-dom";
-import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar } from "lucide-react";
+import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar, Activity } from "lucide-react";
 
 const ReportsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
