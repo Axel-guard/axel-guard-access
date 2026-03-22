@@ -63,6 +63,10 @@ const ReportsPage = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="today" className="mt-6">
+          <TodayWorkDoneSection />
+        </TabsContent>
+
         <TabsContent value="sales" className="mt-6">
           <SalesReportSection />
         </TabsContent>
