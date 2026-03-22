@@ -32,7 +32,11 @@ const ReportsPage = () => {
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full max-w-3xl grid-cols-6 bg-muted/50">
+        <TabsList className="grid w-full max-w-4xl grid-cols-7 bg-muted/50">
+          <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Today</span>
+          </TabsTrigger>
           <TabsTrigger value="sales" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Sales</span>
