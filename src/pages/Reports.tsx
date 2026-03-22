@@ -5,8 +5,9 @@ import { QCReportSection } from "@/components/reports/QCReportSection";
 import { SalesReportSection } from "@/components/reports/SalesReportSection";
 import { EmployeePerformanceSection } from "@/components/reports/EmployeePerformanceSection";
 import { QuarterlyReportSection } from "@/components/reports/QuarterlyReportSection";
+import { TodayWorkDoneSection } from "@/components/reports/TodayWorkDoneSection";
 import { useSearchParams } from "react-router-dom";
-import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar } from "lucide-react";
+import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar, Activity } from "lucide-react";
 
 const ReportsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,7 +32,11 @@ const ReportsPage = () => {
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full max-w-3xl grid-cols-6 bg-muted/50">
+        <TabsList className="grid w-full max-w-4xl grid-cols-7 bg-muted/50">
+          <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Today</span>
+          </TabsTrigger>
           <TabsTrigger value="sales" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Sales</span>
@@ -57,6 +62,10 @@ const ReportsPage = () => {
             <span className="hidden sm:inline">QC</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="today" className="mt-6">
+          <TodayWorkDoneSection />
+        </TabsContent>
 
         <TabsContent value="sales" className="mt-6">
           <SalesReportSection />
