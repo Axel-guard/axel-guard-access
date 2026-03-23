@@ -267,6 +267,15 @@ export const BalancePaymentDialog = ({
                           <TableCell className="text-xs py-2 text-right font-medium">₹{(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
+                      {Number(sale.courier_cost) > 0 && (
+                        <TableRow className="bg-accent/30">
+                          <TableCell className="text-xs py-2"></TableCell>
+                          <TableCell className="text-xs py-2 font-medium text-primary">Courier Charges</TableCell>
+                          <TableCell className="text-xs py-2 text-center">-</TableCell>
+                          <TableCell className="text-xs py-2 text-right">-</TableCell>
+                          <TableCell className="text-xs py-2 text-right font-medium text-primary">₹{Number(sale.courier_cost).toLocaleString()}</TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
