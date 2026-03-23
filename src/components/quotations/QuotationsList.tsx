@@ -98,22 +98,30 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
   });
 
   const handleDownloadPDF = async (quotationId: string) => {
-    setSelectedQuotationId(quotationId);
-    setTimeout(async () => {
-      if (selectedQuotation) {
-        const mappedItems = (selectedQuotation.items || []).map((item: any) => ({
-          ...item,
-          description: item.description || "",
-          unit: item.unit || "Pcs",
-        }));
-        const quotationWithItems = {
-          ...selectedQuotation,
-          items: mappedItems,
-        } as Quotation;
-        const doc = await generateQuotationPDF(quotationWithItems, mappedItems);
-        doc.save(`Quotation-${selectedQuotation.quotation_no}.pdf`);
-      }
-    }, 500);
+    try {
+      const { data: quotationData, error: qError } = await supabase
+        .from("quotations")
+        .select("*")
+        .eq("id", quotationId)
+        .single();
+      if (qError || !quotationData) throw new Error("Failed to fetch quotation");
+
+      const { data: itemsData, error: iError } = await supabase
+        .from("quotation_items")
+        .select("*")
+        .eq("quotation_id", quotationId);
+      if (iError) throw new Error("Failed to fetch items");
+
+      const mappedItems = (itemsData || []).map((item: any) => ({
+        ...item,
+        description: item.description || "",
+        unit: item.unit || "Pcs",
+      }));
+      const doc = await generateQuotationPDF(quotationData as unknown as Quotation, mappedItems);
+      doc.save(`Quotation-${quotationData.quotation_no}.pdf`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download PDF");
+    }
   };
 
   const handleConvertClick = (quotationId: string) => {
