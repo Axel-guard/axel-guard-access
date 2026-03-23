@@ -34,9 +34,14 @@ interface SaleData {
   order_id: string;
   customer_name?: string | null;
   customer_code: string;
+  customer_contact?: string | null;
+  customer_email?: string | null;
+  employee_name?: string | null;
+  sale_date?: string | null;
   total_amount: number;
   amount_received?: number | null;
   balance_amount?: number | null;
+  courier_cost?: number | null;
 }
 
 interface BalancePaymentDialogProps {
