@@ -180,26 +180,55 @@ export const BalancePaymentDialog = ({
 
           {/* Order summary */}
           {sale && (
-            <div className="rounded-lg bg-secondary p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Order ID:</span>
-                <span className="font-semibold text-primary">{sale.order_id}</span>
+            <div className="rounded-lg bg-secondary p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                <div className="flex justify-between col-span-2">
+                  <span className="text-muted-foreground">Order ID:</span>
+                  <span className="font-semibold text-primary">{sale.order_id}</span>
+                </div>
+                <div className="flex justify-between col-span-2">
+                  <span className="text-muted-foreground">Customer:</span>
+                  <span className="font-medium">{sale.customer_name || sale.customer_code}</span>
+                </div>
+                {sale.customer_contact && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    <span className="text-foreground text-xs">{sale.customer_contact}</span>
+                  </div>
+                )}
+                {sale.customer_email && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Mail className="h-3 w-3" />
+                    <span className="text-foreground text-xs truncate">{sale.customer_email}</span>
+                  </div>
+                )}
+                {sale.sale_date && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    <span className="text-foreground text-xs">{new Date(sale.sale_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  </div>
+                )}
+                {sale.employee_name && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <User className="h-3 w-3" />
+                    <span className="text-foreground text-xs">{sale.employee_name}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Customer:</span>
-                <span className="font-medium">{sale.customer_name || sale.customer_code}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total Amount:</span>
-                <span className="font-medium flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{totalAmount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Received:</span>
-                <span className="font-medium text-success flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{amountReceived.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">
-                <span>Balance:</span>
-                <span className="text-destructive flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{balanceAmount.toLocaleString()}</span>
+
+              <div className="border-t border-border pt-2 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Amount:</span>
+                  <span className="font-medium flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{totalAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Received:</span>
+                  <span className="font-medium text-success flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{amountReceived.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">
+                  <span>Balance:</span>
+                  <span className="text-destructive flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{balanceAmount.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           )}
