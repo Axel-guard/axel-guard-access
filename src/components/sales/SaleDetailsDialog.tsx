@@ -742,6 +742,33 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       {/* Payment Information */}
       <div className="space-y-4">
         <h4 className="font-semibold text-sm text-muted-foreground">Payment Information</h4>
+
+        {/* Cost Breakdown */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-medium">₹{Number(sale.subtotal).toLocaleString()}</span>
+          </div>
+          {Number(sale.courier_cost) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Courier Cost</span>
+              <span className="font-medium">₹{Number(sale.courier_cost).toLocaleString()}</span>
+            </div>
+          )}
+          {Number(sale.gst_amount) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">GST</span>
+              <span className="font-medium">₹{Number(sale.gst_amount).toLocaleString()}</span>
+            </div>
+          )}
+          <Separator className="my-1" />
+          <div className="flex justify-between font-semibold">
+            <span>Total Amount</span>
+            <span>₹{totalAmount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
