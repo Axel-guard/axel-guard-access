@@ -325,6 +325,7 @@ export const generateQuotationPDF = async (
       lineWidth: 0.3,
       lineColor: [200, 30, 30],
       cellPadding: 3,
+      halign: "center",
     },
     bodyStyles: {
       fontSize: 8.5,
