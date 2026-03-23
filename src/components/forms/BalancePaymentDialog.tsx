@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUpdateBalancePayment, useSales } from "@/hooks/useSales";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { IndianRupee, Search, Package } from "lucide-react";
+import { IndianRupee, Search, Package, Phone, Mail, Calendar, User } from "lucide-react";
 import { createNotification } from "@/hooks/useNotifications";
 
 interface SaleData {
