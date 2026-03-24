@@ -35,18 +35,20 @@ const InventoryPage = () => {
     return products.sort();
   }, [inventory]);
 
-  // Filter inventory
+  // Filter inventory with relevance sorting
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
     
-    return inventory.filter((item) => {
-      // Search filter
-      const searchLower = searchTerm.toLowerCase();
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    const filtered = inventory.filter((item) => {
+      // Search filter - strict filtering only
       const matchesSearch =
-        searchTerm === "" ||
+        searchLower === "" ||
         item.serial_number.toLowerCase().includes(searchLower) ||
         item.product_name.toLowerCase().includes(searchLower) ||
         (item.customer_name?.toLowerCase() || "").includes(searchLower) ||
+        (item.customer_code?.toLowerCase() || "").includes(searchLower) ||
         (item.customer_city?.toLowerCase() || "").includes(searchLower) ||
         (item.order_id?.toLowerCase() || "").includes(searchLower);
 
@@ -61,6 +63,34 @@ const InventoryPage = () => {
 
       return matchesSearch && matchesStatus && matchesQC && matchesProduct;
     });
+
+    // Sort by relevance when searching
+    if (searchLower) {
+      filtered.sort((a, b) => {
+        const aSerial = a.serial_number.toLowerCase();
+        const bSerial = b.serial_number.toLowerCase();
+        const aName = a.product_name.toLowerCase();
+        const bName = b.product_name.toLowerCase();
+        const aCode = (a.customer_code || "").toLowerCase();
+        const bCode = (b.customer_code || "").toLowerCase();
+
+        // Priority 1: Exact match on serial/code
+        const aExact = aSerial === searchLower || aCode === searchLower;
+        const bExact = bSerial === searchLower || bCode === searchLower;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        // Priority 2: Starts with query
+        const aStarts = aSerial.startsWith(searchLower) || aName.startsWith(searchLower) || aCode.startsWith(searchLower);
+        const bStarts = bSerial.startsWith(searchLower) || bName.startsWith(searchLower) || bCode.startsWith(searchLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        return 0;
+      });
+    }
+
+    return filtered;
   }, [inventory, searchTerm, statusFilter, qcFilter, productFilter]);
 
   // Calculate low stock (items with QC Pending or Fail)
