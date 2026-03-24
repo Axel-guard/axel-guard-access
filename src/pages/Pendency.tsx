@@ -87,7 +87,6 @@ const PendencyPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Category>("balancePayment");
   const [search, setSearch] = useState("");
-  const [search, setSearch] = useState("");
 
   // Realtime subscriptions
   useEffect(() => {
