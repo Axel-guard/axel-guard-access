@@ -33,13 +33,21 @@ const useUnpaidSales = () => {
   });
 };
 
-export const PendingPaymentsTable = () => {
+export const PendingPaymentsTable = ({ openOrderId }: { openOrderId?: string | null }) => {
   const { data: sales, isLoading } = useUnpaidSales();
   const [selectedSale, setSelectedSale] = useState<typeof sales extends (infer T)[] ? T : never | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  // Auto-open from pendency navigation
+  useEffect(() => {
+    if (openOrderId && sales && !selectedSale) {
+      const sale = sales.find(s => s.order_id === openOrderId);
+      if (sale) setSelectedSale(sale);
+    }
+  }, [openOrderId, sales]);
 
   const getPaymentStatus = (sale: any) => {
     const total = Number(sale.total_amount) || 0;
