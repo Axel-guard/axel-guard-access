@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
