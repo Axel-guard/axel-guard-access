@@ -54,7 +54,7 @@ const BalancePaymentsPage = () => {
             </div>
 
             <TabsContent value="pending" className="m-0">
-              <PendingPaymentsTable />
+              <PendingPaymentsTable openOrderId={openOrderId} />
             </TabsContent>
 
             <TabsContent value="history" className="m-0">
