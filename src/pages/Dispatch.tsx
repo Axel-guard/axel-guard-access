@@ -103,9 +103,21 @@ const DispatchPage = () => {
     enabled: allOrderIds.length > 0,
   });
   
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("orders");
   const [orderIdSearch, setOrderIdSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+
+  // Auto-navigate from pendency
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.openOrderId) {
+      setOrderIdSearch(state.openOrderId);
+      if (state.activeTab === "tracking") {
+        setActiveTab("tracking");
+      }
+    }
+  }, [location.state]);
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editShipment, setEditShipment] = useState<Shipment | null>(null);
