@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,8 @@ import { PendingPaymentsTable } from "@/components/balance/PendingPaymentsTable"
 import { PaymentHistoryTable } from "@/components/balance/PaymentHistoryTable";
 
 const BalancePaymentsPage = () => {
+  const location = useLocation();
+  const openOrderId = (location.state as any)?.openOrderId || null;
   const [activeTab, setActiveTab] = useState("pending");
 
   return (
