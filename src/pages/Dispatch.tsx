@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
