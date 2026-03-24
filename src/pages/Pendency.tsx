@@ -84,7 +84,9 @@ const fmtCurrency = (v: number | null) => v == null ? "₹0" : `₹${Number(v).t
 const PendencyPage = () => {
   const { counts, records, isLoading } = usePendency();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Category>("balancePayment");
+  const [search, setSearch] = useState("");
   const [search, setSearch] = useState("");
 
   // Realtime subscriptions
