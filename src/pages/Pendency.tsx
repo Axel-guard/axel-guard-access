@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePendency } from "@/hooks/usePendency";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import {
   CreditCard, Truck, MapPin, ClipboardCheck, AlertCircle,
-  RefreshCw, Search, Activity, TrendingDown,
+  RefreshCw, Search, Activity, TrendingDown, ExternalLink,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
 type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets";
 
 const categoryConfig: Record<Category, {
