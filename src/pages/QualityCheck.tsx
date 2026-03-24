@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ type CardFilter = "all" | "pass" | "fail" | "pending";
 
 const QualityCheckPage = () => {
   const { data: inventory, isLoading } = useInventory();
+  const location = useLocation();
   
   // Search and filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,6 +33,18 @@ const QualityCheckPage = () => {
   // QC Update Dialog state
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+
+  // Auto-open item from pendency navigation
+  useEffect(() => {
+    const openSerial = (location.state as any)?.openSerialNumber;
+    if (openSerial && inventory && !selectedItem) {
+      const item = inventory.find(i => i.serial_number === openSerial);
+      if (item) {
+        setSelectedItem(item);
+        setUpdateDialogOpen(true);
+      }
+    }
+  }, [location.state, inventory]);
 
   // Get unique values for filters
   const uniqueProducts = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePendency } from "@/hooks/usePendency";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import {
   CreditCard, Truck, MapPin, ClipboardCheck, AlertCircle,
-  RefreshCw, Search, Activity, TrendingDown,
+  RefreshCw, Search, Activity, TrendingDown, ExternalLink,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
 type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets";
 
 const categoryConfig: Record<Category, {
@@ -84,6 +84,7 @@ const fmtCurrency = (v: number | null) => v == null ? "₹0" : `₹${Number(v).t
 const PendencyPage = () => {
   const { counts, records, isLoading } = usePendency();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Category>("balancePayment");
   const [search, setSearch] = useState("");
 
@@ -248,11 +249,11 @@ const PendencyPage = () => {
 
         {/* Table Content */}
         <div className="overflow-x-auto">
-          {activeTab === "balancePayment" && <BalanceTable rows={filteredRows} />}
-          {activeTab === "dispatchPending" && <DispatchTable rows={filteredRows} />}
-          {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} />}
-          {activeTab === "qcPending" && <QCTable rows={filteredRows} />}
-          {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} />}
+          {activeTab === "balancePayment" && <BalanceTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "dispatchPending" && <DispatchTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "qcPending" && <QCTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} navigate={navigate} />}
         </div>
       </div>
     </div>
@@ -270,8 +271,23 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
+// ── Edit Action Button ──
+const EditAction = ({ onClick }: { onClick: () => void }) => (
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={(e) => { e.stopPropagation(); onClick(); }}
+    className="h-7 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-lg"
+  >
+    <ExternalLink className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline">Edit</span>
+  </Button>
+);
+
+type TableProps = { rows: any[]; navigate: (path: string, opts?: any) => void };
+
 // ── Balance Table ──
-const BalanceTable = ({ rows }: { rows: any[] }) => (
+const BalanceTable = ({ rows, navigate }: TableProps) => (
   rows.length === 0 ? <EmptyState message="No pending balance payments" /> :
   <Table>
     <TableHeader>
@@ -284,6 +300,7 @@ const BalanceTable = ({ rows }: { rows: any[] }) => (
         <TableHead className="font-semibold text-right hidden sm:table-cell">Received</TableHead>
         <TableHead className="font-semibold text-right">Balance</TableHead>
         <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
+        <TableHead className="font-semibold text-center w-20">Action</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
@@ -297,6 +314,9 @@ const BalanceTable = ({ rows }: { rows: any[] }) => (
           <TableCell className="text-right tabular-nums hidden sm:table-cell text-emerald-600">{fmtCurrency(r.amount_received)}</TableCell>
           <TableCell className="text-right tabular-nums font-semibold text-destructive">{fmtCurrency(r.balance_amount)}</TableCell>
           <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.sale_date)}</TableCell>
+          <TableCell className="text-center">
+            <EditAction onClick={() => navigate("/balance-payments", { state: { openOrderId: r.order_id } })} />
+          </TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -304,7 +324,7 @@ const BalanceTable = ({ rows }: { rows: any[] }) => (
 );
 
 // ── Dispatch Table ──
-const DispatchTable = ({ rows }: { rows: any[] }) => (
+const DispatchTable = ({ rows, navigate }: TableProps) => (
   rows.length === 0 ? <EmptyState message="No pending dispatches" /> :
   <Table>
     <TableHeader>
@@ -317,6 +337,7 @@ const DispatchTable = ({ rows }: { rows: any[] }) => (
         <TableHead className="font-semibold text-center">Done</TableHead>
         <TableHead className="font-semibold text-center">Left</TableHead>
         <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
+        <TableHead className="font-semibold text-center w-20">Action</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
@@ -332,6 +353,9 @@ const DispatchTable = ({ rows }: { rows: any[] }) => (
             <Badge variant="destructive" className="tabular-nums font-bold text-xs px-2">{r.remaining}</Badge>
           </TableCell>
           <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.sale_date)}</TableCell>
+          <TableCell className="text-center">
+            <EditAction onClick={() => navigate("/dispatch", { state: { openOrderId: r.order_id } })} />
+          </TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -339,7 +363,7 @@ const DispatchTable = ({ rows }: { rows: any[] }) => (
 );
 
 // ── Tracking Table ──
-const TrackingTable = ({ rows }: { rows: any[] }) => (
+const TrackingTable = ({ rows, navigate }: TableProps) => (
   rows.length === 0 ? <EmptyState message="No pending tracking" /> :
   <Table>
     <TableHeader>
@@ -350,6 +374,7 @@ const TrackingTable = ({ rows }: { rows: any[] }) => (
         <TableHead className="font-semibold hidden sm:table-cell">Courier</TableHead>
         <TableHead className="font-semibold hidden lg:table-cell">Mode</TableHead>
         <TableHead className="font-semibold">Date</TableHead>
+        <TableHead className="font-semibold text-center w-20">Action</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
@@ -361,6 +386,9 @@ const TrackingTable = ({ rows }: { rows: any[] }) => (
           <TableCell className="hidden sm:table-cell text-muted-foreground">{r.courier_partner || "—"}</TableCell>
           <TableCell className="hidden lg:table-cell text-muted-foreground">{r.shipping_mode || "—"}</TableCell>
           <TableCell className="text-muted-foreground text-xs">{fmtDate(r.created_at)}</TableCell>
+          <TableCell className="text-center">
+            <EditAction onClick={() => navigate("/dispatch", { state: { openOrderId: r.order_id, activeTab: "tracking" } })} />
+          </TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -368,7 +396,7 @@ const TrackingTable = ({ rows }: { rows: any[] }) => (
 );
 
 // ── QC Table ──
-const QCTable = ({ rows }: { rows: any[] }) => (
+const QCTable = ({ rows, navigate }: TableProps) => (
   rows.length === 0 ? <EmptyState message="No pending QC items" /> :
   <Table>
     <TableHeader>
@@ -378,6 +406,7 @@ const QCTable = ({ rows }: { rows: any[] }) => (
         <TableHead className="font-semibold hidden md:table-cell">Category</TableHead>
         <TableHead className="font-semibold">Status</TableHead>
         <TableHead className="font-semibold hidden sm:table-cell">In Date</TableHead>
+        <TableHead className="font-semibold text-center w-20">Action</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
@@ -392,6 +421,9 @@ const QCTable = ({ rows }: { rows: any[] }) => (
             </Badge>
           </TableCell>
           <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{fmtDate(r.in_date)}</TableCell>
+          <TableCell className="text-center">
+            <EditAction onClick={() => navigate("/quality-check", { state: { openSerialNumber: r.serial_number } })} />
+          </TableCell>
         </TableRow>
       ))}
     </TableBody>
@@ -399,7 +431,7 @@ const QCTable = ({ rows }: { rows: any[] }) => (
 );
 
 // ── Tickets Table ──
-const TicketsTable = ({ rows }: { rows: any[] }) => (
+const TicketsTable = ({ rows, navigate }: TableProps) => (
   rows.length === 0 ? <EmptyState message="No pending tickets" /> :
   <Table>
     <TableHeader>
@@ -410,6 +442,7 @@ const TicketsTable = ({ rows }: { rows: any[] }) => (
         <TableHead className="font-semibold">Status</TableHead>
         <TableHead className="font-semibold">Priority</TableHead>
         <TableHead className="font-semibold hidden sm:table-cell">Created</TableHead>
+        <TableHead className="font-semibold text-center w-20">Action</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
@@ -434,6 +467,9 @@ const TicketsTable = ({ rows }: { rows: any[] }) => (
             </Badge>
           </TableCell>
           <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{fmtDate(r.created_at)}</TableCell>
+          <TableCell className="text-center">
+            <EditAction onClick={() => navigate("/tasks", { state: { openTaskId: r.id } })} />
+          </TableCell>
         </TableRow>
       ))}
     </TableBody>

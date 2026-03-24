@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,10 +57,20 @@ function getAgeBarColor(days: number): string {
 
 const Tasks = () => {
   const { user, isAdmin, isMasterAdmin } = useAuth();
+  const location = useLocation();
   const { data: tasks = [], isLoading } = useTasks();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
+
+  // Auto-open task from pendency navigation
+  useEffect(() => {
+    const openTaskId = (location.state as any)?.openTaskId;
+    if (openTaskId && tasks.length > 0 && !selectedTask) {
+      const task = tasks.find(t => t.id === openTaskId);
+      if (task) setSelectedTask(task);
+    }
+  }, [location.state, tasks]);
   const [tab, setTab] = useState("wip");
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [userNames, setUserNames] = useState<Record<string, string>>({});

@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -103,9 +103,21 @@ const DispatchPage = () => {
     enabled: allOrderIds.length > 0,
   });
   
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("orders");
   const [orderIdSearch, setOrderIdSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+
+  // Auto-navigate from pendency
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.openOrderId) {
+      setOrderIdSearch(state.openOrderId);
+      if (state.activeTab === "tracking") {
+        setActiveTab("tracking");
+      }
+    }
+  }, [location.state]);
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editShipment, setEditShipment] = useState<Shipment | null>(null);
