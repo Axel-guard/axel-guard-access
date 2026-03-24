@@ -249,11 +249,11 @@ const PendencyPage = () => {
 
         {/* Table Content */}
         <div className="overflow-x-auto">
-          {activeTab === "balancePayment" && <BalanceTable rows={filteredRows} />}
-          {activeTab === "dispatchPending" && <DispatchTable rows={filteredRows} />}
-          {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} />}
-          {activeTab === "qcPending" && <QCTable rows={filteredRows} />}
-          {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} />}
+          {activeTab === "balancePayment" && <BalanceTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "dispatchPending" && <DispatchTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "qcPending" && <QCTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} navigate={navigate} />}
         </div>
       </div>
     </div>
