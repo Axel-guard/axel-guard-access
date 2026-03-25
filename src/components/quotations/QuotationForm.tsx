@@ -824,22 +824,30 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
         <CardContent className="pt-6">
           <div className="flex flex-col items-end space-y-2">
             <div className="flex w-full max-w-xs justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="text-muted-foreground">Product Subtotal:</span>
               <span className="font-medium">
                 ₹{subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
             {courierCharge > 0 && (
               <div className="flex w-full max-w-xs justify-between text-sm">
-                <span className="text-muted-foreground">{courierType || "Courier Charges"}:</span>
+                <span className="text-muted-foreground">🚚 {courierType || "Courier Charges"}:</span>
                 <span className="font-medium">
                   ₹{courierCharge.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             )}
+            {courierGst > 0 && (
+              <div className="flex w-full max-w-xs justify-between text-sm">
+                <span className="text-muted-foreground">Courier GST (18%):</span>
+                <span className="font-medium text-primary">
+                  ₹{courierGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             {totalItemTax > 0 && (
               <div className="flex w-full max-w-xs justify-between text-sm">
-                <span className="text-muted-foreground">Tax Total:</span>
+                <span className="text-muted-foreground">Product Tax Total:</span>
                 <span className="font-medium text-primary">
                   ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
