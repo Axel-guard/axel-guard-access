@@ -24,6 +24,7 @@ import {
 import { MoreVertical, Eye, Search, ArrowUpDown, Calendar, FileText, Truck } from "lucide-react";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 
