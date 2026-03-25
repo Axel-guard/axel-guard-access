@@ -138,42 +138,33 @@ export const SalesTable = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="pr-3 sm:pr-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-muted">
-                              <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl border-border/50 bg-card">
-                            <DropdownMenuItem onClick={() => handleView(sale)} className="rounded-lg">
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleView(sale)} className="rounded-lg">
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Sale
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="rounded-lg text-destructive"
-                              onClick={() => handleDelete(sale)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Sale
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="rounded-lg"
-                              onClick={() => handleSendEmail(sale)}
-                              disabled={isSendingEmail && sendingOrderId === sale.order_id}
-                            >
-                              {isSendingEmail && sendingOrderId === sale.order_id ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Mail className="mr-2 h-4 w-4" />
-                              )}
-                              Send Mail
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center gap-1">
+                          <SendDetailsDropdown orderId={sale.order_id} saleType={sale.sale_type} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg hover:bg-muted">
+                                <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-border/50 bg-card">
+                              <DropdownMenuItem onClick={() => handleView(sale)} className="rounded-lg">
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleView(sale)} className="rounded-lg">
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Sale
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="rounded-lg text-destructive"
+                                onClick={() => handleDelete(sale)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Sale
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
