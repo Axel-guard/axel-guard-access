@@ -243,6 +243,7 @@ const SalesPage = () => {
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
