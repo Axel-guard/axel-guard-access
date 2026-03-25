@@ -37,8 +37,6 @@ export const SalesTable = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [deleteCustomerName, setDeleteCustomerName] = useState<string | undefined>();
-  const { sendEmail, isLoading: isSendingEmail } = useEmail();
-  const [sendingOrderId, setSendingOrderId] = useState<string | null>(null);
 
   const getStatus = (sale: Sale): "paid" | "partial" | "pending" => {
     if (Number(sale.balance_amount) === 0) return "paid";
