@@ -19,6 +19,7 @@ import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
@@ -205,29 +206,22 @@ const SalesPage = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                      <div className="flex items-center gap-1">
+                        <SendDetailsDropdown orderId={sale.order_id} saleType={sale.sale_type} />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
                             <Eye className="mr-2 h-4 w-4" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setBalanceSale(sale); }}>
-                            <Wallet className="mr-2 h-4 w-4" /> View Balance
-                          </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => handleSendEmail(sale.order_id, e)}
-                            disabled={sendingEmailOrderId === sale.order_id}
+                            onClick={(e) => { e.stopPropagation(); setBalanceSale(sale); }}
                           >
-                            {sendingEmailOrderId === sale.order_id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Mail className="mr-2 h-4 w-4" />
-                            )}
-                            Send Email
+                            <Wallet className="mr-2 h-4 w-4" /> View Balance
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
                             <FileText className="mr-2 h-4 w-4" /> Documents
@@ -249,6 +243,7 @@ const SalesPage = () => {
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

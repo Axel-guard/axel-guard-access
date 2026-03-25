@@ -300,6 +300,28 @@ export const generateQuotationPDF = async (
     ]);
   });
 
+  // Add courier as a line item if present
+  const courierCharge = Number(quotation.courier_charge) || 0;
+  const courierGstAmt = Number(quotation.courier_gst_amount) || 0;
+  if (courierCharge > 0) {
+    const courierLabel = `🚚 ${quotation.courier_type || "Courier Charges"}`;
+    const courierTaxPct = quotation.apply_courier_gst ? 18 : 0;
+    const courierFinal = courierCharge + courierGstAmt;
+    totalGstAmount += courierGstAmt;
+    totalQuantity += 1;
+
+    tableBody.push([
+      (items.length + 1).toString(),
+      courierLabel,
+      "9965",
+      "1",
+      "Pcs",
+      fmt(courierCharge),
+      courierTaxPct > 0 ? `${fmt(courierGstAmt)} (${courierTaxPct}%)` : "-",
+      fmt(courierFinal),
+    ]);
+  }
+
   // Total row
   tableBody.push([
     { content: "Total", styles: { fontStyle: "bold", fillColor: lightBg } },
@@ -362,7 +384,7 @@ export const generateQuotationPDF = async (
 
   checkPageBreak(50);
 
-  // Sub Total
+  // Sub Total (products only)
   doc.setFontSize(9);
   doc.setTextColor(...muted);
   doc.text("Sub Total", sumX, finalY);
@@ -370,31 +392,14 @@ export const generateQuotationPDF = async (
   doc.text(fmt(quotation.subtotal), pw - 14, finalY, { align: "right" });
   finalY += 7;
 
-  // Courier charges
-  if (quotation.courier_charge > 0) {
-    doc.setTextColor(...muted);
-    doc.text(quotation.courier_type || "Courier Charges", sumX, finalY);
-    doc.setTextColor(...dark);
-    doc.text(fmt(quotation.courier_charge), pw - 14, finalY, { align: "right" });
-    finalY += 7;
-  }
-
-  // GST / IGST
+  // GST / IGST (products + courier combined)
   if (quotation.apply_gst) {
+    const totalTax = Number(quotation.gst_amount) || 0;
     const gstLabel = isInterState ? "IGST@18%" : "GST@18%";
     doc.setTextColor(...muted);
     doc.text(gstLabel, sumX, finalY);
     doc.setTextColor(...dark);
-    doc.text(fmt(quotation.gst_amount), pw - 14, finalY, { align: "right" });
-    finalY += 7;
-  }
-
-  // Courier GST
-  if (quotation.apply_courier_gst && quotation.courier_gst_amount > 0) {
-    doc.setTextColor(...muted);
-    doc.text("Courier GST", sumX, finalY);
-    doc.setTextColor(...dark);
-    doc.text(fmt(quotation.courier_gst_amount), pw - 14, finalY, { align: "right" });
+    doc.text(fmt(totalTax), pw - 14, finalY, { align: "right" });
     finalY += 7;
   }
 

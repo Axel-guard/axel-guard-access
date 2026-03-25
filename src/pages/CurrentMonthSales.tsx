@@ -24,6 +24,7 @@ import {
 import { MoreVertical, Eye, Search, ArrowUpDown, Calendar, FileText, Truck } from "lucide-react";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
 
@@ -245,23 +246,26 @@ const CurrentMonthSalesPage = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
-                              <FileText className="mr-2 h-4 w-4" />
-                              Documents
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center gap-1">
+                          <SendDetailsDropdown orderId={sale.order_id} saleType={sale.sale_type} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Documents
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

@@ -223,19 +223,45 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                         </tr>
                       );
                     })}
+                    {/* Courier as line item */}
+                    {Number(quotation.courier_charge) > 0 && (() => {
+                      const courierAmt = Number(quotation.courier_charge);
+                      const courierGst = Number(quotation.courier_gst_amount) || 0;
+                      const courierTaxPct = quotation.apply_courier_gst ? 18 : 0;
+                      const courierFinal = courierAmt + courierGst;
+                      const itemCount = quotation.items?.length || 0;
+                      return (
+                        <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors bg-accent/20">
+                          <td className="px-3 py-2.5 text-center text-muted-foreground">{itemCount + 1}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="font-medium text-foreground flex items-center gap-1.5">
+                              🚚 {quotation.courier_type || "Courier Charges"}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">9965</td>
+                          <td className="px-3 py-2.5 text-center font-medium">1</td>
+                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">Pcs</td>
+                          <td className="px-3 py-2.5 text-right">{fmt(courierAmt)}</td>
+                          <td className="px-3 py-2.5 text-right text-xs">
+                            {courierTaxPct > 0 ? `${fmt(courierGst)} (${courierTaxPct}%)` : "-"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold">{fmt(courierFinal)}</td>
+                        </tr>
+                      );
+                    })()}
                     {/* Totals row */}
                     <tr className="bg-muted/50 font-semibold">
                       <td className="px-3 py-2.5 text-center" colSpan={3}>Total</td>
                       <td className="px-3 py-2.5 text-center">
-                        {quotation.items?.reduce((s: number, i: any) => s + Number(i.quantity), 0)}
+                        {(quotation.items?.reduce((s: number, i: any) => s + Number(i.quantity), 0) || 0) + (Number(quotation.courier_charge) > 0 ? 1 : 0)}
                       </td>
                       <td className="px-3 py-2.5"></td>
                       <td className="px-3 py-2.5"></td>
                       <td className="px-3 py-2.5 text-right text-xs">
-                        {fmt(quotation.items?.reduce((s: number, i: any) => {
+                        {fmt((quotation.items?.reduce((s: number, i: any) => {
                           const la = Number(i.quantity) * Number(i.unit_price);
                           return s + la * (Number(i.tax_percent ?? 0) / 100);
-                        }, 0) || 0)}
+                        }, 0) || 0) + (Number(quotation.courier_gst_amount) || 0))}
                       </td>
                       <td className="px-3 py-2.5 text-right">{fmt(quotation.grand_total)}</td>
                     </tr>
@@ -250,22 +276,10 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                     <span className="text-muted-foreground">Sub Total</span>
                     <span className="font-medium">{fmt(quotation.subtotal)}</span>
                   </div>
-                  {Number(quotation.courier_charge) > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{quotation.courier_type || "Courier Charges"}</span>
-                      <span className="font-medium">{fmt(quotation.courier_charge)}</span>
-                    </div>
-                  )}
                   {quotation.apply_gst && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isInterState ? "IGST@18%" : "GST@18%"}</span>
                       <span className="font-medium">{fmt(quotation.gst_amount)}</span>
-                    </div>
-                  )}
-                  {quotation.apply_courier_gst && Number(quotation.courier_gst_amount) > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Courier GST</span>
-                      <span className="font-medium">{fmt(quotation.courier_gst_amount)}</span>
                     </div>
                   )}
                   <div className="bg-destructive text-destructive-foreground rounded-lg px-4 py-3 flex justify-between items-center">
