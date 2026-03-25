@@ -300,6 +300,28 @@ export const generateQuotationPDF = async (
     ]);
   });
 
+  // Add courier as a line item if present
+  const courierCharge = Number(quotation.courier_charge) || 0;
+  const courierGstAmt = Number(quotation.courier_gst_amount) || 0;
+  if (courierCharge > 0) {
+    const courierLabel = `🚚 ${quotation.courier_type || "Courier Charges"}`;
+    const courierTaxPct = quotation.apply_courier_gst ? 18 : 0;
+    const courierFinal = courierCharge + courierGstAmt;
+    totalGstAmount += courierGstAmt;
+    totalQuantity += 1;
+
+    tableBody.push([
+      (items.length + 1).toString(),
+      courierLabel,
+      "9965",
+      "1",
+      "Pcs",
+      fmt(courierCharge),
+      courierTaxPct > 0 ? `${fmt(courierGstAmt)} (${courierTaxPct}%)` : "-",
+      fmt(courierFinal),
+    ]);
+  }
+
   // Total row
   tableBody.push([
     { content: "Total", styles: { fontStyle: "bold", fillColor: lightBg } },
