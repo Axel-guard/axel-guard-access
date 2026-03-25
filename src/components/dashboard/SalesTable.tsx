@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useEmail } from "@/hooks/useEmail";
 import {
   Table,
   TableBody,
@@ -18,11 +17,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Eye, Edit, Trash2, Receipt } from "lucide-react";
-import { Mail, Loader2 } from "lucide-react";
 import { useSalesWithItems, Sale } from "@/hooks/useSales";
 import { format } from "date-fns";
 import { SaleDetailsDialog } from "@/components/forms/SaleDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
+import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const statusStyles = {
