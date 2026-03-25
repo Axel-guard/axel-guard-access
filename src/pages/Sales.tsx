@@ -19,6 +19,7 @@ import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
+import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
