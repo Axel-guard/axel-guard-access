@@ -308,7 +308,10 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   }, 0);
   // GST amount = total per-item taxes (Apply GST toggle syncs per-item tax_percent)
   const gstAmount = totalItemTax;
-  const grandTotal = subtotal + courierCharge + gstAmount;
+  // Courier GST: apply same GST % as products when GST is enabled
+  const courierGst = applyGst && courierCharge > 0 ? courierCharge * 0.18 : 0;
+  const courierTotal = courierCharge + courierGst;
+  const grandTotal = subtotal + gstAmount + courierTotal;
 
   const handleUpdateItem = (
     index: number,
