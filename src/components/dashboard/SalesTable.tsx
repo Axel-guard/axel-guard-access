@@ -55,12 +55,6 @@ export const SalesTable = () => {
     setDeleteOpen(true);
   };
 
-  const handleSendEmail = async (sale: Sale) => {
-    setSendingOrderId(sale.order_id);
-    await sendEmail("sale", sale.order_id);
-    setSendingOrderId(null);
-  };
-
   if (isLoading) {
     return (
       <Card className="rounded-[14px] border-border/50 bg-card shadow-card">
