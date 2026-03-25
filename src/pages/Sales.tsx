@@ -216,19 +216,10 @@ const SalesPage = () => {
                           <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
                             <Eye className="mr-2 h-4 w-4" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setBalanceSale(sale); }}>
-                            <Wallet className="mr-2 h-4 w-4" /> View Balance
-                          </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => handleSendEmail(sale.order_id, e)}
-                            disabled={sendingEmailOrderId === sale.order_id}
+                            onClick={(e) => { e.stopPropagation(); setBalanceSale(sale); }}
                           >
-                            {sendingEmailOrderId === sale.order_id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Mail className="mr-2 h-4 w-4" />
-                            )}
-                            Send Email
+                            <Wallet className="mr-2 h-4 w-4" /> View Balance
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDocSale(sale); }}>
                             <FileText className="mr-2 h-4 w-4" /> Documents
