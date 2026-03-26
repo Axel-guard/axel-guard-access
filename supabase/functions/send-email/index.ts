@@ -605,6 +605,273 @@ const getEmailTemplate = (
 </html>`,
       };
 
+    case "all": {
+      // Consolidated email with all details
+      const allProductItems = data.productItems as Array<{
+        product_name: string; quantity: number; unit_price: number;
+      }> || [];
+      const allProductTableRows = allProductItems.map(item => `
+        <tr>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #374151; font-size: 13px;">${item.product_name}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #374151; font-size: 13px;">${item.quantity}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #374151; font-size: 13px;">${formatCurrency(item.unit_price)}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827; font-size: 13px;">${formatCurrency(item.quantity * item.unit_price)}</td>
+        </tr>
+      `).join('');
+
+      const allCourierCost = Number(data.courierCost) || 0;
+      const allSubtotal = Number(data.subtotal) || 0;
+      const allGstAmount = Number(data.gstAmount) || 0;
+      const allCourierMode = data.courierMode || 'Standard';
+
+      // Dispatch section
+      const allProductSerials = (data.productSerials as { product_name: string; serial_number: string }[]) || [];
+      const allGrouped = new Map<string, string[]>();
+      for (const ps of allProductSerials) {
+        const existing = allGrouped.get(ps.product_name) || [];
+        existing.push(ps.serial_number);
+        allGrouped.set(ps.product_name, existing);
+      }
+
+      const allTotalOrder = Number(data.totalOrderItems) || 0;
+      const allTotalDispatched = Number(data.totalDispatchedSoFar) || 0;
+      const allRemaining = Number(data.remainingItems) || 0;
+
+      const dispatchSectionHtml = data.hasDispatch ? `
+        <div class="section-card">
+          <div class="section-title">🚚 Dispatch Details</div>
+          <div class="info-row">
+            <span class="info-label">Dispatch Date:</span>
+            <span class="info-value">${data.dispatchDate || 'N/A'}</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin: 16px 0; text-align: center;">
+            <div style="flex: 1; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px;">
+              <div style="font-size: 20px; font-weight: 700; color: #1e40af;">${allTotalOrder}</div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Total Items</div>
+            </div>
+            <div style="flex: 1; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 8px; padding: 12px;">
+              <div style="font-size: 20px; font-weight: 700; color: #059669;">${allTotalDispatched}</div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Dispatched</div>
+            </div>
+            <div style="flex: 1; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px;">
+              <div style="font-size: 20px; font-weight: 700; color: #d97706;">${allRemaining}</div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Remaining</div>
+            </div>
+          </div>
+        </div>
+        ${allGrouped.size > 0 ? `
+        <div class="section-card">
+          <div class="section-title">📋 Dispatched Devices</div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f0fdf4;">
+                <th style="text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; border-bottom: 2px solid #d1fae5; width: 36px;">S.No</th>
+                <th style="text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; border-bottom: 2px solid #d1fae5;">Product</th>
+                <th style="text-align: center; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; border-bottom: 2px solid #d1fae5; width: 40px;">Qty</th>
+                <th style="text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; border-bottom: 2px solid #d1fae5;">Serial Numbers</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Array.from(allGrouped.entries()).map(([pName, serials], idx) => `
+                <tr style="border-bottom: 1px solid #e5e7eb; vertical-align: top;">
+                  <td style="padding: 10px 12px; font-size: 12px; color: #6b7280;">${idx + 1}</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #111827; font-weight: 500;">${pName}</td>
+                  <td style="padding: 10px 12px; font-size: 12px; color: #111827; text-align: center; font-weight: 600;">${serials.length}</td>
+                  <td style="padding: 10px 12px; font-size: 11px; font-family: monospace; line-height: 1.6;">${serials.map(sn => `<span style="display: inline-block; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; padding: 2px 6px; margin: 2px 3px 2px 0; font-weight: 600; color: #059669;">${sn}</span>`).join("")}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>` : ''}
+      ` : `
+        <div class="section-card">
+          <div class="section-title">🚚 Dispatch Details</div>
+          <div style="text-align: center; padding: 16px; color: #6b7280; font-size: 13px;">Dispatch is pending for this order.</div>
+        </div>`;
+
+      // Tracking section
+      const trackingSectionHtml = data.hasTracking ? `
+        <div class="tracking-highlight">
+          <div style="font-size: 13px; opacity: 0.9;">🚚 AWB / Tracking Number</div>
+          <div class="tracking-number">${data.trackingId || 'N/A'}</div>
+        </div>
+        <div class="section-card">
+          <div class="section-title">📍 Tracking Details</div>
+          <div class="info-row">
+            <span class="info-label">Courier Partner:</span>
+            <span class="info-value">${data.courier || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Shipping Mode:</span>
+            <span class="info-value">${data.mode || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="info-value" style="color: #059669;">In Transit</span>
+          </div>
+        </div>
+      ` : `
+        <div class="section-card">
+          <div class="section-title">📍 Tracking Details</div>
+          <div style="text-align: center; padding: 16px; color: #6b7280; font-size: 13px;">Tracking details are not yet available.</div>
+        </div>`;
+
+      // Attachments list
+      const attachmentsList = (data.attachmentNames as string[]) || [];
+      const attachmentsSectionHtml = attachmentsList.length > 0 ? `
+        <div class="section-card">
+          <div class="section-title">📄 Attached Documents</div>
+          ${attachmentsList.map(name => `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+              <span style="color: #059669;">✅</span>
+              <span style="font-size: 13px; color: #374151;">${name}</span>
+            </div>`).join('')}
+        </div>` : '';
+
+      // Timeline
+      const timelineHtml = `
+        <div class="section-card">
+          <div class="section-title">⏱ Transaction Timeline</div>
+          <div style="padding-left: 16px; border-left: 3px solid #3b82f6;">
+            <div style="padding: 8px 0 16px 16px; position: relative;">
+              <div style="position: absolute; left: -24px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: #3b82f6;"></div>
+              <div style="font-weight: 600; font-size: 13px; color: #111827;">Order Created</div>
+              <div style="font-size: 12px; color: #6b7280;">${data.orderCreatedAt || data.saleDate || 'N/A'}</div>
+            </div>
+            ${data.hasDispatch ? `
+            <div style="padding: 8px 0 16px 16px; position: relative;">
+              <div style="position: absolute; left: -24px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: #10b981;"></div>
+              <div style="font-weight: 600; font-size: 13px; color: #111827;">Dispatch Completed</div>
+              <div style="font-size: 12px; color: #6b7280;">${data.dispatchDate || 'N/A'}</div>
+            </div>` : ''}
+            ${data.hasTracking ? `
+            <div style="padding: 8px 0 16px 16px; position: relative;">
+              <div style="position: absolute; left: -24px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed;"></div>
+              <div style="font-weight: 600; font-size: 13px; color: #111827;">Tracking Shared</div>
+              <div style="font-size: 12px; color: #6b7280;">${data.trackingCreatedAt || 'N/A'}</div>
+            </div>` : ''}
+          </div>
+        </div>`;
+
+      return {
+        subject: `Complete Order Details - ${data.orderId} | AxelGuard`,
+        body: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${baseEmailStyles}
+    .header { background: linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #7c3aed 100%); }
+    .section-title { color: #1e40af; border-bottom-color: #3b82f6; }
+    .product-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .product-table th { background: #f3f4f6; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+    .product-table th:nth-child(2) { text-align: center; }
+    .product-table th:nth-child(3), .product-table th:nth-child(4) { text-align: right; }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row.total { background: #f0f9ff; margin: 12px -20px -20px -20px; padding: 14px 20px; border-radius: 0 0 12px 12px; border-top: 2px solid #3b82f6; }
+    .summary-label { color: #6b7280; font-size: 13px; }
+    .summary-value { font-weight: 600; color: #111827; font-size: 13px; }
+    .summary-row.total .summary-label, .summary-row.total .summary-value { color: #1e40af; font-size: 15px; }
+    .tracking-highlight { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin: 16px 0; }
+    .tracking-number { font-size: 24px; font-weight: 700; letter-spacing: 2px; margin-top: 6px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="header">
+      <div class="header-logo">🛡️ AxelGuard</div>
+      <div class="header-subtitle">Complete Order Summary</div>
+    </div>
+    <div class="content">
+      <p class="greeting">Hello <strong>${data.customerName || "Customer"}</strong>,</p>
+      <p class="intro-text">Here is the complete summary of your order with AxelGuard, including order details, dispatch information, and tracking updates — all in one place.</p>
+
+      <!-- ORDER SECTION -->
+      <div class="section-card">
+        <div class="section-title">📦 Order Confirmation</div>
+        <div class="info-row">
+          <span class="info-label">Order ID:</span>
+          <span class="info-value">${data.orderId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Order Date:</span>
+          <span class="info-value">${data.saleDate}</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">🛒 Products Ordered</div>
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Unit Price</th>
+              <th style="text-align: right;">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>${allProductTableRows}</tbody>
+        </table>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">💰 Charges Summary</div>
+        <div class="summary-row">
+          <span class="summary-label">Subtotal:</span>
+          <span class="summary-value">${formatCurrency(allSubtotal)}</span>
+        </div>
+        ${allGstAmount > 0 ? `<div class="summary-row">
+          <span class="summary-label">GST (18%):</span>
+          <span class="summary-value">${formatCurrency(allGstAmount)}</span>
+        </div>` : ''}
+        ${allCourierCost > 0 ? `<div class="summary-row">
+          <span class="summary-label">Courier (${allCourierMode}):</span>
+          <span class="summary-value">${formatCurrency(allCourierCost)}</span>
+        </div>` : ''}
+        <div class="summary-row total">
+          <span class="summary-label">Grand Total:</span>
+          <span class="summary-value">${formatCurrency(data.totalAmount as number)}</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin: 16px 0;">
+        <div class="amount-box received" style="flex: 1; margin: 0;">
+          <div class="amount-label">Received</div>
+          <div class="amount-value" style="font-size: 22px;">${formatCurrency(data.amountReceived as number)}</div>
+        </div>
+        <div class="amount-box balance" style="flex: 1; margin: 0;">
+          <div class="amount-label">Balance</div>
+          <div class="amount-value" style="font-size: 22px;">${formatCurrency(data.balanceAmount as number)}</div>
+        </div>
+      </div>
+
+      <!-- DISPATCH SECTION -->
+      ${dispatchSectionHtml}
+
+      <!-- TRACKING SECTION -->
+      ${trackingSectionHtml}
+
+      <!-- ATTACHMENTS -->
+      ${attachmentsSectionHtml}
+
+      <!-- TIMELINE -->
+      ${timelineHtml}
+
+      <p class="closing-text">This email contains all the details for your order. If you have any questions or concerns, please don't hesitate to reach out to us.</p>
+      <p class="closing-text" style="margin-top: 8px; font-style: italic;">📎 Relevant documents (Tax Invoice, E-Way Bill, Delivery Challan) are attached to this email for your records, if applicable.</p>
+    </div>
+    <div class="footer">
+      <div class="footer-brand">Warm regards,<br>AxelGuard Team</div>
+      <div class="footer-contact">
+        📧 <a href="mailto:info@axel-guard.com">info@axel-guard.com</a> &nbsp;|&nbsp; 🌐 <a href="https://www.axel-guard.com">www.axel-guard.com</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+      };
+    }
+
     default:
       throw new Error(`Unknown email type: ${type}`);
   }
