@@ -1363,10 +1363,9 @@ const getEmailTemplate = (
 
     console.log(`Connecting to SMTP: ${smtpHost}:${smtpPort}`);
 
-    // Fetch PDF attachments for dispatch emails (With Bill sales only)
+    // Fetch PDF attachments for dispatch and "all" emails
     const dispatchAttachments: Array<{ filename: string; content: string; contentType: string }> = [];
-    if (type === "dispatch" && type !== "quotation") {
-      // sale variable is in scope from the sale-based email block above
+    if ((type === "dispatch" || type === "all") && orderId) {
       const saleRecord = (await supabase.from("sales").select("invoice_url, eway_bill_url, delivery_challan_url").eq("order_id", orderId).single()).data;
       if (saleRecord) {
         const docUrls: Array<{ url: string | null; name: string }> = [
@@ -1374,6 +1373,7 @@ const getEmailTemplate = (
           { url: saleRecord.eway_bill_url, name: `EWayBill_${orderId}.pdf` },
           { url: saleRecord.delivery_challan_url, name: `DeliveryChallan_${orderId}.pdf` },
         ];
+        const attachedNames: string[] = [];
         for (const doc of docUrls) {
           if (doc.url) {
             try {
@@ -1387,6 +1387,7 @@ const getEmailTemplate = (
                 }
                 const base64Content = btoa(binary);
                 dispatchAttachments.push({ filename: doc.name, content: base64Content, contentType: "application/pdf" });
+                attachedNames.push(doc.name);
                 console.log(`Attached: ${doc.name} (${bytes.length} bytes)`);
               }
             } catch (err) {
@@ -1394,8 +1395,15 @@ const getEmailTemplate = (
             }
           }
         }
+        // For "all" type, pass attachment names to template
+        if (type === "all") {
+          emailData.attachmentNames = attachedNames;
+        }
       }
     }
+
+    // Re-generate template after attachmentNames is set for "all" type
+    const { subject, body } = getEmailTemplate(type, emailData);
 
     await sendEmailWithRetry({
       host: smtpHost,
