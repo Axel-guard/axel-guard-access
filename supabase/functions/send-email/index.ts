@@ -1171,7 +1171,7 @@ const getEmailTemplate = (
         grandTotal: Number(quotation.grand_total) || 0,
       };
     } else {
-      // Handle sale-based emails (sale, dispatch, tracking)
+      // Handle sale-based emails (sale, dispatch, tracking, all)
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .select("*")
@@ -1233,63 +1233,89 @@ const getEmailTemplate = (
         courierMode,
       };
 
-      if (type === "dispatch") {
-        let serialNumbers: string[] = dispatchData?.serialNumbers || [];
+      if (type === "dispatch" || type === "all") {
+        const serialNumbers: string[] = [];
         
-        if (serialNumbers.length === 0) {
-          const { data: inventoryItems } = await supabase
-            .from("inventory")
-            .select("serial_number")
-            .eq("order_id", orderId)
-            .eq("status", "Dispatched");
-          
-          serialNumbers = inventoryItems?.map(i => i.serial_number) || [];
-        }
-        
-        const productName = dispatchData?.productName || 
-          saleItems?.map(i => i.product_name).join(", ") || "N/A";
-        
-        const totalQuantity = dispatchData?.totalQuantity || 
-          saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
-        
-        // Calculate total order items, total dispatched so far, and remaining
-        const totalOrderItems = saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
-        
-        // Count all dispatched inventory for this order
-        const { data: allDispatched } = await supabase
+        const { data: inventoryItems } = await supabase
           .from("inventory")
-          .select("id")
+          .select("serial_number, product_name")
           .eq("order_id", orderId)
           .eq("status", "Dispatched");
         
-        const totalDispatchedSoFar = allDispatched?.length || 0;
-        const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
-        
-        // Build product-serial pairs for email table
-        let productSerialPairs = dispatchData?.productSerials || [];
-        if (productSerialPairs.length === 0 && serialNumbers.length > 0) {
-          // Fallback: fetch product names from inventory
-          const { data: invItems } = await supabase
+        const productSerialPairs = (inventoryItems || []).map(i => ({ product_name: i.product_name, serial_number: i.serial_number }));
+
+        if (type === "dispatch") {
+          // For dispatch-specific email, use dispatchData overrides
+          const dSerials = dispatchData?.serialNumbers || inventoryItems?.map(i => i.serial_number) || [];
+          const productName = dispatchData?.productName || 
+            saleItems?.map(i => i.product_name).join(", ") || "N/A";
+          const totalQuantity = dispatchData?.totalQuantity || 
+            saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+          const totalOrderItems = saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+          const { data: allDispatched } = await supabase
             .from("inventory")
-            .select("serial_number, product_name")
-            .in("serial_number", serialNumbers);
-          productSerialPairs = (invItems || []).map(i => ({ product_name: i.product_name, serial_number: i.serial_number }));
+            .select("id")
+            .eq("order_id", orderId)
+            .eq("status", "Dispatched");
+          const totalDispatchedSoFar = allDispatched?.length || 0;
+          const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
+
+          let dProductSerials = dispatchData?.productSerials || [];
+          if (dProductSerials.length === 0 && dSerials.length > 0) {
+            const { data: invItems } = await supabase
+              .from("inventory")
+              .select("serial_number, product_name")
+              .in("serial_number", dSerials);
+            dProductSerials = (invItems || []).map(i => ({ product_name: i.product_name, serial_number: i.serial_number }));
+          }
+
+          emailData = {
+            ...emailData,
+            dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
+            serialNumbers: dSerials,
+            productSerials: dProductSerials,
+            productName,
+            totalQuantity,
+            totalOrderItems,
+            totalDispatchedSoFar,
+            remainingItems,
+          };
         }
 
-        emailData = {
-          ...emailData,
-          dispatchDate: dispatchData?.dispatchDate || new Date().toLocaleDateString("en-IN"),
-          serialNumbers,
-          productSerials: productSerialPairs,
-          productName,
-          totalQuantity,
-          totalOrderItems,
-          totalDispatchedSoFar,
-          remainingItems,
-        };
+        if (type === "all") {
+          const totalOrderItems = saleItems?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+          const totalDispatchedSoFar = inventoryItems?.length || 0;
+          const remainingItems = Math.max(0, totalOrderItems - totalDispatchedSoFar);
+          const hasDispatch = totalDispatchedSoFar > 0;
+
+          // Get latest dispatch date from inventory
+          let dispatchDate = 'N/A';
+          if (hasDispatch) {
+            const { data: latestDispatch } = await supabase
+              .from("inventory")
+              .select("dispatch_date")
+              .eq("order_id", orderId)
+              .eq("status", "Dispatched")
+              .order("dispatch_date", { ascending: false })
+              .limit(1);
+            if (latestDispatch?.[0]?.dispatch_date) {
+              dispatchDate = new Date(latestDispatch[0].dispatch_date).toLocaleDateString("en-IN");
+            }
+          }
+
+          emailData = {
+            ...emailData,
+            hasDispatch,
+            dispatchDate,
+            productSerials: productSerialPairs,
+            totalOrderItems,
+            totalDispatchedSoFar,
+            remainingItems,
+          };
+        }
       }
       
-      if (type === "tracking") {
+      if (type === "tracking" || type === "all") {
         const { data: shipment } = await supabase
           .from("shipments")
           .select("*")
@@ -1298,12 +1324,31 @@ const getEmailTemplate = (
           .limit(1)
           .single();
 
-        emailData = {
-          ...emailData,
-          courier: shipment?.courier_partner,
-          mode: shipment?.shipping_mode,
-          trackingId: shipment?.tracking_id,
-        };
+        const hasTracking = !!shipment?.tracking_id;
+
+        if (type === "tracking") {
+          emailData = {
+            ...emailData,
+            courier: shipment?.courier_partner,
+            mode: shipment?.shipping_mode,
+            trackingId: shipment?.tracking_id,
+          };
+        }
+
+        if (type === "all") {
+          emailData = {
+            ...emailData,
+            hasTracking,
+            courier: shipment?.courier_partner || 'N/A',
+            mode: shipment?.shipping_mode || 'N/A',
+            trackingId: shipment?.tracking_id || 'N/A',
+            trackingCreatedAt: shipment?.created_at ? new Date(shipment.created_at).toLocaleDateString("en-IN") : 'N/A',
+          };
+        }
+      }
+
+      if (type === "all") {
+        emailData.orderCreatedAt = sale.created_at ? new Date(sale.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : emailData.saleDate;
       }
     }
 
