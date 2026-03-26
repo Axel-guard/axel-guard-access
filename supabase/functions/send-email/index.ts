@@ -1352,7 +1352,7 @@ const getEmailTemplate = (
       }
     }
 
-    const { subject, body } = getEmailTemplate(type, emailData);
+    // Template will be generated after attachments are fetched for "all" type
 
     console.log(`Sending email to: ${customerEmail}, CC: ${CC_EMAIL}`);
 
