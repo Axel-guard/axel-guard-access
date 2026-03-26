@@ -58,6 +58,10 @@ interface DispatchEmailData {
   const sendTrackingEmail = useCallback(async (orderId: string) => {
     return sendEmail("tracking", orderId);
   }, [sendEmail]);
+
+  const sendAllDetailsEmail = useCallback(async (orderId: string) => {
+    return sendEmail("all", orderId);
+  }, [sendEmail]);
  
   return { 
     sendEmail, 
