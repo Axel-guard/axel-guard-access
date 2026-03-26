@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
  
-type EmailType = "sale" | "dispatch" | "tracking";
+type EmailType = "sale" | "dispatch" | "tracking" | "all";
 
 interface DispatchEmailData {
   dispatchDate?: string;
