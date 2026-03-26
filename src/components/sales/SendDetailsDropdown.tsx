@@ -24,7 +24,7 @@ export const SendDetailsDropdown = ({
   variant = "icon",
   onSendAll,
 }: SendDetailsDropdownProps) => {
-  const { sendSaleEmail, sendDispatchEmail, sendTrackingEmail, isLoading } = useEmail();
+  const { sendSaleEmail, sendDispatchEmail, sendTrackingEmail, sendAllDetailsEmail, isLoading } = useEmail();
   const [sendingType, setSendingType] = useState<string | null>(null);
 
   // Suppress emails for "Without" bill sales
@@ -41,14 +41,7 @@ export const SendDetailsDropdown = ({
       } else if (type === "tracking") {
         await sendTrackingEmail(orderId);
       } else if (type === "all") {
-        if (onSendAll) {
-          onSendAll();
-        } else {
-          // Send all sequentially
-          await sendSaleEmail(orderId);
-          await sendDispatchEmail(orderId);
-          await sendTrackingEmail(orderId);
-        }
+        await sendAllDetailsEmail(orderId);
       }
     } finally {
       setSendingType(null);
