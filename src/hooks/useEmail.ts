@@ -68,6 +68,7 @@ interface DispatchEmailData {
     sendSaleEmail,
     sendDispatchEmail,
     sendTrackingEmail,
+    sendAllDetailsEmail,
     isLoading 
   };
  };
