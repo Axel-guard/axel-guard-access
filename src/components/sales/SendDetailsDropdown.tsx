@@ -24,7 +24,7 @@ export const SendDetailsDropdown = ({
   variant = "icon",
   onSendAll,
 }: SendDetailsDropdownProps) => {
-  const { sendSaleEmail, sendDispatchEmail, sendTrackingEmail, isLoading } = useEmail();
+  const { sendSaleEmail, sendDispatchEmail, sendTrackingEmail, sendAllDetailsEmail, isLoading } = useEmail();
   const [sendingType, setSendingType] = useState<string | null>(null);
 
   // Suppress emails for "Without" bill sales
