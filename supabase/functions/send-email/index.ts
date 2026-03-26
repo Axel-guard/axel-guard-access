@@ -8,7 +8,7 @@
  };
  
 interface EmailRequest {
-  type: "sale" | "dispatch" | "tracking" | "quotation";
+  type: "sale" | "dispatch" | "tracking" | "quotation" | "all";
   orderId?: string;
   quotationId?: string;
   dispatchData?: {
