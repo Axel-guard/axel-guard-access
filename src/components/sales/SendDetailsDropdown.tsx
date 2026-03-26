@@ -42,6 +42,7 @@ export const SendDetailsDropdown = ({
         await sendTrackingEmail(orderId);
       } else if (type === "all") {
         await sendAllDetailsEmail(orderId);
+      }
     } finally {
       setSendingType(null);
     }
