@@ -498,7 +498,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, quotationNo: string, customerName: string, grandTotal: number) => {
     setApprovingId(id);
     try {
       const { error } = await supabase
@@ -508,6 +508,17 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
       if (error) throw error;
       toast.success("Quotation approved successfully");
       queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+
+      // Notify all admins
+      createNotification(
+        "Quotation Approved",
+        `Quotation ${quotationNo} for ${customerName} (₹${Number(grandTotal).toLocaleString("en-IN")}) has been approved.`,
+        "quotation",
+        { quotation_id: id, quotation_no: quotationNo, customer_name: customerName, event: "quotation_approved" },
+        "/quotations",
+        quotationNo
+      ).catch(console.error);
     } catch (err: any) {
       toast.error("Failed to approve: " + err.message);
     } finally {
