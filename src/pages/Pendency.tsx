@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import {
   CreditCard, Truck, MapPin, ClipboardCheck, AlertCircle,
   RefreshCw, Search, Activity, TrendingDown, ExternalLink,
+  FileText, Check, X, Eye,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets";
+import { toast } from "sonner";
+type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets" | "quotationApproval";
 
 const categoryConfig: Record<Category, {
   title: string;
