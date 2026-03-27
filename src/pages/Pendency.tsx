@@ -133,6 +133,7 @@ const PendencyPage = () => {
     queryClient.invalidateQueries({ queryKey: ["dispatch-inventory-status"] });
     queryClient.invalidateQueries({ queryKey: ["pendency-qc-records"] });
     queryClient.invalidateQueries({ queryKey: ["pendency-ticket-records"] });
+    queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
   };
 
   const totalPending = counts ? cats.reduce((sum, c) => sum + counts[c], 0) : 0;
