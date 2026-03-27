@@ -269,6 +269,7 @@ const PendencyPage = () => {
           {activeTab === "trackingPending" && <TrackingTable rows={filteredRows} navigate={navigate} />}
           {activeTab === "qcPending" && <QCTable rows={filteredRows} navigate={navigate} />}
           {activeTab === "pendingTickets" && <TicketsTable rows={filteredRows} navigate={navigate} />}
+          {activeTab === "quotationApproval" && <QuotationApprovalTable rows={filteredRows} navigate={navigate} queryClient={queryClient} />}
         </div>
       </div>
     </div>
