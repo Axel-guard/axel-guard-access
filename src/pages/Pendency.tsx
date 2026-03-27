@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { createNotification } from "@/hooks/useNotifications";
 type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets" | "quotationApproval";
 
 const categoryConfig: Record<Category, {
