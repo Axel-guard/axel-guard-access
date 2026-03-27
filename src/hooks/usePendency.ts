@@ -178,6 +178,7 @@ export const usePendency = () => {
       trackingPending: trackingRecords,
       qcPending: qcPendingRecords || [],
       pendingTickets: ticketRecords || [],
+      quotationApproval: quotationApprovalRecords || [],
     };
 
     const counts: PendencyCounts = {
@@ -186,13 +187,14 @@ export const usePendency = () => {
       trackingPending: records.trackingPending.length,
       qcPending: records.qcPending.length,
       pendingTickets: records.pendingTickets.length,
+      quotationApproval: records.quotationApproval.length,
     };
 
     return { counts, records };
-  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords]);
+  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords, quotationApprovalRecords]);
 
 
-  const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading;
+  const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading || quotationLoading;
 
   return { counts: result.counts, records: result.records, isLoading };
 };
