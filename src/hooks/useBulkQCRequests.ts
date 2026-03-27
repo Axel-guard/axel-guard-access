@@ -262,6 +262,14 @@ export const useMasterAdminBulkApply = () => {
         title: "Bulk QC Applied",
         description: `Applied "${data.qc_value}" to ${data.product_name} pending devices.`,
       });
+
+      createNotification(
+        "Bulk QC Applied",
+        `Master Admin applied "${data.qc_value}" to all pending ${data.product_name} devices (${data.count || 0} updated).`,
+        "bulk_qc",
+        { product_name: data.product_name, qc_value: data.qc_value, count: data.count, event: "bulk_qc_applied" },
+        "/quality-check"
+      ).catch(console.error);
     },
     onError: (error: any) => {
       toast({

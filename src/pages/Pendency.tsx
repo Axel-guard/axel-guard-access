@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { createNotification } from "@/hooks/useNotifications";
 type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets" | "quotationApproval";
 
 const categoryConfig: Record<Category, {
@@ -497,7 +498,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, quotationNo: string, customerName: string, grandTotal: number) => {
     setApprovingId(id);
     try {
       const { error } = await supabase
@@ -507,6 +508,17 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
       if (error) throw error;
       toast.success("Quotation approved successfully");
       queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+
+      // Notify all admins
+      createNotification(
+        "Quotation Approved",
+        `Quotation ${quotationNo} for ${customerName} (₹${Number(grandTotal).toLocaleString("en-IN")}) has been approved.`,
+        "quotation",
+        { quotation_id: id, quotation_no: quotationNo, customer_name: customerName, event: "quotation_approved" },
+        "/quotations",
+        quotationNo
+      ).catch(console.error);
     } catch (err: any) {
       toast.error("Failed to approve: " + err.message);
     } finally {
@@ -514,7 +526,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (id: string, quotationNo: string, customerName: string) => {
     setRejectingId(id);
     try {
       const { error } = await supabase
@@ -524,6 +536,16 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
       if (error) throw error;
       toast.success("Quotation rejected");
       queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+
+      createNotification(
+        "Quotation Rejected",
+        `Quotation ${quotationNo} for ${customerName} has been rejected.`,
+        "quotation",
+        { quotation_id: id, quotation_no: quotationNo, customer_name: customerName, event: "quotation_rejected" },
+        "/quotations",
+        quotationNo
+      ).catch(console.error);
     } catch (err: any) {
       toast.error("Failed to reject: " + err.message);
     } finally {
@@ -574,7 +596,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
                   variant="ghost"
                   size="sm"
                   disabled={approvingId === r.id}
-                  onClick={() => handleApprove(r.id)}
+                  onClick={() => handleApprove(r.id, r.quotation_no, r.customer_name, r.grand_total)}
                   className="h-7 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded-lg"
                 >
                   <Check className="h-3.5 w-3.5" />
@@ -584,7 +606,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
                   variant="ghost"
                   size="sm"
                   disabled={rejectingId === r.id}
-                  onClick={() => handleReject(r.id)}
+                  onClick={() => handleReject(r.id, r.quotation_no, r.customer_name)}
                   className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
                 >
                   <X className="h-3.5 w-3.5" />
