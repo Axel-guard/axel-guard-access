@@ -10,6 +10,7 @@ export interface PendencyCounts {
   trackingPending: number;
   qcPending: number;
   pendingTickets: number;
+  quotationApproval: number;
 }
 
 export interface PendencyRecords {
@@ -18,6 +19,7 @@ export interface PendencyRecords {
   trackingPending: any[];
   qcPending: any[];
   pendingTickets: any[];
+  quotationApproval: any[];
 }
 
 export const usePendency = () => {
