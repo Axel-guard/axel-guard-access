@@ -116,6 +116,9 @@ const PendencyPage = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
         queryClient.invalidateQueries({ queryKey: ["pendency-ticket-records"] });
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotations" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "payment_history" }, () => {
         queryClient.invalidateQueries({ queryKey: ["all-dispatch-sales"] });
       })
