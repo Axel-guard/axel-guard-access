@@ -10,6 +10,7 @@ export interface PendencyCounts {
   trackingPending: number;
   qcPending: number;
   pendingTickets: number;
+  quotationApproval: number;
 }
 
 export interface PendencyRecords {
@@ -18,6 +19,7 @@ export interface PendencyRecords {
   trackingPending: any[];
   qcPending: any[];
   pendingTickets: any[];
+  quotationApproval: any[];
 }
 
 export const usePendency = () => {
@@ -112,6 +114,21 @@ export const usePendency = () => {
     refetchInterval: 10000,
   });
 
+  // Quotation Approval Pending records
+  const { data: quotationApprovalRecords, isLoading: quotationLoading } = useQuery({
+    queryKey: ["pendency-quotation-approval"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quotations")
+        .select("id, quotation_no, quotation_date, customer_name, company_name, grand_total, status, created_at, created_by")
+        .eq("status", "Pending Approval")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 10000,
+  });
+
   const result = useMemo(() => {
     const isServiceProduct = (name: string) => (productTypesData || {})[name] === "service";
 
@@ -161,6 +178,7 @@ export const usePendency = () => {
       trackingPending: trackingRecords,
       qcPending: qcPendingRecords || [],
       pendingTickets: ticketRecords || [],
+      quotationApproval: quotationApprovalRecords || [],
     };
 
     const counts: PendencyCounts = {
@@ -169,13 +187,14 @@ export const usePendency = () => {
       trackingPending: records.trackingPending.length,
       qcPending: records.qcPending.length,
       pendingTickets: records.pendingTickets.length,
+      quotationApproval: records.quotationApproval.length,
     };
 
     return { counts, records };
-  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords]);
+  }, [allSales, allSaleItems, dispatchedInventory, shipments, productTypesData, qcPendingRecords, ticketRecords, quotationApprovalRecords]);
 
 
-  const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading;
+  const isLoading = salesLoading || shipmentsLoading || saleItemsLoading || invDispatchLoading || qcLoading || ticketsLoading || quotationLoading;
 
   return { counts: result.counts, records: result.records, isLoading };
 };
