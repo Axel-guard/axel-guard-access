@@ -152,8 +152,8 @@ const PendencyPage = () => {
     return (
       <div className="space-y-6">
         <Skeleton className="h-20 rounded-2xl" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         </div>
         <Skeleton className="h-72 rounded-2xl" />
       </div>
