@@ -114,6 +114,21 @@ export const usePendency = () => {
     refetchInterval: 10000,
   });
 
+  // Quotation Approval Pending records
+  const { data: quotationApprovalRecords, isLoading: quotationLoading } = useQuery({
+    queryKey: ["pendency-quotation-approval"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quotations")
+        .select("id, quotation_no, quotation_date, customer_name, company_name, grand_total, status, created_at, created_by")
+        .eq("status", "Pending Approval")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 10000,
+  });
+
   const result = useMemo(() => {
     const isServiceProduct = (name: string) => (productTypesData || {})[name] === "service";
 
