@@ -492,4 +492,112 @@ const TicketsTable = ({ rows, navigate }: TableProps) => (
   </Table>
 );
 
+// ── Quotation Approval Table ──
+const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { queryClient: any }) => {
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      const { error } = await supabase
+        .from("quotations")
+        .update({ status: "Approved", approved_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Quotation approved successfully");
+      queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+    } catch (err: any) {
+      toast.error("Failed to approve: " + err.message);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    setRejectingId(id);
+    try {
+      const { error } = await supabase
+        .from("quotations")
+        .update({ status: "Rejected" })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Quotation rejected");
+      queryClient.invalidateQueries({ queryKey: ["pendency-quotation-approval"] });
+    } catch (err: any) {
+      toast.error("Failed to reject: " + err.message);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  if (rows.length === 0) return <EmptyState message="No pending approvals" />;
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="font-semibold">Quotation ID</TableHead>
+          <TableHead className="font-semibold">Date</TableHead>
+          <TableHead className="font-semibold">Customer</TableHead>
+          <TableHead className="font-semibold hidden md:table-cell">Company</TableHead>
+          <TableHead className="font-semibold text-right">Total Amount</TableHead>
+          <TableHead className="font-semibold">Status</TableHead>
+          <TableHead className="font-semibold text-center">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r: any) => (
+          <TableRow key={r.id} className="group">
+            <TableCell className="font-mono font-semibold text-primary">{r.quotation_no}</TableCell>
+            <TableCell className="text-muted-foreground text-xs">{fmtDate(r.quotation_date)}</TableCell>
+            <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
+            <TableCell className="hidden md:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
+            <TableCell className="text-right tabular-nums font-semibold">{fmtCurrency(r.grand_total)}</TableCell>
+            <TableCell>
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 text-xs">
+                Pending Approval
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/quotations", { state: { viewQuotationId: r.id } })}
+                  className="h-7 gap-1 text-xs rounded-lg"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">View</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={approvingId === r.id}
+                  onClick={() => handleApprove(r.id)}
+                  className="h-7 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded-lg"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{approvingId === r.id ? "..." : "Approve"}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={rejectingId === r.id}
+                  onClick={() => handleReject(r.id)}
+                  className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{rejectingId === r.id ? "..." : "Reject"}</span>
+                </Button>
+                <EditAction onClick={() => navigate("/quotations", { state: { editQuotationId: r.id } })} />
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
+
 export default PendencyPage;
