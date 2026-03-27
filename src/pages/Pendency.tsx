@@ -596,7 +596,7 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
                   variant="ghost"
                   size="sm"
                   disabled={approvingId === r.id}
-                  onClick={() => handleApprove(r.id)}
+                  onClick={() => handleApprove(r.id, r.quotation_no, r.customer_name, r.grand_total)}
                   className="h-7 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded-lg"
                 >
                   <Check className="h-3.5 w-3.5" />
