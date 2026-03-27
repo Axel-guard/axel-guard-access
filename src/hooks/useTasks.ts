@@ -173,6 +173,24 @@ export const useAddTaskUpdate = () => {
           .eq("id", taskId);
 
         if (taskError) throw taskError;
+
+        // Notify on ticket closure
+        if (statusChange === "Closed") {
+          const { data: taskData } = await supabase
+            .from("tasks")
+            .select("title, customer_name, company_name")
+            .eq("id", taskId)
+            .single();
+
+          createNotification(
+            "Ticket Closed",
+            `Ticket "${taskData?.title || "Unknown"}" for ${taskData?.customer_name || taskData?.company_name || "N/A"} has been closed.`,
+            "qc",
+            { task_id: taskId, event: "ticket_closed" },
+            "/tasks",
+            taskId
+          ).catch(console.error);
+        }
       }
 
       // Send email notification
