@@ -73,9 +73,18 @@ const categoryConfig: Record<Category, {
     textColor: "text-rose-600 dark:text-rose-400",
     ringColor: "ring-rose-500/30",
   },
+  quotationApproval: {
+    title: "Quotation Approval",
+    shortTitle: "Quotations",
+    icon: FileText,
+    gradient: "from-cyan-500 to-sky-500",
+    iconBg: "bg-cyan-500/10",
+    textColor: "text-cyan-600 dark:text-cyan-400",
+    ringColor: "ring-cyan-500/30",
+  },
 };
 
-const cats: Category[] = ["balancePayment", "dispatchPending", "trackingPending", "qcPending", "pendingTickets"];
+const cats: Category[] = ["balancePayment", "dispatchPending", "trackingPending", "qcPending", "pendingTickets", "quotationApproval"];
 
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
