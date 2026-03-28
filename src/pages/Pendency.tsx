@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePendency } from "@/hooks/usePendency";
-import { useDailyActivity } from "@/hooks/useDailyActivity";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   CreditCard, Truck, MapPin, ClipboardCheck, AlertCircle,
   RefreshCw, Search, Activity, TrendingDown, ExternalLink,
-  FileText, Check, X, Eye, ShoppingCart, Receipt, Wallet,
-  CalendarDays,
+  FileText, Check, X, Eye,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,9 +19,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createNotification } from "@/hooks/useNotifications";
 
-type ActivityTab = "sales" | "quotations" | "balanceReceived";
-
-const todayStr = () => new Date().toISOString().split("T")[0];
 type Category = "balancePayment" | "dispatchPending" | "trackingPending" | "qcPending" | "pendingTickets" | "quotationApproval";
 
 const categoryConfig: Record<Category, {
@@ -280,8 +275,6 @@ const PendencyPage = () => {
         </div>
       </div>
 
-      {/* ── Daily Activity Section ── */}
-      <DailyActivitySection />
     </div>
   );
 };
@@ -630,296 +623,5 @@ const QuotationApprovalTable = ({ rows, navigate, queryClient }: TableProps & { 
     </Table>
   );
 };
-
-// ── Daily Activity Section ──
-const DailyActivitySection = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const [activityTab, setActivityTab] = useState<ActivityTab>("sales");
-  const [dateFrom, setDateFrom] = useState(todayStr());
-  const [dateTo, setDateTo] = useState(todayStr());
-  const [activitySearch, setActivitySearch] = useState("");
-
-  const {
-    salesData, quotationsData, paymentsData,
-    salesSummary, quotationsSummary, paymentsSummary,
-    isLoading: activityLoading,
-  } = useDailyActivity(dateFrom, dateTo);
-
-  const handleActivityRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["daily-activity-sales"] });
-    queryClient.invalidateQueries({ queryKey: ["daily-activity-quotations"] });
-    queryClient.invalidateQueries({ queryKey: ["daily-activity-payments"] });
-  };
-
-  const activityTabs: { key: ActivityTab; label: string; icon: React.ElementType; gradient: string; iconBg: string; textColor: string; ringColor: string; count: number; total: number }[] = [
-    {
-      key: "sales",
-      label: "Sale",
-      icon: ShoppingCart,
-      gradient: "from-emerald-500 to-green-500",
-      iconBg: "bg-emerald-500/10",
-      textColor: "text-emerald-600 dark:text-emerald-400",
-      ringColor: "ring-emerald-500/30",
-      count: salesSummary.count,
-      total: salesSummary.total,
-    },
-    {
-      key: "quotations",
-      label: "Quotation",
-      icon: Receipt,
-      gradient: "from-violet-500 to-purple-500",
-      iconBg: "bg-violet-500/10",
-      textColor: "text-violet-600 dark:text-violet-400",
-      ringColor: "ring-violet-500/30",
-      count: quotationsSummary.count,
-      total: quotationsSummary.total,
-    },
-    {
-      key: "balanceReceived",
-      label: "Balance Payment Received",
-      icon: Wallet,
-      gradient: "from-blue-500 to-cyan-500",
-      iconBg: "bg-blue-500/10",
-      textColor: "text-blue-600 dark:text-blue-400",
-      ringColor: "ring-blue-500/30",
-      count: paymentsSummary.count,
-      total: paymentsSummary.total,
-    },
-  ];
-
-  const activeCfg = activityTabs.find((t) => t.key === activityTab)!;
-
-  const filteredActivityRows = useMemo(() => {
-    const raw =
-      activityTab === "sales" ? salesData :
-      activityTab === "quotations" ? quotationsData :
-      paymentsData;
-    if (!activitySearch) return raw;
-    const q = activitySearch.toLowerCase();
-    return raw.filter((r: any) => Object.values(r).some((v) => String(v ?? "").toLowerCase().includes(q)));
-  }, [activityTab, salesData, quotationsData, paymentsData, activitySearch]);
-
-  return (
-    <div className="space-y-4">
-      {/* Section header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/8 via-background to-blue-500/5 border border-border/50 p-5 sm:p-6">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-emerald-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-500 shadow-lg shadow-emerald-500/20">
-              <CalendarDays className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Daily Activity</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Sales · Quotations · Balance Payments Received</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Date range */}
-            <div className="flex items-center gap-2 bg-card/80 border border-border/50 rounded-xl px-3 py-1.5">
-              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setActivitySearch(""); }}
-                className="bg-transparent text-xs text-foreground outline-none w-[120px]"
-              />
-              <span className="text-muted-foreground text-xs">–</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setActivitySearch(""); }}
-                className="bg-transparent text-xs text-foreground outline-none w-[120px]"
-              />
-            </div>
-            <Button variant="outline" size="sm" onClick={handleActivityRefresh} className="gap-2 rounded-xl bg-card/80 backdrop-blur-sm hover:bg-card">
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary + tab cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {activityTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activityTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => { setActivityTab(tab.key); setActivitySearch(""); }}
-              className={cn(
-                "group relative overflow-hidden rounded-2xl border-2 bg-card p-4 text-left transition-all duration-200",
-                isActive
-                  ? `border-transparent ring-2 ${tab.ringColor} shadow-lg scale-[1.02]`
-                  : "border-border/50 hover:border-border hover:shadow-md hover:-translate-y-0.5"
-              )}
-            >
-              {isActive && (
-                <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${tab.gradient}`} />
-              )}
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl shrink-0", tab.iconBg)}>
-                  <Icon className={cn("h-4 w-4", tab.textColor)} />
-                </div>
-                <div className="text-right">
-                  <p className={cn("text-xl font-extrabold tabular-nums tracking-tight", tab.textColor)}>
-                    {fmtCurrency(tab.total)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{tab.count} {tab.count === 1 ? "record" : "records"}</p>
-                </div>
-              </div>
-              <p className="text-xs font-semibold text-foreground/80 truncate">{tab.label}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Detail table */}
-      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-border/50 bg-muted/30">
-          <div className="flex items-center gap-3">
-            <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", activeCfg.iconBg)}>
-              <activeCfg.icon className={cn("h-4 w-4", activeCfg.textColor)} />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">{activeCfg.label}</h2>
-              <p className="text-xs text-muted-foreground">{filteredActivityRows.length} record{filteredActivityRows.length !== 1 ? "s" : ""}</p>
-            </div>
-          </div>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder={`Search ${activeCfg.label.toLowerCase()}...`}
-              value={activitySearch}
-              onChange={(e) => setActivitySearch(e.target.value)}
-              className="pl-9 h-9 rounded-xl bg-background/80 border-border/50"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {activityLoading ? (
-            <div className="p-4 space-y-2">
-              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
-            </div>
-          ) : activityTab === "sales" ? (
-            <ActivitySalesTable rows={filteredActivityRows} />
-          ) : activityTab === "quotations" ? (
-            <ActivityQuotationsTable rows={filteredActivityRows} navigate={navigate} />
-          ) : (
-            <ActivityPaymentsTable rows={filteredActivityRows} />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Activity: Sales Table ──
-const ActivitySalesTable = ({ rows }: { rows: any[] }) =>
-  rows.length === 0 ? <EmptyState message="No sales in this date range" /> : (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="font-semibold">Order ID</TableHead>
-          <TableHead className="font-semibold">Customer</TableHead>
-          <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
-          <TableHead className="font-semibold hidden md:table-cell">Employee</TableHead>
-          <TableHead className="font-semibold text-right">Total Amount</TableHead>
-          <TableHead className="font-semibold text-right hidden sm:table-cell">Received</TableHead>
-          <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r: any) => (
-          <TableRow key={r.order_id} className="group">
-            <TableCell className="font-mono font-semibold text-primary">{r.order_id}</TableCell>
-            <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
-            <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
-            <TableCell className="hidden md:table-cell text-muted-foreground">{r.employee_name || "—"}</TableCell>
-            <TableCell className="text-right tabular-nums font-semibold text-emerald-600">{fmtCurrency(r.total_amount)}</TableCell>
-            <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">{fmtCurrency(r.amount_received)}</TableCell>
-            <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.sale_date)}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
-// ── Activity: Quotations Table ──
-const ActivityQuotationsTable = ({ rows, navigate }: { rows: any[]; navigate: (path: string, opts?: any) => void }) =>
-  rows.length === 0 ? <EmptyState message="No quotations in this date range" /> : (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="font-semibold">Quotation No.</TableHead>
-          <TableHead className="font-semibold hidden sm:table-cell">Date</TableHead>
-          <TableHead className="font-semibold">Customer</TableHead>
-          <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
-          <TableHead className="font-semibold text-right">Total Amount</TableHead>
-          <TableHead className="font-semibold">Status</TableHead>
-          <TableHead className="font-semibold text-center w-20">Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r: any) => (
-          <TableRow key={r.id} className="group">
-            <TableCell className="font-mono font-semibold text-primary">{r.quotation_no}</TableCell>
-            <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{fmtDate(r.quotation_date)}</TableCell>
-            <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
-            <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
-            <TableCell className="text-right tabular-nums font-semibold text-violet-600">{fmtCurrency(r.grand_total)}</TableCell>
-            <TableCell>
-              <Badge variant="outline" className="text-xs">{r.status || "—"}</Badge>
-            </TableCell>
-            <TableCell className="text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/quotations", { state: { viewQuotationId: r.id } })}
-                className="h-7 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-lg"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">View</span>
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
-// ── Activity: Balance Payments Received Table ──
-const ActivityPaymentsTable = ({ rows }: { rows: any[] }) =>
-  rows.length === 0 ? <EmptyState message="No payments received in this date range" /> : (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="font-semibold">Order ID</TableHead>
-          <TableHead className="font-semibold">Customer</TableHead>
-          <TableHead className="font-semibold hidden lg:table-cell">Company</TableHead>
-          <TableHead className="font-semibold text-right">Amount</TableHead>
-          <TableHead className="font-semibold hidden md:table-cell">Account Received</TableHead>
-          <TableHead className="font-semibold hidden sm:table-cell">Reference</TableHead>
-          <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r: any) => (
-          <TableRow key={r.id} className="group">
-            <TableCell className="font-mono font-semibold text-primary">{r.order_id}</TableCell>
-            <TableCell className="font-medium">{r.customer_name || "—"}</TableCell>
-            <TableCell className="hidden lg:table-cell text-muted-foreground">{r.company_name || "—"}</TableCell>
-            <TableCell className="text-right tabular-nums font-semibold text-blue-600">{fmtCurrency(r.amount)}</TableCell>
-            <TableCell className="hidden md:table-cell text-muted-foreground">{r.account_received || "—"}</TableCell>
-            <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{r.payment_reference || "—"}</TableCell>
-            <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{fmtDate(r.payment_date)}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
 
 export default PendencyPage;
