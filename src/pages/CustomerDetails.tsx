@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { CustomerTabs } from "@/components/customer/CustomerTabs";
 import { cn } from "@/lib/utils";
 
 const CustomerDetailsPage = () => {
+  const location = useLocation();
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -24,6 +26,16 @@ const CustomerDetailsPage = () => {
 
   const { data: customer, isLoading, isError } = useCustomerSearch(activeSearch);
   const { data: suggestions = [] } = useCustomerSuggestions(searchInput);
+
+  // Auto-load customer when navigated here with preloadCode state
+  useEffect(() => {
+    const code = (location.state as { preloadCode?: string } | null)?.preloadCode;
+    if (code) {
+      setSearchInput(code);
+      setActiveSearch(code);
+      setShowDropdown(false);
+    }
+  }, [location.state]);
 
   // Close dropdown on outside click
   useEffect(() => {
