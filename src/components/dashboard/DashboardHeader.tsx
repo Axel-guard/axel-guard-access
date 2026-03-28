@@ -251,13 +251,8 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
                 </Badge>
               </div>
               <DropdownMenuSeparator />
-              {isAdmin && (
-                <DropdownMenuItem onClick={() => navigate("/user-management")} className="cursor-pointer">
-                  <Shield className="h-4 w-4 mr-2" />User Management
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
-                <User className="h-4 w-4 mr-2" />Settings
+                <Shield className="h-4 w-4 mr-2" />User Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">

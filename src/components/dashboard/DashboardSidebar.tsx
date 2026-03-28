@@ -8,7 +8,6 @@ import {
   Package,
   Truck,
   FileText,
-  Settings,
   X,
   ChevronDown,
   ChevronRight,
@@ -109,16 +108,6 @@ const navItems: NavItem[] = [
       { icon: Tag, label: "Pricing", path: "/pricing" },
     ],
   },
-  {
-    icon: Shield,
-    label: "User Management",
-    masterAdminOnly: true,
-    children: [
-      { icon: Shield, label: "User Settings", path: "/user-management" },
-      { icon: Users, label: "Employee Management", path: "/employee-management" },
-    ],
-  },
-  { icon: Settings, label: "Settings", path: "/settings", adminOnly: true },
 ];
 
 export const DashboardSidebar = ({ isOpen, onClose }: DashboardSidebarProps) => {

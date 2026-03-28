@@ -78,22 +78,19 @@ const Tasks = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data: employees } = await supabase
-        .from("employees")
-        .select("name, email, user_id, employee_role")
-        .eq("is_active", true);
+      // Use RPC so we get names even when employees.user_id isn't populated
+      const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
 
-      if (!employees) return;
+      if (!profiles) return;
 
       const emailMap: Record<string, string> = {};
       const nameMap: Record<string, string> = {};
       const roleMap: Record<string, string> = {};
 
-      for (const emp of employees) {
-        if (!emp.user_id) continue;
-        emailMap[emp.user_id] = emp.email || "";
-        nameMap[emp.user_id] = emp.name;
-        roleMap[emp.user_id] = emp.employee_role || "User";
+      for (const p of profiles as { user_id: string; email: string; name: string; employee_role: string }[]) {
+        emailMap[p.user_id] = p.email || "";
+        nameMap[p.user_id] = p.name;
+        roleMap[p.user_id] = p.employee_role || "User";
       }
 
       setUserEmails(emailMap);

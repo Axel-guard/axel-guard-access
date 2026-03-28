@@ -25,7 +25,7 @@ import {
   AlertCircle,
   XCircle,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { QuotationProductRow } from "./QuotationProductRow";
@@ -41,6 +41,7 @@ import {
 } from "@/hooks/useQuotations";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
 
 interface QuotationFormProps {
@@ -62,6 +63,7 @@ interface Lead {
 
 export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: QuotationFormProps) => {
   const navigate = useNavigate();
+  const { isMasterAdmin } = useAuth();
   const { data: nextQuotationNo } = useGenerateQuotationNo();
   const createQuotation = useCreateQuotation();
   const updateQuotation = useUpdateQuotation();
@@ -399,6 +401,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       createdRole = roleData?.role || "user";
     }
 
+    // Master Admin skips approval — quotation goes straight to Approved
+    const initialStatus = isMasterAdmin ? "Approved" : "Pending Approval";
+
     const quotationData = {
       quotation_no: quotationNo,
       quotation_date: new Date(quotationDate).toISOString(),
@@ -420,26 +425,44 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       courier_gst_amount: courierGst,
       grand_total: grandTotal,
       ...(!isEditMode && {
-        status: "Pending Approval",
+        status: initialStatus,
         created_by: user?.id,
         created_role: createdRole,
+        ...(isMasterAdmin && {
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+        }),
       }),
     };
 
     const validItems = items.filter((i) => i.product_code);
 
+    let savedQuotation: { id: string } | null = null;
+
     if (isEditMode && editQuotationId) {
-      console.log("Updating quotation:", editQuotationId);
       await updateQuotation.mutateAsync({
         quotationId: editQuotationId,
         quotation: quotationData,
         items: validItems,
       });
     } else {
-      await createQuotation.mutateAsync({
+      savedQuotation = await createQuotation.mutateAsync({
         quotation: quotationData as any,
         items: validItems,
       });
+    }
+
+    // If master admin created new quotation, auto-send email to customer
+    if (isMasterAdmin && !isEditMode && savedQuotation?.id) {
+      try {
+        await supabase.functions.invoke("send-email", {
+          body: { type: "quotation", quotationId: savedQuotation.id },
+        });
+        // Update status to Sent
+        await supabase.from("quotations").update({ status: "Sent" }).eq("id", savedQuotation.id);
+      } catch (e) {
+        console.error("Failed to send auto-approval email:", e);
+      }
     }
 
     onSuccess?.();

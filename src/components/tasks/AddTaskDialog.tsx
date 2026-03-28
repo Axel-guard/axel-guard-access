@@ -58,25 +58,23 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
-      const { data: employees } = await supabase
-        .from("employees")
-        .select("name, email, employee_role, user_id")
-        .eq("is_active", true);
+      // Use RPC so we resolve names via auth.users → employees email match,
+      // even when employees.user_id is not explicitly set
+      const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
 
-      if (!employees) return;
+      if (!profiles) return;
 
-      const userList: AllowedUser[] = [];
       const seen = new Set<string>();
+      const userList: AllowedUser[] = [];
 
-      for (const emp of employees) {
-        if (!emp.user_id || seen.has(emp.user_id)) continue;
-        seen.add(emp.user_id);
-
+      for (const p of profiles as { user_id: string; email: string; name: string; employee_role: string }[]) {
+        if (seen.has(p.user_id)) continue;
+        seen.add(p.user_id);
         userList.push({
-          userId: emp.user_id,
-          email: emp.email || "",
-          name: emp.name,
-          role: emp.employee_role || "User",
+          userId: p.user_id,
+          email: p.email || "",
+          name: p.name,
+          role: p.employee_role || "User",
         });
       }
 

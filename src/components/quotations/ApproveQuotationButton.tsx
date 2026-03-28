@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useHasPermission } from "@/hooks/useRolePermissions";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -38,6 +39,7 @@ export const ApproveQuotationButton = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const canApprove = useHasPermission("quotation_approve");
 
   const approveMutation = useMutation({
     mutationFn: async () => {
@@ -140,8 +142,8 @@ export const ApproveQuotationButton = ({
     },
   });
 
-  // Only show for Master Admin and only for Pending Approval status
-  if (!isMasterAdmin || status !== "Pending Approval") {
+  // Show for anyone with quotation_approve permission (master admin always has it)
+  if (!canApprove || status !== "Pending Approval") {
     return null;
   }
 

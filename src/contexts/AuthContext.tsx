@@ -5,7 +5,7 @@ import { hardResetSession, redirectToAuth } from "@/lib/authUtils";
 import { AuthTimeoutError, isAuthNetworkError, validateAuthConfig, withTimeout } from "@/lib/authNetwork";
 import { toast } from "sonner";
 
-type AppRole = "master_admin" | "admin" | "user";
+type AppRole = "master_admin" | "admin" | "manager" | "user";
 
 interface AuthContextType {
   user: User | null;
@@ -13,6 +13,7 @@ interface AuthContextType {
   role: AppRole | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isManager: boolean;
   isMasterAdmin: boolean;
   signOut: () => Promise<void>;
   checkEmailAllowed: (email: string) => Promise<boolean>;
@@ -246,6 +247,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     role,
     isLoading,
     isAdmin: role === "admin" || role === "master_admin",
+    isManager: role === "manager",
     isMasterAdmin: role === "master_admin",
     signOut,
     checkEmailAllowed,
