@@ -15,6 +15,7 @@ import { Check, ChevronsUpDown, Trash2 } from "lucide-react";
 import { QuotationItem } from "@/hooks/useQuotations";
 import { useMemo, useRef, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -27,6 +28,7 @@ interface QuotationProductRowProps {
   index: number;
   item: QuotationItem;
   products: Product[];
+  customerCode?: string;
   onUpdate: (index: number, field: keyof QuotationItem, value: any) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
@@ -42,10 +44,46 @@ const TAX_OPTIONS = [
 
 const UNIT_OPTIONS = ["Pcs", "Nos", "Set", "Kit", "Box", "Pair", "Lot"];
 
+async function fetchLastSoldPriceForProduct(
+  customerCode: string,
+  productName: string
+): Promise<number | null> {
+  try {
+    const { data: salesData } = await supabase
+      .from("sales")
+      .select("order_id")
+      .eq("customer_code", customerCode.trim())
+      .order("sale_date", { ascending: false })
+      .limit(30);
+
+    if (!salesData?.length) return null;
+
+    const orderIds = salesData.map((s) => s.order_id);
+
+    const { data: itemsData } = await supabase
+      .from("sale_items")
+      .select("unit_price, order_id")
+      .in("order_id", orderIds)
+      .eq("product_name", productName);
+
+    if (!itemsData?.length) return null;
+
+    // Pick the price from the most recent sale (orderIds is already sorted by date desc)
+    for (const orderId of orderIds) {
+      const match = itemsData.find((i) => i.order_id === orderId);
+      if (match) return Number(match.unit_price);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const QuotationProductRow = ({
   index,
   item,
   products,
+  customerCode,
   onUpdate,
   onRemove,
   canRemove,
@@ -53,6 +91,7 @@ export const QuotationProductRow = ({
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [productOpen, setProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [lastSoldPrice, setLastSoldPrice] = useState<number | null>(null);
 
   const filteredByCategory = useMemo(() => {
     const q = productSearch.toLowerCase().trim();
@@ -89,19 +128,40 @@ export const QuotationProductRow = ({
   const finalAmount = lineAmount + taxAmount;
 
   const handleProductChange = useCallback(
-    (productCode: string) => {
+    async (productCode: string) => {
       const product = products.find((p) => p.product_code === productCode);
       if (product) {
         onUpdate(index, "product_code", product.product_code);
         onUpdate(index, "product_name", product.product_name);
-        const qty = getNum(item.quantity);
-        const price = getNum(item.unit_price);
-        onUpdate(index, "amount", qty * price);
+
+        // Auto-fill last sold price for this customer+product
+        if (customerCode?.trim()) {
+          const lastPrice = await fetchLastSoldPriceForProduct(
+            customerCode,
+            product.product_name
+          );
+          if (lastPrice !== null) {
+            setLastSoldPrice(lastPrice);
+            onUpdate(index, "unit_price", String(lastPrice));
+            const qty = getNum(item.quantity);
+            onUpdate(index, "amount", qty * lastPrice);
+          } else {
+            setLastSoldPrice(null);
+            const qty = getNum(item.quantity);
+            const price = getNum(item.unit_price);
+            onUpdate(index, "amount", qty * price);
+          }
+        } else {
+          setLastSoldPrice(null);
+          const qty = getNum(item.quantity);
+          const price = getNum(item.unit_price);
+          onUpdate(index, "amount", qty * price);
+        }
       }
       setProductOpen(false);
       setProductSearch("");
     },
-    [products, index, onUpdate, item.quantity, item.unit_price]
+    [products, index, onUpdate, item.quantity, item.unit_price, customerCode]
   );
 
   const handleQuantityChange = useCallback(
@@ -271,10 +331,15 @@ export const QuotationProductRow = ({
           min="0"
           step="0.01"
           value={item.unit_price}
-          onChange={(e) => handlePriceChange(e.target.value)}
+          onChange={(e) => { setLastSoldPrice(null); handlePriceChange(e.target.value); }}
           placeholder="Price"
-          className="h-9 text-sm text-right border-muted"
+          className={cn("h-9 text-sm text-right border-muted", lastSoldPrice !== null && "border-primary/50")}
         />
+        {lastSoldPrice !== null && (
+          <p className="text-[10px] text-primary mt-0.5 text-right leading-tight">
+            Last: ₹{lastSoldPrice.toLocaleString("en-IN")}
+          </p>
+        )}
       </td>
 
       {/* Tax % */}

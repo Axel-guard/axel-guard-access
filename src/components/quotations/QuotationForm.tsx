@@ -763,6 +763,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
                     index={index}
                     item={item}
                     products={products}
+                    customerCode={customerFound === true ? customerCode : undefined}
                     onUpdate={handleUpdateItem}
                     onRemove={handleRemoveItem}
                     canRemove={items.length > 1}

@@ -36,6 +36,7 @@ interface ProductItem {
   product_name: string;
   quantity: string;
   unit_price: string;
+  lastSoldPrice?: number | null;
 }
 
 const ACCOUNTS = ["IDFC4828", "IDFC7455", "Canara", "Cash"];
@@ -159,9 +160,38 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     return () => clearTimeout(timer);
   }, [formData.customerCode, lookupCustomer]);
 
+  const fetchLastSoldPrice = async (customerCode: string, productName: string): Promise<number | null> => {
+    try {
+      const { data: salesData } = await supabase
+        .from("sales")
+        .select("order_id")
+        .eq("customer_code", customerCode.trim())
+        .order("sale_date", { ascending: false })
+        .limit(30);
+
+      if (!salesData?.length) return null;
+      const orderIds = salesData.map((s) => s.order_id);
+
+      const { data: itemsData } = await supabase
+        .from("sale_items")
+        .select("unit_price, order_id")
+        .in("order_id", orderIds)
+        .eq("product_name", productName);
+
+      if (!itemsData?.length) return null;
+      for (const orderId of orderIds) {
+        const match = itemsData.find((i) => i.order_id === orderId);
+        if (match) return Number(match.unit_price);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const addProduct = () => {
     if (products.length < 10) {
-      setProducts([...products, { category: "", product_name: "", quantity: "", unit_price: "" }]);
+      setProducts([...products, { category: "", product_name: "", quantity: "", unit_price: "", lastSoldPrice: null }]);
     }
   };
 
@@ -171,14 +201,34 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     }
   };
 
-  const updateProduct = (index: number, field: keyof ProductItem, value: string | number) => {
+  const updateProduct = async (index: number, field: keyof ProductItem, value: string | number) => {
     const updated = [...products];
     if (field === "category") {
-      updated[index] = { ...updated[index], category: value as string, product_name: "" };
+      updated[index] = { ...updated[index], category: value as string, product_name: "", lastSoldPrice: null };
+      setProducts(updated);
+    } else if (field === "product_name") {
+      updated[index] = { ...updated[index], product_name: value as string, lastSoldPrice: null };
+      setProducts([...updated]);
+      // Auto-fill last sold price if customer is known
+      const customerCode = formData.customerCode.trim();
+      if (customerCode && value) {
+        const lastPrice = await fetchLastSoldPrice(customerCode, value as string);
+        if (lastPrice !== null) {
+          setProducts((prev) => {
+            const next = [...prev];
+            next[index] = { ...next[index], unit_price: String(lastPrice), lastSoldPrice: lastPrice };
+            return next;
+          });
+        }
+      }
     } else {
-      updated[index] = { ...updated[index], [field]: value };
+      if (field === "unit_price") {
+        updated[index] = { ...updated[index], unit_price: value as string, lastSoldPrice: null };
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      setProducts(updated);
     }
-    setProducts(updated);
   };
 
   // Calculations - GST only applied when Sale Type is "With GST (18%)"
@@ -632,15 +682,21 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
                   placeholder="Enter qty"
                 />
                 
-                <Input
-                  type="number"
-                  min="0"
-                  value={product.unit_price}
-                  onChange={(e) =>
-                    updateProduct(index, "unit_price", e.target.value)
-                  }
-                  placeholder="Enter price"
-                />
+                <div>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={product.unit_price}
+                    onChange={(e) => updateProduct(index, "unit_price", e.target.value)}
+                    placeholder="Enter price"
+                    className={product.lastSoldPrice != null ? "border-primary/50" : ""}
+                  />
+                  {product.lastSoldPrice != null && (
+                    <p className="text-[10px] text-primary mt-0.5 leading-tight">
+                      Last sold: ₹{product.lastSoldPrice.toLocaleString("en-IN")}
+                    </p>
+                  )}
+                </div>
                 
                 <Input
                   readOnly
