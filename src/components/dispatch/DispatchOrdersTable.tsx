@@ -55,16 +55,24 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
 
   const canDelete = isAdmin || isMasterAdmin;
 
-  // Fetch product types from DB for service detection
   const { data: productTypesMap } = useQuery({
-    queryKey: ["product-types-map"],
+    queryKey: ["dispatch-orders-product-types-map"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("product_name, product_type");
+
       if (error) throw error;
+
       const map: Record<string, string> = {};
-      (data || []).forEach(p => { map[p.product_name] = p.product_type || "physical"; });
+      (data || []).forEach((product) => {
+        const normalizedType = product.product_name === "MDVR Connector"
+          ? "service"
+          : (product.product_type || "physical");
+
+        map[product.product_name] = normalizedType;
+      });
+
       return map;
     },
   });
@@ -73,9 +81,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
     return (productTypesMap || {})[productName] === "service";
   };
 
-  // Calculate dispatch status for each order
   const getOrderDispatchInfo = (order: Sale) => {
-    // Check for manual override first
     if ((order as any).dispatch_status_override === "Done") {
       const orderSaleItems = saleItems.filter(item => item.order_id === order.order_id);
       const totalItems = orderSaleItems.reduce((sum, item) => sum + Number(item.quantity), 0);
@@ -103,8 +109,15 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
     if (dispatched === 0) status = "Pending";
     else if (dispatched < totalItems) status = "Partially Dispatched";
     else if (dispatched >= totalItems && totalItems > 0) status = "Completed";
-    
+
     return { totalItems, dispatched, remaining, status };
+  };
+
+  const shouldShowDispatchButton = (
+    order: Sale | null,
+    dispatchInfo: ReturnType<typeof getOrderDispatchInfo>
+  ) => {
+    return Boolean(order?.order_id) && dispatchInfo.totalItems > 0 && dispatchInfo.remaining > 0 && dispatchInfo.status !== "Completed";
   };
 
   const getStatusBadge = (status: string) => {
@@ -180,7 +193,8 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
               {orders.map((order, index) => {
                 const dispatchInfo = getOrderDispatchInfo(order);
                 const hasDispatches = dispatchInfo.dispatched > 0;
-                
+                const showDispatchButton = shouldShowDispatchButton(order, dispatchInfo);
+
                 return (
                   <TableRow key={order.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium text-primary">
@@ -215,8 +229,7 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {/* Show Dispatch button if there are remaining items */}
-                        {dispatchInfo.remaining > 0 && (
+                        {showDispatchButton && (
                           <Button 
                             size="sm" 
                             className="gap-1 bg-primary hover:bg-primary/90"
@@ -226,7 +239,6 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                             Dispatch
                           </Button>
                         )}
-                        {/* Show View button if any dispatches have been done */}
                         {hasDispatches && (
                           <Button 
                             size="sm" 
@@ -238,7 +250,6 @@ export const DispatchOrdersTable = ({ orders, shipments, saleItems, dispatchedIn
                             View
                           </Button>
                         )}
-                        {/* Show Delete for admins if dispatches exist */}
                         {hasDispatches && canDelete && (
                           <Button
                             size="sm"
