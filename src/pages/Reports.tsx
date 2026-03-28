@@ -6,8 +6,9 @@ import { SalesReportSection } from "@/components/reports/SalesReportSection";
 import { EmployeePerformanceSection } from "@/components/reports/EmployeePerformanceSection";
 import { QuarterlyReportSection } from "@/components/reports/QuarterlyReportSection";
 import { TodayWorkDoneSection } from "@/components/reports/TodayWorkDoneSection";
+import { ProductReportSection } from "@/components/reports/ProductReportSection";
 import { useSearchParams } from "react-router-dom";
-import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar, Activity } from "lucide-react";
+import { Package, Truck, ClipboardCheck, BarChart3, TrendingUp, Target, Calendar, Activity, Package2 } from "lucide-react";
 
 const ReportsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,7 +33,7 @@ const ReportsPage = () => {
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full max-w-4xl grid-cols-7 bg-muted/50">
+        <TabsList className="grid w-full max-w-5xl grid-cols-8 bg-muted/50">
           <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Today</span>
@@ -60,6 +61,10 @@ const ReportsPage = () => {
           <TabsTrigger value="qc" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <ClipboardCheck className="h-4 w-4" />
             <span className="hidden sm:inline">QC</span>
+          </TabsTrigger>
+          <TabsTrigger value="product" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Package2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Products</span>
           </TabsTrigger>
         </TabsList>
 
@@ -89,6 +94,10 @@ const ReportsPage = () => {
 
         <TabsContent value="qc" className="mt-6">
           <QCReportSection />
+        </TabsContent>
+
+        <TabsContent value="product" className="mt-6">
+          <ProductReportSection />
         </TabsContent>
       </Tabs>
     </div>

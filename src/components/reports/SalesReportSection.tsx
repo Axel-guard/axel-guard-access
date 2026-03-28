@@ -45,16 +45,47 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
-type DateFilter = "this-month" | "last-3-months" | "this-year" | "all";
+type DateFilter = "this-month" | "last-3-months" | "this-year" | "all" | "custom";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Financial year months order: Apr=0 … Mar=11
+const FY_MONTHS = [3,4,5,6,7,8,9,10,11,0,1,2]; // month indices
+
+function getCurrentFinancialYear() {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
 
 export const SalesReportSection = () => {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const currentFY = getCurrentFinancialYear();
+  // Custom range: from month/year → to month/year
+  const [fromMonth, setFromMonth] = useState(new Date().getMonth());
+  const [fromYear, setFromYear] = useState(new Date().getFullYear());
+  const [toMonth, setToMonth] = useState(new Date().getMonth());
+  const [toYear, setToYear] = useState(new Date().getFullYear());
+
+  // Build Date objects for the hook
+  const customStartDate = dateFilter === "custom" ? new Date(fromYear, fromMonth, 1) : undefined;
+  const customEndDate = dateFilter === "custom"
+    ? new Date(toYear, toMonth + 1, 1) // exclusive: first day of next month
+    : undefined;
+
   const { data, isLoading } = useSalesReport({
     dateFilter,
     searchQuery,
+    customStartDate,
+    customEndDate,
   });
+
+  // Build year options: last 5 financial years
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentFY - i);
 
   const handleExport = () => {
     if (!data) return;
@@ -264,8 +295,8 @@ export const SalesReportSection = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap items-end">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by name, company, mobile..."
@@ -285,10 +316,67 @@ export const SalesReportSection = () => {
           <SelectContent>
             <SelectItem value="this-month">This Month</SelectItem>
             <SelectItem value="last-3-months">Last 3 Months</SelectItem>
-            <SelectItem value="this-year">This Year</SelectItem>
+            <SelectItem value="this-year">This Financial Year</SelectItem>
             <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="custom">Custom Month Range</SelectItem>
           </SelectContent>
         </Select>
+
+        {dateFilter === "custom" && (
+          <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">From</span>
+              <div className="flex gap-1">
+                <Select value={String(fromMonth)} onValueChange={(v) => setFromMonth(Number(v))}>
+                  <SelectTrigger className="w-[120px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FY_MONTHS.map((m) => (
+                      <SelectItem key={m} value={String(m)}>{MONTHS[m]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={String(fromYear)} onValueChange={(v) => setFromYear(Number(v))}>
+                  <SelectTrigger className="w-[80px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <span className="text-muted-foreground text-sm pb-1">→</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">To</span>
+              <div className="flex gap-1">
+                <Select value={String(toMonth)} onValueChange={(v) => setToMonth(Number(v))}>
+                  <SelectTrigger className="w-[120px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FY_MONTHS.map((m) => (
+                      <SelectItem key={m} value={String(m)}>{MONTHS[m]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={String(toYear)} onValueChange={(v) => setToYear(Number(v))}>
+                  <SelectTrigger className="w-[80px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Client Table */}

@@ -132,6 +132,28 @@ export const QuarterlyReportSection = () => {
     avgOrderValue: q.avgOrderValue,
   }));
 
+  // Insights calculations
+  const grandTotal = employeeQuarterlyData.reduce((s, e) => s + e.currentQuarterRevenue, 0);
+  const topContributionPct = grandTotal > 0 && employeeQuarterlyData.length > 0
+    ? (employeeQuarterlyData[0].currentQuarterRevenue / grandTotal) * 100
+    : 0;
+
+  const bestCompanyQuarter = companyQuarterlyData.reduce(
+    (best, q) => (q.revenue > best.revenue ? q : best),
+    companyQuarterlyData[0]
+  );
+
+  // QoQ growth summary across all quarters with data
+  const qoqGrowths = companyQuarterlyData
+    .filter((q) => q.growthPercent !== null && q.revenue > 0)
+    .map((q) => q.growthPercent as number);
+  const avgQoQGrowth = qoqGrowths.length > 0
+    ? qoqGrowths.reduce((s, g) => s + g, 0) / qoqGrowths.length
+    : null;
+
+  // Total for % of Total column
+  const totalAllRevenue = employeeQuarterlyData.reduce((s, e) => s + e.totalRevenue, 0);
+
   return (
     <div className="space-y-6">
       {/* Highlight Cards */}
@@ -207,6 +229,60 @@ export const QuarterlyReportSection = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Insights Section */}
+      <Card className="border-border/50 bg-card/80 shadow-lg">
+        <CardHeader className="flex-row items-center gap-3 space-y-0 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <BarChart3 className="h-5 w-5 text-primary" />
+          </div>
+          <CardTitle className="text-lg">Quarterly Insights</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wide">
+                Top Performer Contribution
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {topContributionPct.toFixed(1)}%
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {highlights.topPerformerThisQuarter?.name || "—"} of {highlights.currentQuarter} total
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wide">
+                Best Quarter
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {bestCompanyQuarter?.quarter || "—"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {bestCompanyQuarter ? formatCurrency(bestCompanyQuarter.revenue) : "—"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wide">
+                Avg QoQ Growth
+              </p>
+              <p className={cn(
+                "text-2xl font-bold",
+                avgQoQGrowth === null
+                  ? "text-muted-foreground"
+                  : avgQoQGrowth >= 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"
+              )}>
+                {avgQoQGrowth === null
+                  ? "N/A"
+                  : `${avgQoQGrowth >= 0 ? "+" : ""}${avgQoQGrowth.toFixed(1)}%`}
+              </p>
+              <p className="text-sm text-muted-foreground">across quarters with data</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabs for Company vs Employee */}
       <Tabs defaultValue="company" className="space-y-6">
@@ -341,18 +417,25 @@ export const QuarterlyReportSection = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         {q.growthPercent !== null ? (
-                          <div className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold",
-                            q.growthPercent >= 0
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          )}>
-                            {q.growthPercent >= 0 ? (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowDown className="h-3.5 w-3.5" />
+                          <div className="flex flex-col items-center gap-0.5">
+                            <div className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold",
+                              q.growthPercent >= 0
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            )}>
+                              {q.growthPercent >= 0 ? (
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              )}
+                              {Math.abs(q.growthPercent).toFixed(1)}%
+                            </div>
+                            {q.prevRevenue > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatLakhs(q.prevRevenue)} → {formatLakhs(q.revenue)}
+                              </span>
                             )}
-                            {Math.abs(q.growthPercent).toFixed(1)}%
                           </div>
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -445,6 +528,7 @@ export const QuarterlyReportSection = () => {
                       <TableHead className="text-center">Orders</TableHead>
                       <TableHead>Best Quarter</TableHead>
                       <TableHead className="text-center">Q Growth</TableHead>
+                      <TableHead className="text-center">% of Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -484,19 +568,38 @@ export const QuarterlyReportSection = () => {
                           <Badge variant="outline">{emp.bestQuarter}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold",
-                            emp.quarterGrowth >= 0
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          )}>
-                            {emp.quarterGrowth >= 0 ? (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowDown className="h-3.5 w-3.5" />
+                          <div className="flex flex-col items-center gap-0.5">
+                            <div className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold",
+                              emp.quarterGrowth >= 0
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            )}>
+                              {emp.quarterGrowth >= 0 ? (
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              )}
+                              {Math.abs(emp.quarterGrowth).toFixed(1)}%
+                            </div>
+                            {(emp as any).prevQuarterRevenue > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatLakhs((emp as any).prevQuarterRevenue)} → {formatLakhs(emp.currentQuarterRevenue)}
+                              </span>
                             )}
-                            {Math.abs(emp.quarterGrowth).toFixed(1)}%
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className={cn(
+                            "text-xs font-semibold",
+                            totalAllRevenue > 0 && (emp.totalRevenue / totalAllRevenue) * 100 >= 20
+                              ? "border-emerald-400 text-emerald-600"
+                              : "border-border text-muted-foreground"
+                          )}>
+                            {totalAllRevenue > 0
+                              ? `${((emp.totalRevenue / totalAllRevenue) * 100).toFixed(1)}%`
+                              : "—"}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}

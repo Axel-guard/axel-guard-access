@@ -52,10 +52,13 @@ export const useSalesReport = (options: UseSalesReportOptions) => {
           startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
           break;
-        case "this-year":
-          startDate = new Date(now.getFullYear(), 0, 1);
-          endDate = new Date(now.getFullYear() + 1, 0, 1);
+        case "this-year": {
+          // Financial year: April 1 → March 31
+          const fy = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+          startDate = new Date(fy, 3, 1);        // Apr 1
+          endDate = new Date(fy + 1, 3, 1);      // Apr 1 next year (exclusive)
           break;
+        }
         case "custom":
           startDate = options.customStartDate || null;
           endDate = options.customEndDate || null;
