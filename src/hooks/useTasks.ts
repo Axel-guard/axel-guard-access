@@ -6,6 +6,7 @@ import { createNotification } from "@/hooks/useNotifications";
 
 export interface Task {
   id: string;
+  ticket_number: number | null;
   title: string;
   description: string | null;
   customer_code: string | null;

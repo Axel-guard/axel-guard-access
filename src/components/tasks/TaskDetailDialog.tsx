@@ -193,7 +193,12 @@ export const TaskDetailDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            {task.ticket_number && (
+              <span className="text-sm font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shrink-0">
+                #{task.ticket_number}
+              </span>
+            )}
             {task.title}
           </DialogTitle>
         </DialogHeader>

@@ -147,6 +147,7 @@ function getTicketCustomerEmail(
 
   const ticketInfoSection = `
     <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0;">
+      ${task.ticket_number ? `<p style="margin: 0 0 6px; color: #1e40af; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">TICKET #${task.ticket_number}</p>` : ""}
       <h3 style="margin: 0 0 8px; color: #1e40af;">${task.title}</h3>
       <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;">Priority: ${getPriorityBadge(task.priority as string || "Normal")}</p>
       ${task.description && isCreated ? `<p style="margin: 8px 0 0; color: #4b5563;">${task.description}</p>` : ""}
@@ -170,10 +171,11 @@ function getTicketCustomerEmail(
       }).join("")}
     </ul>` : "";
 
+  const ticketRef = task.ticket_number ? `[Ticket #${task.ticket_number}] ` : "";
   const subjectPrefix = isCreated ? "Regarding Your Request" : isClosed ? "Ticket Resolved" : "Re: Update Regarding Your Request";
 
   return {
-    subject: `${subjectPrefix} – ${task.title}`,
+    subject: `${ticketRef}${subjectPrefix} – ${task.title}`,
     body: `
 <!DOCTYPE html>
 <html>
@@ -242,8 +244,10 @@ function getInternalTicketEmail(
   const headerColor = isCreated ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)" : "linear-gradient(135deg, #059669 0%, #10b981 100%)";
   const headerTitle = isCreated ? "📌 New Ticket Assigned" : "📝 Ticket Update";
 
+  const ticketRef = task.ticket_number ? `[Ticket #${task.ticket_number}] ` : "";
+
   return {
-    subject: isCreated ? `New Ticket Assigned: ${task.title}` : `Re: Ticket Update: ${task.title}`,
+    subject: isCreated ? `${ticketRef}New Ticket Assigned: ${task.title}` : `${ticketRef}Re: Ticket Update: ${task.title}`,
     body: `
 <!DOCTYPE html>
 <html>

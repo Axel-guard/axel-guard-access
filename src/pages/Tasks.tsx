@@ -120,9 +120,9 @@ const Tasks = () => {
     if (tab === "wip") {
       result = result.filter((t) => t.status === "WIP" || t.status === "Pending Master Approval");
     } else if (tab === "assigned-by-me") {
-      result = result.filter((t) => t.created_by === user?.id);
+      result = result.filter((t) => t.created_by === user?.id && t.status !== "Closed");
     } else if (tab === "assigned-to-me") {
-      result = result.filter((t) => t.assigned_to === user?.id);
+      result = result.filter((t) => t.assigned_to === user?.id && t.status !== "Closed");
     } else if (tab === "pending-approval") {
       result = result.filter((t) => t.status === "Pending Master Approval");
     } else if (tab === "closed") {
@@ -145,8 +145,8 @@ const Tasks = () => {
 
   const counts = useMemo(() => {
     const wip = tasks.filter((t) => t.status === "WIP" || t.status === "Pending Master Approval");
-    const assignedByMe = tasks.filter((t) => t.created_by === user?.id);
-    const assignedToMe = tasks.filter((t) => t.assigned_to === user?.id);
+    const assignedByMe = tasks.filter((t) => t.created_by === user?.id && t.status !== "Closed");
+    const assignedToMe = tasks.filter((t) => t.assigned_to === user?.id && t.status !== "Closed");
     const pendingApproval = tasks.filter((t) => t.status === "Pending Master Approval");
     const closed = tasks.filter((t) => t.status === "Closed");
     return {
@@ -315,7 +315,12 @@ const Tasks = () => {
                         <div className="flex-1 flex items-center gap-4 p-3 sm:p-4 min-w-0">
                           {/* Main content */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              {ticket.ticket_number && (
+                                <span className="text-[11px] font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                                  #{ticket.ticket_number}
+                                </span>
+                              )}
                               {ticket.company_name && (
                                 <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               )}
