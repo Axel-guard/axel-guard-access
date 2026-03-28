@@ -39,8 +39,9 @@ const priorityColors: Record<string, string> = {
   Urgent: "text-red-600",
 };
 
-function getTicketAgeDays(createdAt: string): number {
-  return differenceInDays(new Date(), new Date(createdAt));
+function getTicketAgeDays(createdAt: string, completedAt?: string | null): number {
+  const end = completedAt ? new Date(completedAt) : new Date();
+  return differenceInDays(end, new Date(createdAt));
 }
 
 function getAgeColor(days: number): string {
@@ -294,7 +295,7 @@ const Tasks = () => {
               ) : (
                 <div className="space-y-2">
                   {filtered.map((ticket) => {
-                    const age = getTicketAgeDays(ticket.created_at);
+                    const age = getTicketAgeDays(ticket.created_at, ticket.completed_at);
                     const ageBarColor = getAgeBarColor(age);
                     const heading = ticket.company_name || ticket.customer_name || "Internal Ticket";
                     const assigneeName = getDisplayName(ticket.assigned_to);
