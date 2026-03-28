@@ -291,7 +291,6 @@ export const generateQuotationPDF = async (
     tableBody.push([
       (idx + 1).toString(),
       itemName,
-      item.hsn_sac || item.serial_no || "",
       qty.toString(),
       item.unit || "Pcs",
       fmt(price),
@@ -304,7 +303,7 @@ export const generateQuotationPDF = async (
   const courierCharge = Number(quotation.courier_charge) || 0;
   const courierGstAmt = Number(quotation.courier_gst_amount) || 0;
   if (courierCharge > 0) {
-    const courierLabel = `🚚 ${quotation.courier_type || "Courier Charges"}`;
+    const courierLabel = quotation.courier_type || "Courier Charges";
     const courierTaxPct = quotation.apply_courier_gst ? 18 : 0;
     const courierFinal = courierCharge + courierGstAmt;
     totalGstAmount += courierGstAmt;
@@ -313,7 +312,6 @@ export const generateQuotationPDF = async (
     tableBody.push([
       (items.length + 1).toString(),
       courierLabel,
-      "9965",
       "1",
       "Pcs",
       fmt(courierCharge),
@@ -326,7 +324,6 @@ export const generateQuotationPDF = async (
   tableBody.push([
     { content: "Total", styles: { fontStyle: "bold", fillColor: lightBg } },
     { content: "", styles: { fillColor: lightBg } },
-    { content: "", styles: { fillColor: lightBg } },
     { content: totalQuantity.toString(), styles: { fontStyle: "bold", fillColor: lightBg, halign: "center" } },
     { content: "", styles: { fillColor: lightBg } },
     { content: "", styles: { fillColor: lightBg } },
@@ -336,7 +333,7 @@ export const generateQuotationPDF = async (
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [["#", "Item name", "HSN/ SAC", "Quantity", "Unit", "Price/ Unit", "GST", "Amount"]],
+    head: [["#", "Item Name", "Qty", "Unit", "Price/Unit", "GST", "Amount"]],
     body: tableBody,
     theme: "grid",
     headStyles: {
@@ -359,12 +356,11 @@ export const generateQuotationPDF = async (
     columnStyles: {
       0: { cellWidth: 10, halign: "center" },
       1: { cellWidth: "auto", halign: "left" },
-      2: { cellWidth: 20, halign: "center" },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 14, halign: "center" },
-      5: { cellWidth: 26, halign: "right" },
-      6: { cellWidth: 30, halign: "right" },
-      7: { cellWidth: 28, halign: "right" },
+      2: { cellWidth: 16, halign: "center" },
+      3: { cellWidth: 14, halign: "center" },
+      4: { cellWidth: 28, halign: "right" },
+      5: { cellWidth: 32, halign: "right" },
+      6: { cellWidth: 28, halign: "right" },
     },
     alternateRowStyles: { fillColor: [255, 255, 255] },
   });

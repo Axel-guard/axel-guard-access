@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import { Plus, X, Loader2, AlertCircle } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useCreateSale, useGenerateOrderId } from "@/hooks/useSales";
 import { useProductCategories } from "@/hooks/useProductCategories";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEmail } from "@/hooks/useEmail";
@@ -42,6 +43,24 @@ interface ProductItem {
 const ACCOUNTS = ["IDFC4828", "IDFC7455", "Canara", "Cash"];
 const SALE_TYPES = ["With GST (18%)", "Without GST"];
 
+// Under 1 kg flat rates; above 1 kg: weight × rate/kg + 10% fuel
+const COURIER_RATE_PER_KG: Record<string, number> = {
+  "Courier via Air": 110,
+  "Courier via Surface": 90,
+};
+const COURIER_MIN_CHARGE: Record<string, number> = {
+  "Courier via Air": 150,
+  "Courier via Surface": 100,
+};
+
+function calcCourierCharge(totalWeightKg: number, type: string): number {
+  if (totalWeightKg <= 0) return 0;
+  if (totalWeightKg < 1) return COURIER_MIN_CHARGE[type] ?? (type.includes("Air") ? 150 : 100);
+  const rate = COURIER_RATE_PER_KG[type] ?? 110;
+  const base = totalWeightKg * rate;
+  return Math.round(base + base * 0.10);
+}
+
 export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const { data: employees = [] } = useEmployees();
   const { data: productData } = useProductCategories();
@@ -50,6 +69,18 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const createSale = useCreateSale();
   const generateOrderId = useGenerateOrderId();
   const { sendSaleEmail } = useEmail();
+
+  // Fetch product weights (product_name → weight_kg)
+  const { data: productWeights = [] } = useQuery({
+    queryKey: ["product-weights-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("product_name, weight_kg");
+      if (error) throw error;
+      return data as { product_name: string; weight_kg: number | null }[];
+    },
+  });
 
   const [orderId, setOrderId] = useState<string>("");
   const [isGeneratingOrderId, setIsGeneratingOrderId] = useState(false);
@@ -79,6 +110,33 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
   const [customerNotFound, setCustomerNotFound] = useState(false);
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [emailMissingError, setEmailMissingError] = useState(false);
+  const [showCourier, setShowCourier] = useState(false);
+  const [courierMode, setCourierMode] = useState("");
+
+  // product_name → weight_kg map
+  const productWeightMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of productWeights) {
+      map[p.product_name] = Number(p.weight_kg) || 0;
+    }
+    return map;
+  }, [productWeights]);
+
+  // Total order weight based on current product rows
+  const totalOrderWeight = useMemo(() => {
+    return products.reduce((sum, p) => {
+      const weight = productWeightMap[p.product_name] || 0;
+      const qty = Number(p.quantity) || 0;
+      return sum + weight * qty;
+    }, 0);
+  }, [products, productWeightMap]);
+
+  // Auto-recalculate courier charge when weight or mode changes
+  useEffect(() => {
+    if (!showCourier || !courierMode) return;
+    if (totalOrderWeight <= 0) return;
+    setFormData((f) => ({ ...f, courierCost: calcCourierCharge(totalOrderWeight, courierMode) }));
+  }, [totalOrderWeight, courierMode, showCourier]);
 
   // Auto-generate Order ID when dialog opens
   useEffect(() => {
@@ -332,6 +390,8 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
     });
     setProducts([{ category: "", product_name: "", quantity: "", unit_price: "" }]);
     setCustomerNotFound(false);
+    setShowCourier(false);
+    setCourierMode("");
   };
 
   const AutoFillHint = () => (
@@ -535,24 +595,62 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="courierCost">
-                Courier Cost
-                {formData.courierCost > 0 && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    (+18% GST: ₹{courierGST.toFixed(2)})
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="courierCost"
-                type="number"
-                min="0"
-                value={formData.courierCost || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, courierCost: Number(e.target.value) || 0 })
-                }
-                placeholder="0"
-              />
+              <Label>Courier</Label>
+              {!showCourier ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCourier(true)}
+                  className="w-full text-sm text-primary border border-dashed border-primary/40 rounded-lg py-2 px-3 hover:bg-primary/5 transition-colors flex items-center justify-center gap-1"
+                >
+                  + Add Courier Charges
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Select
+                      value={courierMode}
+                      onValueChange={(val) => {
+                        setCourierMode(val);
+                        // Auto-calculate based on weight; fallback to min charge
+                        const wt = totalOrderWeight > 0 ? totalOrderWeight : 0;
+                        setFormData((f) => ({ ...f, courierCost: calcCourierCharge(wt > 0 ? wt : 0.5, val) }));
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Courier via Air">Air</SelectItem>
+                        <SelectItem value="Courier via Surface">Surface</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.courierCost || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, courierCost: Number(e.target.value) || 0 })
+                      }
+                      placeholder="₹0"
+                      className="w-24"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setShowCourier(false); setCourierMode(""); setFormData(f => ({ ...f, courierCost: 0 })); }}
+                      className="text-muted-foreground hover:text-destructive text-xs px-1"
+                      title="Remove courier"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {totalOrderWeight > 0 && (
+                    <p className="text-xs text-muted-foreground">Total order weight: {totalOrderWeight.toFixed(2)} kg</p>
+                  )}
+                  {formData.courierCost > 0 && isWithGST && (
+                    <p className="text-xs text-muted-foreground">+18% GST: ₹{courierGST.toFixed(2)}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

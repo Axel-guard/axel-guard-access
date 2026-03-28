@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +61,24 @@ interface Lead {
   email: string | null;
 }
 
+// Under 1 kg flat rates; above 1 kg: weight × rate/kg + 10% fuel
+const COURIER_RATE_PER_KG: Record<string, number> = {
+  "Courier via Air": 110,
+  "Courier via Surface": 90,
+};
+const COURIER_MIN_CHARGE: Record<string, number> = {
+  "Courier via Air": 150,
+  "Courier via Surface": 100,
+};
+
+function calcCourierCharge(totalWeightKg: number, type: string): number {
+  if (totalWeightKg <= 0) return 0;
+  if (totalWeightKg < 1) return COURIER_MIN_CHARGE[type] ?? (type.includes("Air") ? 150 : 100);
+  const rate = COURIER_RATE_PER_KG[type] ?? 110;
+  const base = totalWeightKg * rate;
+  return Math.round(base + base * 0.10);
+}
+
 export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: QuotationFormProps) => {
   const navigate = useNavigate();
   const { isMasterAdmin } = useAuth();
@@ -87,6 +105,7 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
   const [remarks, setRemarks] = useState("");
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [emailMissingError, setEmailMissingError] = useState(false);
+  const [showCourier, setShowCourier] = useState(false);
   // Quotation Info
   const [quotationNo, setQuotationNo] = useState("");
   const [quotationDate, setQuotationDate] = useState(
@@ -188,12 +207,37 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, product_code, product_name, category")
+        .select("id, product_code, product_name, category, weight_kg")
         .order("product_name");
       if (error) throw error;
       return data;
     },
   });
+
+  // product_code → weight_kg map
+  const productWeightMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of products) {
+      map[(p as any).product_code] = Number((p as any).weight_kg) || 0;
+    }
+    return map;
+  }, [products]);
+
+  // Total order weight based on current items
+  const totalOrderWeight = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const weight = productWeightMap[item.product_code] || 0;
+      const qty = Number(item.quantity) || 0;
+      return sum + weight * qty;
+    }, 0);
+  }, [items, productWeightMap]);
+
+  // Auto-recalculate courier charge when weight or type changes
+  useEffect(() => {
+    if (!showCourier || !courierType) return;
+    if (totalOrderWeight <= 0) return;
+    setCourierCharge(calcCourierCharge(totalOrderWeight, courierType));
+  }, [totalOrderWeight, courierType, showCourier]);
 
   // Set quotation number when loaded (only for new quotations)
   useEffect(() => {
@@ -219,6 +263,9 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       setApplyGst(editQuotationData.apply_gst || false);
       setCourierType(editQuotationData.courier_type || "");
       setCourierCharge(Number(editQuotationData.courier_charge) || 0);
+      if (Number(editQuotationData.courier_charge) > 0 || editQuotationData.courier_type) {
+        setShowCourier(true);
+      }
       setCustomerFound(true);
 
       if (editQuotationData.items && editQuotationData.items.length > 0) {
@@ -720,37 +767,65 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
             </div>
 
             {/* Courier Section */}
-            <div className="space-y-3 rounded-lg border p-4">
-              <Label className="font-medium">Courier Charges</Label>
-              <div className="grid gap-3 sm:grid-cols-2 items-center">
-                <Select value={courierType} onValueChange={setCourierType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select courier type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Courier via Air">
-                      Courier via Air
-                    </SelectItem>
-                    <SelectItem value="Courier via Surface">
-                      Courier via Surface
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={courierCharge || ""}
-                  onChange={(e) => setCourierCharge(parseFloat(e.target.value) || 0)}
-                  placeholder="Courier charge (₹)"
-                />
+            {!showCourier ? (
+              <button
+                type="button"
+                onClick={() => setShowCourier(true)}
+                className="w-full text-sm text-primary border border-dashed border-primary/40 rounded-lg py-2 px-4 hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+              >
+                + Add Courier Charges
+              </button>
+            ) : (
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <Label className="font-medium">Courier Charges</Label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCourier(false); setCourierType(""); setCourierCharge(0); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 items-center">
+                  <Select
+                    value={courierType}
+                    onValueChange={(val) => {
+                      setCourierType(val);
+                      // Auto-calculate based on weight; fallback to min charge
+                      const wt = totalOrderWeight > 0 ? totalOrderWeight : 0;
+                      setCourierCharge(calcCourierCharge(wt > 0 ? wt : 0.5, val));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select courier type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Courier via Air">Courier via Air</SelectItem>
+                      <SelectItem value="Courier via Surface">Courier via Surface</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={courierCharge || ""}
+                    onChange={(e) => setCourierCharge(parseFloat(e.target.value) || 0)}
+                    placeholder="Courier charge (₹)"
+                  />
+                </div>
+                {totalOrderWeight > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Total order weight: {totalOrderWeight.toFixed(2)} kg
+                  </p>
+                )}
+                {applyGst && courierCharge > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    18% GST will be applied on courier charges
+                  </p>
+                )}
               </div>
-              {applyGst && courierCharge > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  18% GST will be applied on courier charges
-                </p>
-              )}
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -103,7 +103,8 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
               {/* ===== CLIENT + ESTIMATE INFO ===== */}
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
                 {/* Left: Client Details (60%) */}
-                <div className="sm:col-span-3 space-y-2">
+                <div className="sm:col-span-3">
+                  <div className="border rounded-lg p-4 space-y-2 h-full">
                   <p className="text-xs font-semibold text-destructive uppercase tracking-wider">Estimate For</p>
                   <p className="font-bold text-lg text-foreground">
                     {quotation.company_name || quotation.customer_name || "-"}
@@ -145,6 +146,7 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                       </p>
                     )}
                   </div>
+                  </div>
                 </div>
 
                 {/* Right: Estimate Info Card (40%) */}
@@ -183,7 +185,6 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                     <tr className="bg-destructive text-destructive-foreground">
                       <th className="px-3 py-2.5 text-center font-semibold text-xs w-10">#</th>
                       <th className="px-3 py-2.5 text-left font-semibold text-xs">Item Name</th>
-                      <th className="px-3 py-2.5 text-center font-semibold text-xs w-16">HSN</th>
                       <th className="px-3 py-2.5 text-center font-semibold text-xs w-12">Qty</th>
                       <th className="px-3 py-2.5 text-center font-semibold text-xs w-12">Unit</th>
                       <th className="px-3 py-2.5 text-right font-semibold text-xs w-24">Price/Unit</th>
@@ -212,7 +213,6 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                               <div className="text-xs text-muted-foreground">Model: {item.model_no}</div>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{item.hsn_sac || item.serial_no || "-"}</td>
                           <td className="px-3 py-2.5 text-center font-medium">{qty}</td>
                           <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{item.unit || "Pcs"}</td>
                           <td className="px-3 py-2.5 text-right">{fmt(price)}</td>
@@ -234,11 +234,10 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                         <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors bg-accent/20">
                           <td className="px-3 py-2.5 text-center text-muted-foreground">{itemCount + 1}</td>
                           <td className="px-3 py-2.5">
-                            <div className="font-medium text-foreground flex items-center gap-1.5">
-                              🚚 {quotation.courier_type || "Courier Charges"}
+                            <div className="font-medium text-foreground">
+                              {quotation.courier_type || "Courier Charges"}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">9965</td>
                           <td className="px-3 py-2.5 text-center font-medium">1</td>
                           <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">Pcs</td>
                           <td className="px-3 py-2.5 text-right">{fmt(courierAmt)}</td>
@@ -251,7 +250,7 @@ export const QuotationPreviewDialog = ({ quotationId, onClose }: QuotationPrevie
                     })()}
                     {/* Totals row */}
                     <tr className="bg-muted/50 font-semibold">
-                      <td className="px-3 py-2.5 text-center" colSpan={3}>Total</td>
+                      <td className="px-3 py-2.5 text-center" colSpan={2}>Total</td>
                       <td className="px-3 py-2.5 text-center">
                         {(quotation.items?.reduce((s: number, i: any) => s + Number(i.quantity), 0) || 0) + (Number(quotation.courier_charge) > 0 ? 1 : 0)}
                       </td>
