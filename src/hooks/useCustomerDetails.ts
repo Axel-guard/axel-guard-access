@@ -16,6 +16,13 @@ export interface CustomerProfile {
   created_at?: string;
 }
 
+export interface CustomerSuggestion {
+  customer_code: string;
+  customer_name: string;
+  mobile_number: string;
+  company_name?: string | null;
+}
+
 export interface CustomerOrder {
   order_id: string;
   sale_date: string;
@@ -48,6 +55,21 @@ export interface CustomerTicket {
   closed_at?: string;
 }
 
+// Unified ticket type that merges tickets + tasks tables
+export interface UnifiedTicket {
+  id: string;
+  source: "ticket" | "task";
+  ref_no: string;          // ticket_no or task id prefix
+  title: string;           // issue_type (ticket) or title (task)
+  description?: string;
+  status: string;
+  priority: string;
+  assigned_to?: string;
+  created_at: string;
+  updated_at?: string;
+  closed_at?: string;
+}
+
 export interface TimelineEvent {
   id: string;
   type: "lead" | "quotation" | "sale" | "dispatch" | "payment" | "ticket";
@@ -69,14 +91,14 @@ export interface LedgerEntry {
   type: "sale" | "payment";
 }
 
-// Fetch customer by code or mobile
+// ─── Search (exact first, then partial across 4 fields) ───────────────────────
 export const useCustomerSearch = (searchValue: string) => {
   return useQuery({
     queryKey: ["customer-search", searchValue],
     queryFn: async () => {
       if (!searchValue.trim()) return null;
 
-      // Try to find by customer code first
+      // Exact match on code or mobile
       let { data: lead, error } = await supabase
         .from("leads")
         .select("*")
@@ -86,11 +108,16 @@ export const useCustomerSearch = (searchValue: string) => {
       if (error) throw error;
 
       if (!lead) {
-        // Try partial matching
+        // Partial match across name, code, mobile, company
         const { data: partialMatch, error: partialError } = await supabase
           .from("leads")
           .select("*")
-          .or(`customer_code.ilike.%${searchValue}%,mobile_number.ilike.%${searchValue}%,customer_name.ilike.%${searchValue}%`)
+          .or(
+            `customer_code.ilike.%${searchValue}%,` +
+            `mobile_number.ilike.%${searchValue}%,` +
+            `customer_name.ilike.%${searchValue}%,` +
+            `company_name.ilike.%${searchValue}%`
+          )
           .limit(1)
           .maybeSingle();
 
@@ -104,7 +131,33 @@ export const useCustomerSearch = (searchValue: string) => {
   });
 };
 
-// Fetch customer orders
+// ─── Autocomplete suggestions (returns up to 8 matches) ───────────────────────
+export const useCustomerSuggestions = (query: string) => {
+  return useQuery({
+    queryKey: ["customer-suggestions", query],
+    queryFn: async () => {
+      if (!query || query.trim().length < 2) return [];
+      const q = query.trim();
+      const { data, error } = await supabase
+        .from("leads")
+        .select("customer_code, customer_name, mobile_number, company_name")
+        .or(
+          `customer_code.ilike.%${q}%,` +
+          `mobile_number.ilike.%${q}%,` +
+          `customer_name.ilike.%${q}%,` +
+          `company_name.ilike.%${q}%`
+        )
+        .order("customer_name", { ascending: true })
+        .limit(8);
+      if (error) throw error;
+      return (data || []) as CustomerSuggestion[];
+    },
+    enabled: query.trim().length >= 2,
+    staleTime: 5000,
+  });
+};
+
+// ─── Customer orders ──────────────────────────────────────────────────────────
 export const useCustomerOrders = (customerCode: string) => {
   return useQuery({
     queryKey: ["customer-orders", customerCode],
@@ -119,9 +172,8 @@ export const useCustomerOrders = (customerCode: string) => {
 
       if (error) throw error;
 
-      // Fetch sale items for each order
       const orderIds = sales?.map((s) => s.order_id) || [];
-      
+
       let items: any[] = [];
       if (orderIds.length > 0) {
         const { data: saleItems, error: itemsError } = await supabase
@@ -144,14 +196,13 @@ export const useCustomerOrders = (customerCode: string) => {
   });
 };
 
-// Fetch payment history
+// ─── Payment history ──────────────────────────────────────────────────────────
 export const useCustomerPayments = (customerCode: string) => {
   return useQuery({
     queryKey: ["customer-payments", customerCode],
     queryFn: async () => {
       if (!customerCode) return [];
 
-      // Get order IDs for this customer
       const { data: sales, error: salesError } = await supabase
         .from("sales")
         .select("order_id")
@@ -175,36 +226,84 @@ export const useCustomerPayments = (customerCode: string) => {
   });
 };
 
-// Fetch customer tickets
-export const useCustomerTickets = (customerCode: string) => {
+// ─── Tickets: merges tickets table + tasks table ───────────────────────────────
+export const useCustomerTickets = (customerCode: string, mobileNumber?: string) => {
   return useQuery({
-    queryKey: ["customer-tickets", customerCode],
+    queryKey: ["customer-tickets", customerCode, mobileNumber],
     queryFn: async () => {
-      if (!customerCode) return [];
+      if (!customerCode) return [] as UnifiedTicket[];
 
-      const { data, error } = await supabase
+      // 1. CRM tickets table
+      const { data: ticketsData } = await supabase
         .from("tickets")
-        .select("*")
+        .select("id, ticket_no, issue_type, description, status, priority, assigned_to, created_at, closed_at, updated_at")
         .eq("customer_code", customerCode)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as CustomerTicket[];
+      // 2. Tasks module (actual ticket module) – match by customer_code or mobile
+      let tasksFilter = `customer_code.eq.${customerCode}`;
+      if (mobileNumber) {
+        tasksFilter += `,customer_phone.eq.${mobileNumber}`;
+      }
+
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select("id, title, description, status, priority, assigned_to, created_at, updated_at, completed_at, customer_code, customer_phone")
+        .or(tasksFilter)
+        .order("created_at", { ascending: false });
+
+      // Normalise tickets → UnifiedTicket
+      const fromTickets: UnifiedTicket[] = (ticketsData || []).map((t) => ({
+        id: t.id,
+        source: "ticket" as const,
+        ref_no: t.ticket_no,
+        title: t.issue_type,
+        description: t.description ?? undefined,
+        status: t.status,
+        priority: t.priority,
+        assigned_to: t.assigned_to ?? undefined,
+        created_at: t.created_at,
+        updated_at: (t as any).updated_at ?? undefined,
+        closed_at: t.closed_at ?? undefined,
+      }));
+
+      // Normalise tasks → UnifiedTicket
+      const fromTasks: UnifiedTicket[] = (tasksData || []).map((t) => ({
+        id: t.id,
+        source: "task" as const,
+        ref_no: `TASK-${t.id.slice(0, 6).toUpperCase()}`,
+        title: t.title,
+        description: t.description ?? undefined,
+        status: t.status,
+        priority: t.priority,
+        assigned_to: t.assigned_to ?? undefined,
+        created_at: t.created_at,
+        updated_at: t.updated_at ?? undefined,
+        closed_at: t.completed_at ?? undefined,
+      }));
+
+      // Merge, deduplicate by id, sort newest first
+      const all = [...fromTickets, ...fromTasks].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      return all;
     },
     enabled: !!customerCode,
+    refetchInterval: 15000, // Real-time sync via polling
   });
 };
 
-// Build customer timeline
-export const useCustomerTimeline = (customerCode: string) => {
+// ─── Timeline (unified history) ───────────────────────────────────────────────
+export const useCustomerTimeline = (customerCode: string, mobileNumber?: string) => {
   return useQuery({
-    queryKey: ["customer-timeline", customerCode],
+    queryKey: ["customer-timeline", customerCode, mobileNumber],
     queryFn: async () => {
       if (!customerCode) return [];
 
       const events: TimelineEvent[] = [];
 
-      // Fetch lead info
+      // Lead created
       const { data: lead } = await supabase
         .from("leads")
         .select("created_at, status")
@@ -216,127 +315,187 @@ export const useCustomerTimeline = (customerCode: string) => {
           id: `lead-${customerCode}`,
           type: "lead",
           date: lead.created_at!,
-          title: "Lead Created",
-          status: lead.status,
+          title: "Customer Registered",
+          status: lead.status ?? undefined,
         });
       }
 
-      // Fetch quotations
+      // Quotations + their items
       const { data: quotations } = await supabase
         .from("quotations")
-        .select("id, quotation_no, created_at, status, grand_total, approved_at")
+        .select("id, quotation_no, created_at, status, grand_total, approved_at, quotation_date")
         .eq("customer_code", customerCode);
 
-      quotations?.forEach((q) => {
-        events.push({
-          id: `quotation-${q.id}`,
-          type: "quotation",
-          date: q.created_at,
-          title: `Quotation ${q.quotation_no} Created`,
-          amount: q.grand_total,
-          status: q.status,
+      if (quotations && quotations.length > 0) {
+        const quotationIds = quotations.map((q) => q.id);
+        const { data: qItems } = await supabase
+          .from("quotation_items")
+          .select("quotation_id, product_name, quantity, unit_price")
+          .in("quotation_id", quotationIds);
+
+        const qItemsMap: Record<string, typeof qItems> = {};
+        (qItems || []).forEach((item) => {
+          if (!qItemsMap[item.quotation_id]) qItemsMap[item.quotation_id] = [];
+          qItemsMap[item.quotation_id]!.push(item);
         });
 
-        if (q.approved_at && q.status === "Approved") {
-          events.push({
-            id: `quotation-approved-${q.id}`,
-            type: "quotation",
-            date: q.approved_at,
-            title: `Quotation ${q.quotation_no} Approved`,
-            amount: q.grand_total,
-            status: "Approved",
-          });
-        }
-      });
+        quotations.forEach((q) => {
+          const products = (qItemsMap[q.id] || [])
+            .map((i) => `${i.product_name} ×${i.quantity}`)
+            .join(", ");
 
-      // Fetch sales
+          events.push({
+            id: `quotation-${q.id}`,
+            type: "quotation",
+            date: q.quotation_date || q.created_at,
+            title: `Quotation ${q.quotation_no} Created`,
+            description: products || undefined,
+            amount: q.grand_total,
+            status: q.status,
+          });
+
+          if (q.approved_at && q.status === "Approved") {
+            events.push({
+              id: `quotation-approved-${q.id}`,
+              type: "quotation",
+              date: q.approved_at,
+              title: `Quotation ${q.quotation_no} Approved`,
+              amount: q.grand_total,
+              status: "Approved",
+            });
+          }
+        });
+      }
+
+      // Sales + their items + dispatch/shipment info
       const { data: sales } = await supabase
         .from("sales")
         .select("order_id, sale_date, total_amount")
         .eq("customer_code", customerCode);
 
-      sales?.forEach((s) => {
+      const orderIds = (sales || []).map((s) => s.order_id);
+
+      let saleItemsMap: Record<string, string[]> = {};
+      if (orderIds.length > 0) {
+        const { data: saleItems } = await supabase
+          .from("sale_items")
+          .select("order_id, product_name, quantity")
+          .in("order_id", orderIds);
+
+        (saleItems || []).forEach((item) => {
+          if (!saleItemsMap[item.order_id]) saleItemsMap[item.order_id] = [];
+          saleItemsMap[item.order_id].push(`${item.product_name} ×${item.quantity}`);
+        });
+      }
+
+      (sales || []).forEach((s) => {
+        const products = (saleItemsMap[s.order_id] || []).join(", ");
         events.push({
           id: `sale-${s.order_id}`,
           type: "sale",
           date: s.sale_date,
-          title: `Order #${s.order_id} Created`,
+          title: `Sale #${s.order_id}`,
+          description: products || undefined,
           amount: s.total_amount,
           status: "Completed",
         });
       });
 
-      // Fetch payments
-      const orderIds = sales?.map((s) => s.order_id) || [];
+      // Payments
       if (orderIds.length > 0) {
         const { data: payments } = await supabase
           .from("payment_history")
-          .select("*")
+          .select("id, order_id, payment_date, amount, account_received, payment_reference")
           .in("order_id", orderIds);
 
-        payments?.forEach((p) => {
+        (payments || []).forEach((p) => {
           events.push({
             id: `payment-${p.id}`,
             type: "payment",
             date: p.payment_date,
             title: `Payment Received for #${p.order_id}`,
+            description: `Via ${p.account_received}${p.payment_reference ? ` · Ref: ${p.payment_reference}` : ""}`,
             amount: p.amount,
-            description: `Via ${p.account_received}`,
+          });
+        });
+
+        // Shipments (dispatch events)
+        const { data: shipments } = await supabase
+          .from("shipments")
+          .select("id, order_id, created_at, courier_partner, tracking_id, shipping_mode")
+          .in("order_id", orderIds);
+
+        (shipments || []).forEach((sh) => {
+          const sale = (sales || []).find((s) => s.order_id === sh.order_id);
+          events.push({
+            id: `dispatch-${sh.id}`,
+            type: "dispatch",
+            date: sh.created_at!,
+            title: `Order #${sh.order_id} Dispatched`,
+            description: [
+              sh.courier_partner ? `Courier: ${sh.courier_partner}` : null,
+              sh.tracking_id ? `Tracking: ${sh.tracking_id}` : null,
+              sh.shipping_mode ? `Mode: ${sh.shipping_mode}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
           });
         });
       }
 
-      // Fetch tickets
+      // Tickets (CRM tickets table)
       const { data: tickets } = await supabase
         .from("tickets")
-        .select("*")
+        .select("id, ticket_no, created_at, issue_type, status, description")
         .eq("customer_code", customerCode);
 
-      tickets?.forEach((t) => {
+      (tickets || []).forEach((t) => {
         events.push({
           id: `ticket-${t.id}`,
           type: "ticket",
           date: t.created_at,
-          title: `Ticket ${t.ticket_no} Raised`,
-          description: t.issue_type,
+          title: `Ticket ${t.ticket_no}: ${t.issue_type}`,
+          description: t.description ?? undefined,
           status: t.status,
         });
       });
 
-      // Fetch dispatches (from inventory)
-      const { data: dispatches } = await supabase
-        .from("inventory")
-        .select("id, dispatch_date, order_id, product_name")
-        .eq("customer_code", customerCode)
-        .not("dispatch_date", "is", null);
+      // Tasks module tickets
+      let tasksFilter = `customer_code.eq.${customerCode}`;
+      if (mobileNumber) tasksFilter += `,customer_phone.eq.${mobileNumber}`;
 
-      dispatches?.forEach((d) => {
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id, title, created_at, status, description")
+        .or(tasksFilter);
+
+      (tasks || []).forEach((t) => {
         events.push({
-          id: `dispatch-${d.id}`,
-          type: "dispatch",
-          date: d.dispatch_date!,
-          title: `${d.product_name} Dispatched`,
-          description: `Order #${d.order_id}`,
+          id: `task-${t.id}`,
+          type: "ticket",
+          date: t.created_at,
+          title: `Task: ${t.title}`,
+          description: t.description ?? undefined,
+          status: t.status,
         });
       });
 
-      // Sort by date (newest first)
       events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       return events;
     },
     enabled: !!customerCode,
+    refetchInterval: 15000,
   });
 };
 
-// Calculate account ledger
+// ─── Account Ledger ───────────────────────────────────────────────────────────
 export const useCustomerLedger = (customerCode: string) => {
   return useQuery({
     queryKey: ["customer-ledger", customerCode],
     queryFn: async () => {
       if (!customerCode) return { entries: [], summary: { total: 0, received: 0, outstanding: 0 } };
 
-      // Fetch all sales
       const { data: sales } = await supabase
         .from("sales")
         .select("order_id, sale_date, total_amount")
@@ -345,7 +504,6 @@ export const useCustomerLedger = (customerCode: string) => {
 
       const orderIds = sales?.map((s) => s.order_id) || [];
 
-      // Fetch all payments
       let payments: any[] = [];
       if (orderIds.length > 0) {
         const { data: paymentData } = await supabase
@@ -356,7 +514,6 @@ export const useCustomerLedger = (customerCode: string) => {
         payments = paymentData || [];
       }
 
-      // Combine into ledger entries
       const allEntries: LedgerEntry[] = [];
 
       sales?.forEach((s) => {
@@ -383,22 +540,19 @@ export const useCustomerLedger = (customerCode: string) => {
         });
       });
 
-      // Sort by date
       allEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      // Calculate running balance
       let runningBalance = 0;
       allEntries.forEach((entry) => {
         runningBalance += entry.debit - entry.credit;
         entry.balance = runningBalance;
       });
 
-      // Calculate summary
       const totalBusiness = allEntries.reduce((sum, e) => sum + e.debit, 0);
       const totalReceived = allEntries.reduce((sum, e) => sum + e.credit, 0);
 
       return {
-        entries: allEntries.reverse(), // Newest first for display
+        entries: allEntries.reverse(),
         summary: {
           total: totalBusiness,
           received: totalReceived,
@@ -410,7 +564,7 @@ export const useCustomerLedger = (customerCode: string) => {
   });
 };
 
-// Update customer info
+// ─── Update customer ──────────────────────────────────────────────────────────
 export const useUpdateCustomer = () => {
   const queryClient = useQueryClient();
 
@@ -423,8 +577,9 @@ export const useUpdateCustomer = () => {
 
       if (error) throw error;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer-search"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-suggestions"] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
@@ -442,7 +597,7 @@ export const useUpdateCustomer = () => {
   });
 };
 
-// Create ticket
+// ─── Create ticket (CRM tickets table) ───────────────────────────────────────
 export const useCreateTicket = () => {
   const queryClient = useQueryClient();
 
@@ -454,7 +609,6 @@ export const useCreateTicket = () => {
       priority: string;
       assigned_to?: string;
     }) => {
-      // Generate ticket number
       const { data: ticketNo, error: noError } = await supabase.rpc("generate_ticket_no");
       if (noError) throw noError;
 
@@ -482,14 +636,14 @@ export const useCreateTicket = () => {
   });
 };
 
-// Update ticket
+// ─── Update ticket ────────────────────────────────────────────────────────────
 export const useUpdateTicket = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CustomerTicket> }) => {
       const updateData: any = { ...updates };
-      
+
       if (updates.status === "Closed" && !updates.closed_at) {
         updateData.closed_at = new Date().toISOString();
       }

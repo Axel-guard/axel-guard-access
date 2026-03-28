@@ -10,9 +10,10 @@ import { CustomerTicketsTab } from "./tabs/CustomerTicketsTab";
 interface CustomerTabsProps {
   customerCode: string;
   customer: CustomerProfile;
+  mobileNumber?: string;
 }
 
-export const CustomerTabs = ({ customerCode, customer }: CustomerTabsProps) => {
+export const CustomerTabs = ({ customerCode, customer, mobileNumber }: CustomerTabsProps) => {
   return (
     <Tabs defaultValue="basic" className="w-full">
       <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/50">
@@ -58,7 +59,7 @@ export const CustomerTabs = ({ customerCode, customer }: CustomerTabsProps) => {
           <CustomerBasicTab customer={customer} />
         </TabsContent>
         <TabsContent value="history">
-          <CustomerHistoryTab customerCode={customerCode} />
+          <CustomerHistoryTab customerCode={customerCode} mobileNumber={mobileNumber} />
         </TabsContent>
         <TabsContent value="orders">
           <CustomerOrdersTab customerCode={customerCode} />
@@ -67,7 +68,7 @@ export const CustomerTabs = ({ customerCode, customer }: CustomerTabsProps) => {
           <CustomerLedgerTab customerCode={customerCode} />
         </TabsContent>
         <TabsContent value="tickets">
-          <CustomerTicketsTab customerCode={customerCode} />
+          <CustomerTicketsTab customerCode={customerCode} mobileNumber={mobileNumber} />
         </TabsContent>
       </div>
     </Tabs>
