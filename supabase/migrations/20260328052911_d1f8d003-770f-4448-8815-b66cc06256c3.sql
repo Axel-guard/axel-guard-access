@@ -1,0 +1,1 @@
+UPDATE products SET product_type = 'service' WHERE product_name = 'MDVR Connector';
