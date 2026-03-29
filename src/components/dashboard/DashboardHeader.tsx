@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  Menu, Plus, FileText, LogOut, Search,
+  Menu, Plus, LogOut, Search,
   ShoppingCart, UserPlus, Wallet, FileEdit,
   Package, Truck, User, Shield, ListTodo,
-  Building2, Phone,
+  Building2, Phone, PhoneCall,
 } from "lucide-react";
 import { AxelGuardLogo } from "@/components/ui/axelguard-logo";
 import { Button } from "@/components/ui/button";
@@ -221,14 +221,14 @@ export const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Balance Report */}
+          {/* Follow-ups / TBRO */}
           <Button
             variant="outline" size="icon"
             className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
-            onClick={() => navigate("/balance-payments")}
+            onClick={() => navigate("/follow-ups")}
           >
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline sm:ml-2 text-sm">Balance Report</span>
+            <PhoneCall className="h-4 w-4" />
+            <span className="hidden sm:inline sm:ml-2 text-sm">Follow-ups</span>
           </Button>
 
           <NotificationPanel />

@@ -1,22 +1,24 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, History, ShoppingCart, Wallet, Ticket } from "lucide-react";
+import { User, History, ShoppingCart, Wallet, Ticket, Phone } from "lucide-react";
 import { CustomerProfile } from "@/hooks/useCustomerDetails";
 import { CustomerBasicTab } from "./tabs/CustomerBasicTab";
 import { CustomerHistoryTab } from "./tabs/CustomerHistoryTab";
 import { CustomerOrdersTab } from "./tabs/CustomerOrdersTab";
 import { CustomerLedgerTab } from "./tabs/CustomerLedgerTab";
 import { CustomerTicketsTab } from "./tabs/CustomerTicketsTab";
+import { CustomerCallingTab } from "./tabs/CustomerCallingTab";
 
 interface CustomerTabsProps {
   customerCode: string;
   customer: CustomerProfile;
   mobileNumber?: string;
+  leadId?: string | null;
 }
 
-export const CustomerTabs = ({ customerCode, customer, mobileNumber }: CustomerTabsProps) => {
+export const CustomerTabs = ({ customerCode, customer, mobileNumber, leadId }: CustomerTabsProps) => {
   return (
     <Tabs defaultValue="basic" className="w-full">
-      <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/50">
+      <TabsList className="grid w-full grid-cols-6 h-auto p-1 bg-muted/50">
         <TabsTrigger
           value="basic"
           className="flex items-center gap-2 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg"
@@ -43,7 +45,7 @@ export const CustomerTabs = ({ customerCode, customer, mobileNumber }: CustomerT
           className="flex items-center gap-2 py-3 data-[state=active]:bg-amber-600 data-[state=active]:text-white rounded-lg"
         >
           <Wallet className="h-4 w-4" />
-          <span className="hidden sm:inline">Account Ledger</span>
+          <span className="hidden sm:inline">Ledger</span>
         </TabsTrigger>
         <TabsTrigger
           value="tickets"
@@ -51,6 +53,13 @@ export const CustomerTabs = ({ customerCode, customer, mobileNumber }: CustomerT
         >
           <Ticket className="h-4 w-4" />
           <span className="hidden sm:inline">Tickets</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="calls"
+          className="flex items-center gap-2 py-3 data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-lg"
+        >
+          <Phone className="h-4 w-4" />
+          <span className="hidden sm:inline">Calls</span>
         </TabsTrigger>
       </TabsList>
 
@@ -69,6 +78,14 @@ export const CustomerTabs = ({ customerCode, customer, mobileNumber }: CustomerT
         </TabsContent>
         <TabsContent value="tickets">
           <CustomerTicketsTab customerCode={customerCode} mobileNumber={mobileNumber} />
+        </TabsContent>
+        <TabsContent value="calls">
+          <CustomerCallingTab
+            customerCode={customerCode}
+            leadId={leadId}
+            leadName={customer.customer_name}
+            currentStage={(customer as any).pipeline_stage}
+          />
         </TabsContent>
       </div>
     </Tabs>

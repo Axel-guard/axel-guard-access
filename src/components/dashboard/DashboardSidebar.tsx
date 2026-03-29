@@ -23,6 +23,9 @@ import {
   Shield,
   ListTodo,
   Clock,
+  PhoneCall,
+  Calendar,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,11 +82,11 @@ const navItems: NavItem[] = [
     icon: ShoppingCart,
     label: "Sale",
     children: [
+      { icon: TrendingUp, label: "Sales Dashboard", path: "/sales-dashboard" },
       { icon: ShoppingCart, label: "Current Month Sale", path: "/current-month-sales" },
       { icon: CreditCard, label: "Balance Payment", path: "/balance-payments" },
       { icon: Database, label: "Sale Database", path: "/sales" },
       { icon: FileCheck, label: "Quotations", path: "/quotations" },
-      { icon: ClipboardCheck, label: "Quotation Approvals", path: "/quotation-approvals" },
       { icon: RefreshCw, label: "Renewal", path: "/renewal" },
     ],
   },
@@ -100,10 +103,17 @@ const navItems: NavItem[] = [
   },
   { icon: ListTodo, label: "Tickets", path: "/tasks" },
   {
+    icon: PhoneCall,
+    label: "CRM",
+    children: [
+      { icon: Users, label: "Leads Pipeline", path: "/leads" },
+      { icon: Calendar, label: "Follow-ups", path: "/follow-ups" },
+    ],
+  },
+  {
     icon: Database,
     label: "Database",
     children: [
-      { icon: Users, label: "Leads Database", path: "/leads" },
       { icon: Package, label: "Products Database", path: "/products" },
       { icon: Tag, label: "Pricing", path: "/pricing" },
     ],

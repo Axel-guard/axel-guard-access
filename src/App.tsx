@@ -29,6 +29,8 @@ import EmployeeManagementPage from "./pages/EmployeeManagement";
 import BulkQCApprovalsPage from "./pages/BulkQCApprovals";
 import TasksPage from "./pages/Tasks";
 import PendencyPage from "./pages/Pendency";
+import FollowUpsPage from "./pages/FollowUps";
+import SalesDashboardPage from "./pages/SalesDashboard";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { toast } from "sonner";
 
@@ -95,6 +97,8 @@ const App = () => {
                 <Route path="renewal" element={<RenewalPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="tasks" element={<TasksPage />} />
+                <Route path="follow-ups" element={<FollowUpsPage />} />
+                <Route path="sales-dashboard" element={<SalesDashboardPage />} />
                 <Route path="pendency" element={<PendencyPage />} />
                 <Route path="pricing" element={<PricingPage />} />
                 <Route path="products" element={<ProductsDatabase />} />

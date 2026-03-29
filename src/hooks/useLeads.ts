@@ -14,6 +14,9 @@ export interface Lead {
   email?: string;
   complete_address?: string;
   status: string;
+  pipeline_stage?: string;
+  assigned_to?: string;
+  source?: string;
   created_at?: string;
   updated_at?: string;
 }
