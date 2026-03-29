@@ -106,23 +106,27 @@ export const LogCallDialog = ({
   });
 
   const handleSave = async () => {
-    await createCallLog.mutateAsync(buildPayload());
-    resetForm();
-    onOpenChange(false);
+    try {
+      await createCallLog.mutateAsync(buildPayload());
+      resetForm();
+      onOpenChange(false);
+    } catch { /* mutation's onError shows the specific toast */ }
   };
 
   const handleSaveAndMoveStage = async () => {
-    await createCallLog.mutateAsync(buildPayload());
-    if (leadId && moveToStage && moveToStage !== currentStage) {
-      await updateLead.mutateAsync({
-        id: leadId,
-        updates: { pipeline_stage: moveToStage },
-        changedBy: user?.email?.split("@")[0] || "Unknown",
-        fromStage: currentStage,
-      });
-    }
-    resetForm();
-    onOpenChange(false);
+    try {
+      await createCallLog.mutateAsync(buildPayload());
+      if (leadId && moveToStage && moveToStage !== currentStage) {
+        await updateLead.mutateAsync({
+          id: leadId,
+          updates: { pipeline_stage: moveToStage },
+          changedBy: user?.email?.split("@")[0] || "Unknown",
+          fromStage: currentStage,
+        });
+      }
+      resetForm();
+      onOpenChange(false);
+    } catch { /* mutation's onError shows the specific toast */ }
   };
 
   return (
