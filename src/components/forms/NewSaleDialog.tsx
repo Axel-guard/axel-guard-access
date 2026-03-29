@@ -27,9 +27,19 @@ import { useEmail } from "@/hooks/useEmail";
 import { AddEmailDialog } from "@/components/shared/AddEmailDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+export interface SalePrefill {
+  customerCode: string;
+  customerName: string;
+  companyName?: string;
+  customerContact: string;
+  location?: string;
+  email?: string;
+}
+
 interface NewSaleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  prefill?: SalePrefill;
 }
 
 interface ProductItem {
@@ -61,7 +71,7 @@ function calcCourierCharge(totalWeightKg: number, type: string): number {
   return Math.round(base + base * 0.10);
 }
 
-export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
+export const NewSaleDialog = ({ open, onOpenChange, prefill }: NewSaleDialogProps) => {
   const { data: employees = [] } = useEmployees();
   const { data: productData } = useProductCategories();
   const categories = productData?.categories || [];
@@ -155,6 +165,22 @@ export const NewSaleDialog = ({ open, onOpenChange }: NewSaleDialogProps) => {
         });
     }
   }, [open]);
+
+  // Pre-fill customer fields when prefill prop is provided
+  useEffect(() => {
+    if (open && prefill) {
+      setFormData((prev) => ({
+        ...prev,
+        customerCode: prefill.customerCode,
+        customerName: prefill.customerName,
+        companyName: prefill.companyName || "",
+        customerContact: prefill.customerContact,
+        location: prefill.location || "",
+        customerEmail: prefill.email || "",
+      }));
+      setCustomerNotFound(false);
+    }
+  }, [open, prefill]);
 
   // Customer auto-fill from Leads Database (by code or mobile)
   const lookupCustomer = useCallback(async (input: string) => {

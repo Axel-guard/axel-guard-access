@@ -48,6 +48,7 @@ interface QuotationFormProps {
   onSuccess?: () => void;
   onConvertToSale?: (quotationId: string) => void;
   editQuotationId?: string;
+  prefillCustomerCode?: string;
 }
 
 interface Lead {
@@ -79,7 +80,7 @@ function calcCourierCharge(totalWeightKg: number, type: string): number {
   return Math.round(base + base * 0.10);
 }
 
-export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: QuotationFormProps) => {
+export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId, prefillCustomerCode }: QuotationFormProps) => {
   const navigate = useNavigate();
   const { isMasterAdmin } = useAuth();
   const { data: nextQuotationNo } = useGenerateQuotationNo();
@@ -200,6 +201,14 @@ export const QuotationForm = ({ onSuccess, onConvertToSale, editQuotationId }: Q
       setIsSearching(false);
     }
   }, []);
+
+  // Auto-prefill customer when prefillCustomerCode is provided
+  useEffect(() => {
+    if (prefillCustomerCode && !editQuotationId) {
+      setCustomerCode(prefillCustomerCode);
+      fetchCustomerByCodeOrMobile(prefillCustomerCode);
+    }
+  }, [prefillCustomerCode, editQuotationId, fetchCustomerByCodeOrMobile]);
 
   // Fetch products
   const { data: products = [] } = useQuery({

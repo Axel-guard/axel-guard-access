@@ -207,11 +207,15 @@ const CustomerDetailsPage = () => {
       {/* Customer Profile */}
       {customer && !isLoading && (
         <>
-          <CustomerProfileHeader customer={customer} />
+          <CustomerProfileHeader
+            customer={customer}
+            leadId={(customer as any).id || null}
+          />
           <CustomerTabs
             customerCode={customer.customer_code}
             customer={customer}
             mobileNumber={customer.mobile_number}
+            leadId={(customer as any).id || null}
           />
         </>
       )}

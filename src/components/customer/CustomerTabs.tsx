@@ -71,7 +71,7 @@ export const CustomerTabs = ({ customerCode, customer, mobileNumber, leadId }: C
           <CustomerHistoryTab customerCode={customerCode} mobileNumber={mobileNumber} />
         </TabsContent>
         <TabsContent value="orders">
-          <CustomerOrdersTab customerCode={customerCode} />
+          <CustomerOrdersTab customerCode={customerCode} customer={customer} />
         </TabsContent>
         <TabsContent value="ledger">
           <CustomerLedgerTab customerCode={customerCode} />
