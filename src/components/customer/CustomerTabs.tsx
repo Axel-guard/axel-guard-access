@@ -68,7 +68,12 @@ export const CustomerTabs = ({ customerCode, customer, mobileNumber, leadId }: C
           <CustomerBasicTab customer={customer} />
         </TabsContent>
         <TabsContent value="history">
-          <CustomerHistoryTab customerCode={customerCode} mobileNumber={mobileNumber} />
+          <CustomerHistoryTab
+            customerCode={customerCode}
+            mobileNumber={mobileNumber}
+            leadId={leadId}
+            assignedTo={(customer as any).assigned_to}
+          />
         </TabsContent>
         <TabsContent value="orders">
           <CustomerOrdersTab customerCode={customerCode} customer={customer} />

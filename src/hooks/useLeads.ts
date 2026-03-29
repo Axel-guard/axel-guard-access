@@ -119,12 +119,29 @@ export const useUpdateLead = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Lead> }) => {
+    mutationFn: async ({ id, updates, changedBy, fromStage }: {
+      id: string;
+      updates: Partial<Lead>;
+      changedBy?: string;
+      fromStage?: string;
+    }) => {
       const { error } = await supabase.from("leads").update(updates).eq("id", id);
       if (error) throw error;
+
+      // Record stage change in history
+      if (updates.pipeline_stage) {
+        await supabase.from("lead_stage_history").insert({
+          lead_id:    id,
+          from_stage: fromStage ?? null,
+          to_stage:   updates.pipeline_stage,
+          changed_by: changedBy ?? null,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads-enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-kpis"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales"] });
       queryClient.invalidateQueries({ queryKey: ["all-sales-balance"] });
       queryClient.invalidateQueries({ queryKey: ["current-month-sales"] });
@@ -134,6 +151,26 @@ export const useUpdateLead = () => {
     },
     onError: (error) => {
       toast.error(`Failed to update lead: ${error.message}`);
+    },
+  });
+};
+
+// Bulk update many leads at once
+export const useBulkUpdateLeads = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<Lead> }) => {
+      const { error } = await supabase.from("leads").update(updates).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, { ids }) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["leads-enriched"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-kpis"] });
+      toast.success(`${ids.length} lead${ids.length > 1 ? "s" : ""} updated!`);
+    },
+    onError: (error) => {
+      toast.error(`Bulk update failed: ${error.message}`);
     },
   });
 };

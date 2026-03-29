@@ -1,5 +1,6 @@
 import { CustomerProfile } from "@/hooks/useCustomerDetails";
-import { Phone, Mail, Building2, MapPin, FileText } from "lucide-react";
+import { Phone, Mail, Building2, MapPin, FileText, UserCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { CustomerActionBar } from "./CustomerActionBar";
 
 interface CustomerProfileHeaderProps {
@@ -83,9 +84,23 @@ export const CustomerProfileHeader = ({ customer, leadId }: CustomerProfileHeade
 
       {/* ── Action bar strip ── */}
       <div className="px-6 py-3 border-t border-white/20 bg-black/10 backdrop-blur-sm flex items-center justify-between gap-4 flex-wrap">
-        <p className="text-xs text-primary-foreground/60 hidden sm:block">
-          CRM Actions
-        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          {(customer as any).assigned_to && (
+            <div className="flex items-center gap-1.5 text-xs text-primary-foreground/80">
+              <UserCheck className="h-3.5 w-3.5 text-primary-foreground/60" />
+              <span className="text-primary-foreground/60">Assigned:</span>
+              <span className="font-semibold text-primary-foreground">{(customer as any).assigned_to}</span>
+            </div>
+          )}
+          {(customer as any).pipeline_stage && (
+            <Badge className="bg-white/20 text-primary-foreground border-white/30 text-xs px-2 py-0">
+              {(customer as any).pipeline_stage}
+            </Badge>
+          )}
+          {!(customer as any).assigned_to && (
+            <p className="text-xs text-primary-foreground/50 hidden sm:block">CRM Actions</p>
+          )}
+        </div>
         <CustomerActionBar customer={customer} leadId={leadId} />
       </div>
     </div>

@@ -1,18 +1,32 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCustomerTimeline, TimelineEvent } from "@/hooks/useCustomerDetails";
+import { useUpdateLead } from "@/hooks/useLeads";
+import { useEmployees } from "@/hooks/useEmployees";
 import { format } from "date-fns";
 import {
   User, FileText, ShoppingCart, Truck, CreditCard, Ticket,
   CheckCircle, Clock, XCircle, Filter, IndianRupee,
+  Settings2, UserCheck, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CustomerHistoryTabProps {
   customerCode: string;
   mobileNumber?: string;
+  leadId?: string | null;
+  assignedTo?: string;
 }
 
 type EventFilter = "all" | TimelineEvent["type"];
@@ -67,9 +81,18 @@ const fmtDateTime = (d: string) => {
   catch { return d; }
 };
 
-export const CustomerHistoryTab = ({ customerCode, mobileNumber }: CustomerHistoryTabProps) => {
+export const CustomerHistoryTab = ({ customerCode, mobileNumber, leadId, assignedTo }: CustomerHistoryTabProps) => {
   const { data: timeline, isLoading } = useCustomerTimeline(customerCode, mobileNumber);
+  const { data: employees = [] } = useEmployees();
+  const updateLead = useUpdateLead();
   const [activeFilter, setActiveFilter] = useState<EventFilter>("all");
+
+  const handleReassign = async (employeeName: string) => {
+    if (!leadId) return;
+    try {
+      await updateLead.mutateAsync({ id: leadId, updates: { assigned_to: employeeName } });
+    } catch { /* handled by mutation's onError */ }
+  };
 
   const filtered = useMemo(() => {
     if (!timeline) return [];
@@ -123,6 +146,50 @@ export const CustomerHistoryTab = ({ customerCode, mobileNumber }: CustomerHisto
               ({timeline.length} event{timeline.length !== 1 ? "s" : ""})
             </span>
           </CardTitle>
+
+          <div className="flex items-center gap-2">
+            {/* Assigned user pill */}
+            {assignedTo && (
+              <div className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700">
+                <UserCheck className="h-3.5 w-3.5" />
+                {assignedTo}
+              </div>
+            )}
+            {!assignedTo && (
+              <span className="text-xs text-muted-foreground italic">Unassigned</span>
+            )}
+
+            {/* Reassign dropdown (only if leadId present) */}
+            {leadId && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-8 w-8" disabled={updateLead.isPending}>
+                    {updateLead.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Settings2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    Assign Lead To
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {employees.map((e) => (
+                    <DropdownMenuItem
+                      key={e.id}
+                      className={cn("text-xs", assignedTo === e.name && "bg-blue-50 text-blue-700 font-medium")}
+                      onClick={() => handleReassign(e.name)}
+                    >
+                      <User className="mr-2 h-3.5 w-3.5" />
+                      {e.name}
+                      {assignedTo === e.name && <span className="ml-auto text-[10px] text-blue-500">Current</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
         {/* Filter pills */}

@@ -6,21 +6,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useCreateCallLog } from "@/hooks/useCallLogs";
 import { useUpdateLead } from "@/hooks/useLeads";
 import { useAuth } from "@/contexts/AuthContext";
 import { Phone, Calendar, ArrowRight, Loader2 } from "lucide-react";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface LogCallDialogProps {
@@ -35,7 +30,7 @@ interface LogCallDialogProps {
 const CALL_STATUSES = ["Connected", "Not Connected", "Switched Off", "Busy"];
 const CALL_TYPES = ["Outgoing", "Incoming"];
 const DISPOSITIONS = ["Interested", "Not Interested", "Call Back Later", "Wrong Number", "Converted"];
-const PIPELINE_STAGES = ["Suspect", "Prospect", "Approach", "Negotiate", "Order Done"];
+const PIPELINE_STAGES = ["Suspect", "Prospect", "Approach", "Negotiate", "Order Done", "Order Lost"];
 
 const callStatusColor = (s: string) => {
   switch (s) {
@@ -54,6 +49,7 @@ const stageColor = (s: string) => {
     case "Approach":   return "bg-yellow-100 text-yellow-700";
     case "Negotiate":  return "bg-orange-100 text-orange-700";
     case "Order Done": return "bg-emerald-100 text-emerald-700";
+    case "Order Lost": return "bg-rose-100 text-rose-700";
     default:           return "bg-muted text-muted-foreground";
   }
 };
@@ -77,6 +73,7 @@ export const LogCallDialog = ({
   const [followupDate, setFollowupDate] = useState("");
   const [followupTime, setFollowupTime] = useState("");
   const [followupNotes, setFollowupNotes] = useState("");
+  const [dtPickerOpen, setDtPickerOpen] = useState(false);
   const [moveToStage, setMoveToStage] = useState(currentStage || "Suspect");
 
   const isConnected = callStatus === "Connected";
@@ -90,6 +87,7 @@ export const LogCallDialog = ({
     setFollowupDate("");
     setFollowupTime("");
     setFollowupNotes("");
+    setDtPickerOpen(false);
     setMoveToStage(currentStage || "Suspect");
   };
 
@@ -116,7 +114,12 @@ export const LogCallDialog = ({
   const handleSaveAndMoveStage = async () => {
     await createCallLog.mutateAsync(buildPayload());
     if (leadId && moveToStage && moveToStage !== currentStage) {
-      await updateLead.mutateAsync({ id: leadId, updates: { pipeline_stage: moveToStage } });
+      await updateLead.mutateAsync({
+        id: leadId,
+        updates: { pipeline_stage: moveToStage },
+        changedBy: user?.email?.split("@")[0] || "Unknown",
+        fromStage: currentStage,
+      });
     }
     resetForm();
     onOpenChange(false);
@@ -221,37 +224,45 @@ export const LogCallDialog = ({
           </div>
 
           {/* Follow-up */}
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
               <Calendar className="h-3.5 w-3.5" />
-              Next Follow-up
+              Next Follow-up (TBRO)
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Date</Label>
-                <Input
-                  type="date"
-                  className="mt-1"
-                  value={followupDate}
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={(e) => setFollowupDate(e.target.value)}
+            <Popover open={dtPickerOpen} onOpenChange={setDtPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-left transition-colors hover:bg-muted/60",
+                    followupDate ? "border-primary/40 bg-primary/5 text-foreground" : "border-border bg-background text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="h-4 w-4 shrink-0" />
+                  {followupDate
+                    ? `${format(new Date(followupDate + "T00:00:00"), "dd MMM yyyy")}${followupTime ? "  ·  " + followupTime.slice(0, 5) : ""}`
+                    : "Pick date & time…"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                <DateTimePicker
+                  disablePast
+                  initialDate={followupDate}
+                  initialTime={followupTime}
+                  onCancel={() => setDtPickerOpen(false)}
+                  onSet={(date, time) => {
+                    setFollowupDate(date);
+                    setFollowupTime(time);
+                    setDtPickerOpen(false);
+                  }}
                 />
-              </div>
-              <div>
-                <Label className="text-xs">Time</Label>
-                <Input
-                  type="time"
-                  className="mt-1"
-                  value={followupTime}
-                  onChange={(e) => setFollowupTime(e.target.value)}
-                />
-              </div>
-            </div>
+              </PopoverContent>
+            </Popover>
             {followupDate && (
               <div>
                 <Label className="text-xs">Reminder Note</Label>
-                <Input
-                  className="mt-1"
+                <input
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="e.g. Call back about pricing..."
                   value={followupNotes}
                   onChange={(e) => setFollowupNotes(e.target.value)}

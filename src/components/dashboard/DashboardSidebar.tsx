@@ -108,6 +108,7 @@ const navItems: NavItem[] = [
     children: [
       { icon: Users, label: "Leads Pipeline", path: "/leads" },
       { icon: Calendar, label: "Follow-ups", path: "/follow-ups" },
+      { icon: BarChart3, label: "CRM Reports", path: "/crm-reports" },
     ],
   },
   {
