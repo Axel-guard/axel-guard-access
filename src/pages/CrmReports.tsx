@@ -203,7 +203,55 @@ const CrmReportsPage = () => {
         )}
       </div>
 
-      {/* ── Employee table ── always visible, empty rows when no data ── */}
+      {/* ── Employee Call Summary cards ── */}
+      {!isLoading && d.byEmployee.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <PhoneCall className="h-4 w-4" /> Employee Call Summary
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {d.byEmployee.map((emp) => {
+              const pct = emp.totalCalls > 0 ? Math.round((emp.talkCalls / emp.totalCalls) * 100) : 0;
+              return (
+                <div key={emp.name} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                      {emp.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-semibold text-sm text-foreground truncate">{emp.name}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-lg bg-blue-50 border border-blue-100 py-2">
+                      <p className="text-xs text-blue-600 font-medium">Total</p>
+                      <p className="text-lg font-bold text-blue-700 tabular-nums">{emp.totalCalls}</p>
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 py-2">
+                      <p className="text-xs text-emerald-600 font-medium">Talk</p>
+                      <p className="text-lg font-bold text-emerald-700 tabular-nums">{emp.talkCalls}</p>
+                    </div>
+                    <div className="rounded-lg bg-red-50 border border-red-100 py-2">
+                      <p className="text-xs text-red-600 font-medium">Not Talk</p>
+                      <p className="text-lg font-bold text-red-700 tabular-nums">{emp.notTalkCalls}</p>
+                    </div>
+                  </div>
+                  {/* Connect rate bar */}
+                  <div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>Connect rate</span>
+                      <span className="font-semibold">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Employee Full Breakdown Table ── always visible, empty rows when no data ── */}
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
           <Users className="h-4 w-4" />

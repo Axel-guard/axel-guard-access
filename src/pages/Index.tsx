@@ -1,12 +1,124 @@
-import { Users, Calendar, AlertTriangle, PhoneCall, TrendingUp, ShoppingCart, Target, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { Users, Calendar, AlertTriangle, PhoneCall, TrendingUp, ShoppingCart, Target, CheckCircle2, Phone, PhoneOff, MoreVertical, Clock, Building2 } from "lucide-react";
 import { useDashboardSummary } from "@/hooks/useSales";
 import { useCrmKpis } from "@/hooks/useFollowUps";
 import { useEmployeeCrmStats } from "@/hooks/useEmployeeCrmStats";
+import { useRecentCallActivity, CallActivityItem } from "@/hooks/useRecentCallActivity";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+
+/* ── Call status helpers ─────────────────────────────────────── */
+const callStatusColor = (s: string) => {
+  switch (s) {
+    case "Connected":     return "bg-emerald-100 text-emerald-700 border-0";
+    case "Not Connected": return "bg-red-100 text-red-700 border-0";
+    case "Busy":          return "bg-amber-100 text-amber-700 border-0";
+    case "Switched Off":  return "bg-slate-100 text-slate-600 border-0";
+    default:              return "bg-muted text-muted-foreground border-0";
+  }
+};
+const dispositionColor = (d?: string | null) => {
+  switch (d) {
+    case "Interested":       return "bg-emerald-100 text-emerald-700 border-0";
+    case "Converted":        return "bg-blue-100 text-blue-700 border-0";
+    case "Not Interested":   return "bg-red-100 text-red-700 border-0";
+    case "Call Back Later":  return "bg-amber-100 text-amber-700 border-0";
+    case "Wrong Number":     return "bg-slate-100 text-slate-600 border-0";
+    default:                 return "bg-muted text-muted-foreground border-0";
+  }
+};
+const stageColor = (s?: string) => {
+  switch (s) {
+    case "Suspect":    return "bg-slate-100 text-slate-700 border-0";
+    case "Prospect":   return "bg-blue-100 text-blue-700 border-0";
+    case "Approach":   return "bg-yellow-100 text-yellow-700 border-0";
+    case "Negotiate":  return "bg-orange-100 text-orange-700 border-0";
+    case "Order Done": return "bg-emerald-100 text-emerald-700 border-0";
+    case "Order Lost": return "bg-rose-100 text-rose-700 border-0";
+    default:           return "bg-muted text-muted-foreground border-0";
+  }
+};
+const fmtTime = (iso: string) => {
+  try { return format(new Date(iso), "dd MMM, h:mm a"); } catch { return iso; }
+};
+const today = format(new Date(), "yyyy-MM-dd");
+const fmtTbro = (fu?: { date: string; time?: string } | null) => {
+  if (!fu) return null;
+  const isOverdue = fu.date < today;
+  const isToday   = fu.date === today;
+  const label = isOverdue ? "Overdue" : isToday ? "Today" : format(new Date(fu.date + "T00:00:00"), "dd MMM");
+  const timeStr = fu.time ? " · " + fu.time.slice(0, 5) : "";
+  return { label: label + timeStr, overdue: isOverdue, isToday };
+};
+
+/* ── Call Detail Dialog ──────────────────────────────────────── */
+const CallDetailDialog = ({ call, open, onClose }: { call: CallActivityItem | null; open: boolean; onClose: () => void }) => (
+  <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <DialogContent className="max-w-sm">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-base">
+          <Phone className="h-4 w-4 text-primary" />
+          Call Details
+        </DialogTitle>
+      </DialogHeader>
+      {call && (
+        <div className="space-y-3 text-sm">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Call Status</span>
+              <Badge className={callStatusColor(call.call_status)}>{call.call_status}</Badge>
+            </div>
+            {call.disposition && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Disposition</span>
+                <Badge className={dispositionColor(call.disposition)}>{call.disposition}</Badge>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Call Type</span>
+              <span className="font-medium">{call.call_type || "Outgoing"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Called By</span>
+              <span className="font-medium">{call.user_name || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Time</span>
+              <span className="font-medium">{fmtTime(call.created_at)}</span>
+            </div>
+          </div>
+          {call.notes && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Remarks</p>
+              <p className="text-sm bg-muted/40 rounded-lg px-3 py-2 leading-relaxed">{call.notes}</p>
+            </div>
+          )}
+          {call.next_followup && (() => {
+            const tbro = fmtTbro(call.next_followup);
+            return tbro ? (
+              <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <span className="text-xs text-muted-foreground">Next TBRO</span>
+                <span className={cn("text-xs font-semibold", tbro.overdue ? "text-red-600" : tbro.isToday ? "text-amber-600" : "text-foreground")}>
+                  {tbro.label}
+                </span>
+              </div>
+            ) : null;
+          })()}
+        </div>
+      )}
+    </DialogContent>
+  </Dialog>
+);
 
 const STAGE_COLORS: Record<string, string> = {
   "Suspect":    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
@@ -63,6 +175,8 @@ const Index = () => {
   const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
   const { data: crmKpis, isLoading: crmLoading } = useCrmKpis();
   const { data: empCrmStats = [], isLoading: empCrmLoading } = useEmployeeCrmStats();
+  const { data: callActivity = [], isLoading: callActivityLoading } = useRecentCallActivity(50);
+  const [detailCall, setDetailCall] = useState<CallActivityItem | null>(null);
 
   const isLoading = summaryLoading || crmLoading;
 
@@ -209,6 +323,147 @@ const Index = () => {
           </div>
         </div>
       )}
+
+      {/* ── Call Activity Feed ── */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Phone className="h-4 w-4 text-primary" />
+            Call Activity
+            {callActivity.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground">({callActivity.length} recent)</span>
+            )}
+          </h2>
+          <button onClick={() => navigate("/crm-reports")} className="text-xs text-primary hover:underline">
+            CRM Reports →
+          </button>
+        </div>
+
+        {callActivityLoading ? (
+          <div className="p-4 space-y-3">
+            {[1,2,3,4].map((i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+          </div>
+        ) : callActivity.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Phone className="h-8 w-8 text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">No calls logged yet</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Call logs will appear here once the CRM tables are set up</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Customer</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Company</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Mobile</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Call Time</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Stage</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Remarks</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Next TBRO</th>
+                  <th className="w-9 px-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {callActivity.map((call) => {
+                  const tbro = fmtTbro(call.next_followup);
+                  return (
+                    <tr key={call.id} className="hover:bg-muted/30 transition-colors group">
+                      {/* Customer */}
+                      <td className="px-3 py-2.5 min-w-[130px]">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center shrink-0",
+                            call.call_status === "Connected" ? "bg-emerald-100" : "bg-red-100"
+                          )}>
+                            {call.call_status === "Connected"
+                              ? <Phone className="h-3 w-3 text-emerald-600" />
+                              : <PhoneOff className="h-3 w-3 text-red-500" />}
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground leading-tight text-xs">
+                              {call.customer_name || "—"}
+                            </p>
+                            {call.customer_code && (
+                              <p className="text-[10px] text-muted-foreground font-mono leading-tight">
+                                {call.customer_code}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      {/* Company */}
+                      <td className="px-3 py-2.5 hidden md:table-cell">
+                        <span className="text-xs text-muted-foreground">{call.company_name || "—"}</span>
+                      </td>
+                      {/* Mobile */}
+                      <td className="px-3 py-2.5 hidden sm:table-cell">
+                        <span className="text-xs font-mono">{call.mobile_number || "—"}</span>
+                      </td>
+                      {/* Call Time */}
+                      <td className="px-3 py-2.5">
+                        <div>
+                          <span className="text-xs">{fmtTime(call.created_at)}</span>
+                          {call.user_name && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">by {call.user_name}</p>
+                          )}
+                        </div>
+                      </td>
+                      {/* Stage */}
+                      <td className="px-3 py-2.5 hidden sm:table-cell">
+                        {call.pipeline_stage ? (
+                          <Badge className={cn("text-[10px] px-2 py-0", stageColor(call.pipeline_stage))}>
+                            {call.pipeline_stage}
+                          </Badge>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                      {/* Remarks */}
+                      <td className="px-3 py-2.5 hidden lg:table-cell max-w-[180px]">
+                        <p className="text-xs text-muted-foreground truncate">{call.notes || "—"}</p>
+                      </td>
+                      {/* Next TBRO */}
+                      <td className="px-3 py-2.5 hidden lg:table-cell">
+                        {tbro ? (
+                          <span className={cn("text-xs font-medium flex items-center gap-1",
+                            tbro.overdue ? "text-red-600" : tbro.isToday ? "text-amber-600" : "text-foreground"
+                          )}>
+                            <Clock className="h-3 w-3 shrink-0" />{tbro.label}
+                          </span>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                      {/* 3-dot */}
+                      <td className="px-2 py-2.5">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="h-7 w-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted">
+                              <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onClick={() => setDetailCall(call)}>
+                              <Phone className="mr-2 h-3.5 w-3.5 text-primary" />
+                              View Full Details
+                            </DropdownMenuItem>
+                            {call.lead_id && (
+                              <DropdownMenuItem onClick={() => navigate("/customer-details", { state: { preloadCode: call.customer_code } })}>
+                                <Users className="mr-2 h-3.5 w-3.5" />
+                                Customer Profile
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Call Detail Dialog ── */}
+      <CallDetailDialog call={detailCall} open={!!detailCall} onClose={() => setDetailCall(null)} />
 
       {/* Employee CRM Performance — Admin only */}
       {(isAdmin || isMasterAdmin) && (
