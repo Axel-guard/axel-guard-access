@@ -134,7 +134,7 @@ const FollowUpsPage = () => {
   const [search, setSearch] = useState("");
   const [logCallTarget, setLogCallTarget] = useState<any>(null);
 
-  const { data, isLoading } = useFollowUps({ stage: stageFilter !== "all" ? stageFilter : undefined });
+  const { data, isLoading, isError } = useFollowUps({ stage: stageFilter !== "all" ? stageFilter : undefined });
   const updateStatus = useUpdateFollowUpStatus();
 
   const filterBySearch = (items: any[]) => {
@@ -150,6 +150,9 @@ const FollowUpsPage = () => {
   const todayItems = filterBySearch(data?.todayFollowUps || []);
   const upcomingItems = filterBySearch(data?.upcomingFollowUps || []);
   const missedItems = filterBySearch(data?.missedFollowUps || []);
+
+  // Treat error same as empty — table likely not set up yet
+  const showLoading = isLoading && !isError;
 
   const handleComplete = (id: string) => updateStatus.mutate({ id, status: "Completed" });
 
@@ -186,15 +189,15 @@ const FollowUpsPage = () => {
         <div className="flex flex-wrap gap-2">
           <div className="flex items-center gap-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1 text-sm font-medium text-blue-700 dark:text-blue-400">
             <Calendar className="h-3.5 w-3.5" />
-            Today: {isLoading ? "—" : todayItems.length}
+            Today: {showLoading ? "—" : todayItems.length}
           </div>
           <div className="flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-sm font-medium text-amber-700 dark:text-amber-400">
             <Clock className="h-3.5 w-3.5" />
-            Upcoming: {isLoading ? "—" : upcomingItems.length}
+            Upcoming: {showLoading ? "—" : upcomingItems.length}
           </div>
           <div className="flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/30 px-3 py-1 text-sm font-medium text-red-700 dark:text-red-400">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Missed: {isLoading ? "—" : missedItems.length}
+            Missed: {showLoading ? "—" : missedItems.length}
           </div>
         </div>
       </div>
@@ -227,19 +230,19 @@ const FollowUpsPage = () => {
         <TabsList className="bg-muted/50">
           <TabsTrigger value="today" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Calendar className="h-4 w-4" />
-            Today {!isLoading && todayItems.length > 0 && (
+            Today {!showLoading && todayItems.length > 0 && (
               <span className="ml-1 rounded-full bg-primary/20 px-1.5 text-xs font-bold">{todayItems.length}</span>
             )}
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Clock className="h-4 w-4" />
-            Upcoming {!isLoading && upcomingItems.length > 0 && (
+            Upcoming {!showLoading && upcomingItems.length > 0 && (
               <span className="ml-1 rounded-full bg-primary/20 px-1.5 text-xs font-bold">{upcomingItems.length}</span>
             )}
           </TabsTrigger>
           <TabsTrigger value="missed" className="gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
             <AlertTriangle className="h-4 w-4" />
-            Missed {!isLoading && missedItems.length > 0 && (
+            Missed {!showLoading && missedItems.length > 0 && (
               <span className="ml-1 rounded-full bg-destructive/20 px-1.5 text-xs font-bold">{missedItems.length}</span>
             )}
           </TabsTrigger>
@@ -255,7 +258,7 @@ const FollowUpsPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {isLoading ? (
+              {showLoading ? (
                 <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
               ) : todayItems.length === 0 ? (
                 emptyState(<Calendar className="h-10 w-10 opacity-20" />, "No follow-ups scheduled for today")
@@ -285,7 +288,7 @@ const FollowUpsPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {isLoading ? (
+              {showLoading ? (
                 <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
               ) : upcomingItems.length === 0 ? (
                 emptyState(<Clock className="h-10 w-10 opacity-20" />, "No upcoming follow-ups")
@@ -315,7 +318,7 @@ const FollowUpsPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {isLoading ? (
+              {showLoading ? (
                 <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
               ) : missedItems.length === 0 ? (
                 emptyState(<CheckCircle className="h-10 w-10 opacity-20 text-emerald-500" />, "No missed follow-ups — great job!")

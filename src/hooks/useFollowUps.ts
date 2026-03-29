@@ -41,7 +41,18 @@ export const useFollowUps = (filter?: { assignedTo?: string; stage?: string }) =
       }
 
       const { data: followUps, error } = await query;
-      if (error) throw error;
+      // Table may not exist yet — return empty gracefully
+      if (error) {
+        if (
+          error.code === "42P01" ||
+          error.code === "PGRST205" ||
+          error.message?.includes("does not exist") ||
+          error.message?.includes("schema cache")
+        ) {
+          return { todayFollowUps: [], upcomingFollowUps: [], missedFollowUps: [], all: [] };
+        }
+        throw error;
+      }
 
       const all = (followUps || []) as FollowUp[];
 
@@ -148,16 +159,20 @@ export const useCrmKpis = () => {
       const stageCounts: Record<string, number> = {
         "Suspect": 0, "Prospect": 0, "Approach": 0, "Negotiate": 0, "Order Done": 0,
       };
-      (stageRes.data || []).forEach((l: any) => {
-        const s = l.pipeline_stage || "Suspect";
-        stageCounts[s] = (stageCounts[s] || 0) + 1;
-      });
+      // pipeline_stage column may not exist yet — handle gracefully
+      if (!stageRes.error) {
+        (stageRes.data || []).forEach((l: any) => {
+          const s = l.pipeline_stage || "Suspect";
+          stageCounts[s] = (stageCounts[s] || 0) + 1;
+        });
+      }
 
       return {
         totalLeads: leadsRes.count || 0,
         newLeadsToday: newLeadsRes.count || 0,
-        followUpsToday: todayFURes.count || 0,
-        missedFollowUps: missedFURes.count || 0,
+        // follow_ups table may not exist yet — default to 0
+        followUpsToday: todayFURes.error ? 0 : (todayFURes.count || 0),
+        missedFollowUps: missedFURes.error ? 0 : (missedFURes.count || 0),
         stageCounts,
       };
     },
