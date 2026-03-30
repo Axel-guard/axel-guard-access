@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, AlertTriangle, PhoneCall, TrendingUp, ShoppingCart, Target, Phone, PhoneOff, MoreVertical, Clock, BarChart3 } from "lucide-react";
+import { Users, Calendar, AlertTriangle, PhoneCall, TrendingUp, ShoppingCart, Target, Phone, PhoneOff, MoreVertical, Clock, BarChart3, Ticket, IndianRupee } from "lucide-react";
 import { useDashboardSummary } from "@/hooks/useSales";
 import { useCrmKpis } from "@/hooks/useFollowUps";
 
@@ -387,8 +387,8 @@ const Index = () => {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[1,2,3].map(i => <Skeleton key={i} className="h-56 rounded-xl" />)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1,2,3].map(i => <Skeleton key={i} className="h-96 rounded-xl" />)}
               </div>
             ) : rows.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
@@ -396,16 +396,19 @@ const Index = () => {
               </p>
             ) : isAllPeriod ? (
               /* ── ALL view: comprehensive stats ── */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(rows as EmployeeAllStatsRow[]).map((emp) => {
-                  const pct = emp.totalCallsToday > 0 ? Math.round((emp.talkCallsToday / emp.totalCallsToday) * 100) : 0;
+                  const totalCombinedCalls = emp.totalCallsToday + emp.ticketCallsToday;
+                  const talkCombined       = emp.talkCallsToday + emp.ticketCallsToday; // ticket updates = connected interactions
+                  const pct = totalCombinedCalls > 0 ? Math.round((talkCombined / totalCombinedCalls) * 100) : 0;
                   const isMe = emp.name === myName;
+                  const fmtAmt = (v: number) => v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : `₹${v.toLocaleString()}`;
                   return (
                     <div key={emp.name} className={cn(
                       "rounded-xl border p-4 space-y-3",
                       isMe && !(isAdmin || isMasterAdmin) ? "border-primary/40 bg-primary/5" : "border-border bg-card"
                     )}>
-                      {/* Name row */}
+                      {/* ── Name header ── */}
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
                           {emp.name.charAt(0).toUpperCase()}
@@ -414,25 +417,81 @@ const Index = () => {
                         {isMe && <span className="ml-auto text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">You</span>}
                       </div>
 
-                      {/* Leads assigned */}
-                      <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 flex items-center justify-between">
-                        <span className="text-xs text-blue-700 font-medium">Leads Assigned</span>
-                        <span className="text-base font-bold text-blue-700 tabular-nums">{emp.leadsAssigned}</span>
+                      {/* ── Section 1: Today's Calls (CRM + Ticket calls combined) ── */}
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-2">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold flex items-center gap-1.5">
+                          <Phone className="h-3 w-3" /> Today's Calls
+                        </p>
+                        <div className="grid grid-cols-4 gap-1 text-center">
+                          <div className="rounded-md bg-blue-50 border border-blue-100 py-1.5">
+                            <p className="text-[9px] text-blue-600 font-medium leading-tight">CRM</p>
+                            <p className="text-sm font-bold text-blue-700 tabular-nums">{emp.totalCallsToday}</p>
+                          </div>
+                          <div className="rounded-md bg-emerald-50 border border-emerald-100 py-1.5">
+                            <p className="text-[9px] text-emerald-600 font-medium leading-tight">Talk</p>
+                            <p className="text-sm font-bold text-emerald-700 tabular-nums">{emp.talkCallsToday}</p>
+                          </div>
+                          <div className="rounded-md bg-red-50 border border-red-100 py-1.5">
+                            <p className="text-[9px] text-red-600 font-medium leading-tight">Not Talk</p>
+                            <p className="text-sm font-bold text-red-700 tabular-nums">{emp.notTalkCallsToday}</p>
+                          </div>
+                          <div className="rounded-md bg-purple-50 border border-purple-100 py-1.5">
+                            <p className="text-[9px] text-purple-600 font-medium leading-tight">Ticket</p>
+                            <p className="text-sm font-bold text-purple-700 tabular-nums">{emp.ticketCallsToday}</p>
+                          </div>
+                        </div>
+                        {totalCombinedCalls > 0 && (
+                          <div>
+                            <div className="flex justify-between text-[9px] text-muted-foreground mb-0.5">
+                              <span>Connect rate (incl. ticket)</span>
+                              <span className="font-semibold">{pct}%</span>
+                            </div>
+                            <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Pipeline stage breakdown */}
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Pipeline Stages</p>
+                      {/* ── Section 2: Sales ── */}
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-1.5">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold flex items-center gap-1.5">
+                          <IndianRupee className="h-3 w-3" /> Sales
+                        </p>
+                        <div className="grid grid-cols-3 gap-1">
+                          <div className="rounded-md bg-emerald-50 border border-emerald-100 p-1.5 text-center">
+                            <p className="text-[9px] text-emerald-600 font-medium leading-tight">Today's Sale</p>
+                            <p className="text-xs font-bold text-emerald-700 tabular-nums mt-0.5">{fmtAmt(emp.todaySaleAmount)}</p>
+                            <p className="text-[9px] text-emerald-600/70">{emp.todaySaleCount} order{emp.todaySaleCount !== 1 ? "s" : ""}</p>
+                          </div>
+                          <div className="rounded-md bg-blue-50 border border-blue-100 p-1.5 text-center">
+                            <p className="text-[9px] text-blue-600 font-medium leading-tight">Month Sale</p>
+                            <p className="text-xs font-bold text-blue-700 tabular-nums mt-0.5">{fmtAmt(emp.monthSaleAmount)}</p>
+                            <p className="text-[9px] text-blue-600/70">{emp.monthSaleCount} order{emp.monthSaleCount !== 1 ? "s" : ""}</p>
+                          </div>
+                          <div className="rounded-md bg-orange-50 border border-orange-100 p-1.5 text-center">
+                            <p className="text-[9px] text-orange-600 font-medium leading-tight">Balance Due</p>
+                            <p className="text-xs font-bold text-orange-700 tabular-nums mt-0.5">{fmtAmt(emp.monthBalanceAmount)}</p>
+                            <p className="text-[9px] text-orange-600/70">this month</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Section 3: Pipeline Stages ── */}
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold flex items-center gap-1.5">
+                          <TrendingUp className="h-3 w-3" /> Pipeline · {emp.leadsAssigned} leads
+                        </p>
                         <div className="grid grid-cols-3 gap-1">
                           {[
-                            { label: "Suspect",   value: emp.suspect,   cls: "bg-slate-50 border-slate-200 text-slate-700" },
-                            { label: "Prospect",  value: emp.prospect,  cls: "bg-blue-50 border-blue-100 text-blue-700" },
-                            { label: "Approach",  value: emp.approach,  cls: "bg-yellow-50 border-yellow-100 text-yellow-700" },
-                            { label: "Negotiate", value: emp.negotiate, cls: "bg-orange-50 border-orange-100 text-orange-700" },
-                            { label: "Order Done",value: emp.orderDone, cls: "bg-emerald-50 border-emerald-100 text-emerald-700" },
-                            { label: "Order Lost",value: emp.orderLost, cls: "bg-rose-50 border-rose-100 text-rose-700" },
+                            { label: "Suspect",    value: emp.suspect,   cls: "bg-slate-50 border-slate-200 text-slate-700" },
+                            { label: "Prospect",   value: emp.prospect,  cls: "bg-blue-50 border-blue-100 text-blue-700" },
+                            { label: "Approach",   value: emp.approach,  cls: "bg-yellow-50 border-yellow-100 text-yellow-700" },
+                            { label: "Negotiate",  value: emp.negotiate, cls: "bg-orange-50 border-orange-100 text-orange-700" },
+                            { label: "Order Done", value: emp.orderDone, cls: "bg-emerald-50 border-emerald-100 text-emerald-700" },
+                            { label: "Order Lost", value: emp.orderLost, cls: "bg-rose-50 border-rose-100 text-rose-700" },
                           ].map(({ label, value, cls }) => (
-                            <div key={label} className={cn("rounded-lg border px-1.5 py-1.5 text-center", cls)}>
+                            <div key={label} className={cn("rounded-md border px-1.5 py-1.5 text-center", cls)}>
                               <p className="text-[9px] font-medium leading-tight">{label}</p>
                               <p className="text-sm font-bold tabular-nums mt-0.5">{value}</p>
                             </div>
@@ -440,39 +499,12 @@ const Index = () => {
                         </div>
                       </div>
 
-                      {/* Today's calls + open tickets */}
-                      <div className="border-t border-border/60 pt-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Today's Calls</p>
-                        <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <div className="rounded-lg bg-blue-50 border border-blue-100 py-1.5">
-                            <p className="text-[10px] text-blue-600 font-medium">Total</p>
-                            <p className="text-base font-bold text-blue-700 tabular-nums">{emp.totalCallsToday}</p>
-                          </div>
-                          <div className="rounded-lg bg-emerald-50 border border-emerald-100 py-1.5">
-                            <p className="text-[10px] text-emerald-600 font-medium">Talk</p>
-                            <p className="text-base font-bold text-emerald-700 tabular-nums">{emp.talkCallsToday}</p>
-                          </div>
-                          <div className="rounded-lg bg-red-50 border border-red-100 py-1.5">
-                            <p className="text-[10px] text-red-600 font-medium">Not Talk</p>
-                            <p className="text-base font-bold text-red-700 tabular-nums">{emp.notTalkCallsToday}</p>
-                          </div>
-                        </div>
-                        {emp.totalCallsToday > 0 && (
-                          <div className="mt-2">
-                            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                              <span>Connect rate</span>
-                              <span className="font-semibold">{pct}%</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        )}
-                        {/* Open Tickets (WIP) */}
-                        <div className="mt-2 rounded-lg bg-purple-50 border border-purple-100 px-3 py-1.5 flex items-center justify-between">
-                          <span className="text-[10px] text-purple-700 font-semibold uppercase tracking-wide">Open Tickets (WIP)</span>
-                          <span className="text-sm font-bold text-purple-700 tabular-nums">{emp.openTickets}</span>
-                        </div>
+                      {/* ── Section 4: Open Tickets ── */}
+                      <div className="rounded-lg bg-purple-50 border border-purple-100 px-3 py-2 flex items-center justify-between">
+                        <span className="text-[10px] text-purple-700 font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                          <Ticket className="h-3 w-3" /> Open Tickets (WIP)
+                        </span>
+                        <span className="text-sm font-bold text-purple-700 tabular-nums">{emp.openTickets}</span>
                       </div>
                     </div>
                   );

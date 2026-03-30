@@ -69,9 +69,19 @@ export interface EmployeeAllStatsRow {
   negotiate: number;
   orderDone: number;
   orderLost: number;
+  // Today's calls (from call_logs)
   totalCallsToday: number;
   talkCallsToday: number;
   notTalkCallsToday: number;
+  // Today's ticket calls (open WIP tickets assigned to this employee)
+  ticketCallsToday: number;
+  // Sales
+  todaySaleAmount: number;
+  todaySaleCount: number;
+  monthSaleAmount: number;
+  monthSaleCount: number;
+  monthBalanceAmount: number;
+  // Tickets
   openTickets: number;
 }
 
@@ -79,25 +89,48 @@ export const useEmployeeAllStats = () => {
   return useQuery({
     queryKey: ["employee-all-stats"],
     queryFn: async (): Promise<EmployeeAllStatsRow[]> => {
-      const todayStart = startOfDay(new Date()).toISOString();
-      const todayEnd   = endOfDay(new Date()).toISOString();
+      const now        = new Date();
+      const todayStart = startOfDay(now).toISOString();
+      const todayEnd   = endOfDay(now).toISOString();
+      const monthStart = startOfMonth(now).toISOString();
+      const monthEnd   = endOfMonth(now).toISOString();
 
-      const [empsRes, leadsRes, callsRes, tasksRes] = await Promise.all([
+      const [empsRes, leadsRes, callsRes, tasksRes, taskUpdatesRes, salesTodayRes, salesMonthRes] = await Promise.all([
         supabase.from("employees").select("name, email, user_id").eq("is_active", true),
         supabase.from("leads").select("assigned_to, pipeline_stage"),
+        // Today's call_logs
         supabase.from("call_logs")
           .select("user_name, call_status")
           .gte("created_at", todayStart)
           .lte("created_at", todayEnd),
+        // WIP tasks (open tickets)
         supabase.from("tasks")
-          .select("assigned_to")
+          .select("id, assigned_to")
           .eq("status", "WIP"),
+        // Today's task_updates — proxy for "ticket calls" logged today
+        supabase.from("task_updates")
+          .select("user_id, created_at")
+          .gte("created_at", todayStart)
+          .lte("created_at", todayEnd),
+        // Today's sales
+        supabase.from("sales")
+          .select("employee_name, total_amount, balance_amount")
+          .gte("sale_date", todayStart)
+          .lte("sale_date", todayEnd),
+        // This month's sales
+        supabase.from("sales")
+          .select("employee_name, total_amount, balance_amount")
+          .gte("sale_date", monthStart)
+          .lte("sale_date", monthEnd),
       ]);
 
-      const employees = empsRes.data ?? [];
-      const leads     = leadsRes.data ?? [];
-      const calls     = (callsRes.error ? [] : callsRes.data) ?? [];
-      const tasks     = (tasksRes.error ? [] : tasksRes.data) ?? [];
+      const employees    = empsRes.data ?? [];
+      const leads        = leadsRes.data ?? [];
+      const calls        = (callsRes.error ? [] : callsRes.data) ?? [];
+      const tasks        = (tasksRes.error ? [] : tasksRes.data) ?? [];
+      const taskUpdates  = (taskUpdatesRes.error ? [] : taskUpdatesRes.data) ?? [];
+      const salesToday   = (salesTodayRes.error ? [] : salesTodayRes.data) ?? [];
+      const salesMonth   = (salesMonthRes.error ? [] : salesMonthRes.data) ?? [];
 
       // Build email-prefix → canonical name map  (e.g. "sachin" → "Sachin Kumar")
       // call_logs.user_name stores email prefix (user?.email?.split("@")[0])
@@ -149,6 +182,18 @@ export const useEmployeeAllStats = () => {
           const resolved = userIdToName[t.assigned_to];
           return resolved?.toLowerCase() === nameLower;
         });
+
+        // Ticket calls today = task_updates made today by this employee
+        const empTaskUpdates = taskUpdates.filter(u => {
+          if (!u.user_id) return false;
+          const resolved = userIdToName[u.user_id];
+          return resolved?.toLowerCase() === nameLower;
+        });
+
+        // Sales matching — sales.employee_name is a text field (full name)
+        const empSalesToday = salesToday.filter(s => s.employee_name?.trim().toLowerCase() === nameLower);
+        const empSalesMonth = salesMonth.filter(s => s.employee_name?.trim().toLowerCase() === nameLower);
+
         return {
           name,
           leadsAssigned:     empLeads.length,
@@ -161,6 +206,12 @@ export const useEmployeeAllStats = () => {
           totalCallsToday:   empCalls.length,
           talkCallsToday:    empCalls.filter(c => c.call_status === "Connected").length,
           notTalkCallsToday: empCalls.filter(c => c.call_status !== "Connected").length,
+          ticketCallsToday:  empTaskUpdates.length,
+          todaySaleAmount:   empSalesToday.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
+          todaySaleCount:    empSalesToday.length,
+          monthSaleAmount:   empSalesMonth.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
+          monthSaleCount:    empSalesMonth.length,
+          monthBalanceAmount: empSalesMonth.reduce((s, r) => s + (Number(r.balance_amount) || 0), 0),
           openTickets:       empTickets.length,
         };
       }).sort((a, b) => b.leadsAssigned - a.leadsAssigned);
