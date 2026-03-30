@@ -289,6 +289,7 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [saleItems, setSaleItems] = useState<any[]>([]);
+  const [fetchingCustomer, setFetchingCustomer] = useState(false);
 
   // Edit form state
   const [formData, setFormData] = useState({
@@ -408,6 +409,15 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       }
     }
   }, [isEditMode, sale, saleItems]);
+
+  // Once productsByCategory loads, back-fill any empty categories in the products state
+  useEffect(() => {
+    if (!isEditMode || Object.keys(productsByCategory).length === 0) return;
+    setProducts(prev => prev.map(p => ({
+      ...p,
+      category: p.category || findCategoryForProduct(p.product_name, productsByCategory),
+    })));
+  }, [productsByCategory, isEditMode]);
 
   // Fetch payment history
   const { data: paymentHistory = [] } = useQuery({
@@ -538,6 +548,30 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
 
   const handleSendEmail = async () => {
     await sendEmail("sale", sale.order_id);
+  };
+
+  // ---- Customer code lookup ----
+  const handleCustomerCodeBlur = async () => {
+    const code = formData.customerCode.trim();
+    if (!code || code === sale?.customer_code) return;
+    setFetchingCustomer(true);
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("customer_name, company_name, mobile_number")
+      .eq("customer_code", code)
+      .maybeSingle();
+    setFetchingCustomer(false);
+    if (lead) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: lead.customer_name || prev.customerName,
+        companyName: lead.company_name || prev.companyName,
+        customerContact: lead.mobile_number || prev.customerContact,
+      }));
+      toast.success("Customer details auto-filled");
+    } else {
+      toast.info("No lead found for this customer code — fill details manually");
+    }
   };
 
   // ---- Edit mode helpers ----
@@ -1072,7 +1106,16 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <Label>Customer Code *</Label>
-          <Input value={formData.customerCode} onChange={(e) => setFormData({ ...formData, customerCode: e.target.value })} required />
+          <div className="relative">
+            <Input
+              value={formData.customerCode}
+              onChange={(e) => setFormData({ ...formData, customerCode: e.target.value })}
+              onBlur={handleCustomerCodeBlur}
+              required
+            />
+            {fetchingCustomer && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Tab out after entering code to auto-fill customer details</p>
         </div>
         <div className="space-y-2">
           <Label>Customer Name</Label>
@@ -1142,7 +1185,9 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
       <div className="space-y-4">
         <h3 className="font-semibold text-foreground">Product Details</h3>
         <div className="space-y-3">
-          {products.map((product, index) => (
+          {products.map((product, index) => {
+            const productsInCategory = productsByCategory[product.category] || [];
+            return (
             <div key={index} className="grid gap-2 md:grid-cols-[1fr_1.5fr_80px_100px_100px_40px] items-end">
               <Select value={product.category} onValueChange={(v) => updateProduct(index, "category", v)}>
                 <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
@@ -1153,15 +1198,15 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
                 </SelectContent>
               </Select>
 
-              <Select value={product.product_name} onValueChange={(v) => updateProduct(index, "product_name", v)} disabled={!product.category}>
+              <Select key={`pname-${index}-${product.category}`} value={product.product_name} onValueChange={(v) => updateProduct(index, "product_name", v)} disabled={!product.category}>
                 <SelectTrigger>
                   <SelectValue placeholder={product.category ? "Select Product" : "Select Category First"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(productsByCategory[product.category] || []).map((p) => (
+                  {productsInCategory.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
-                  {product.product_name && !(productsByCategory[product.category] || []).includes(product.product_name) && (
+                  {product.product_name && !productsInCategory.includes(product.product_name) && (
                     <SelectItem value={product.product_name}>{product.product_name}</SelectItem>
                   )}
                 </SelectContent>
@@ -1174,7 +1219,8 @@ export const SaleDetailsDialog = ({ sale, open, onOpenChange, initialEditMode = 
                 <X className="h-4 w-4" />
               </Button>
             </div>
-          ))}
+            );
+          })}
         </div>
         <Button type="button" variant="default" size="sm" onClick={addProduct} disabled={products.length >= 10}>
           <Plus className="mr-1 h-4 w-4" /> Add Product

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateLead, useNextCustomerCode } from "@/hooks/useLeads";
 import { useQueryClient } from "@tanstack/react-query";
 import { createNotification } from "@/hooks/useNotifications";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   User, 
   Phone, 
@@ -58,6 +59,18 @@ export const NewLeadDialog = ({ open, onOpenChange }: NewLeadDialogProps) => {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Check for duplicate by mobile number
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("customer_code, customer_name")
+      .or(`mobile_number.eq.${formData.mobileNumber},alternate_mobile.eq.${formData.mobileNumber}`)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      const dup = existing[0];
+      toast.error(`Duplicate lead! Mobile ${formData.mobileNumber} already exists — ${dup.customer_name} (Code: ${dup.customer_code})`);
       return;
     }
 

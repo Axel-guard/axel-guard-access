@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 
-export type ReportPeriod = "today" | "yesterday" | "week" | "15days" | "month" | "custom";
+export type ReportPeriod = "today" | "yesterday" | "week" | "15days" | "month" | "custom" | "all";
 
 export interface CrmReportFilters {
   period: ReportPeriod;
@@ -59,6 +59,101 @@ function getDateRange(filters: CrmReportFilters): { from: Date; to: Date } {
     }
   }
 }
+
+export interface EmployeeAllStatsRow {
+  name: string;
+  leadsAssigned: number;
+  suspect: number;
+  prospect: number;
+  approach: number;
+  negotiate: number;
+  orderDone: number;
+  orderLost: number;
+  totalCallsMonth: number;
+  talkCallsMonth: number;
+  notTalkCallsMonth: number;
+}
+
+export const useEmployeeAllStats = () => {
+  return useQuery({
+    queryKey: ["employee-all-stats"],
+    queryFn: async (): Promise<EmployeeAllStatsRow[]> => {
+      const monthStart = startOfMonth(new Date()).toISOString();
+      const monthEnd   = endOfMonth(new Date()).toISOString();
+
+      const [empsRes, leadsRes, callsRes] = await Promise.all([
+        supabase.from("employees").select("name, email").eq("is_active", true),
+        supabase.from("leads").select("assigned_to, pipeline_stage"),
+        supabase.from("call_logs")
+          .select("user_name, call_status")
+          .gte("created_at", monthStart)
+          .lte("created_at", monthEnd),
+      ]);
+
+      const employees = empsRes.data ?? [];
+      const leads     = leadsRes.data ?? [];
+      const calls     = (callsRes.error ? [] : callsRes.data) ?? [];
+
+      // Build email-prefix → canonical name map  (e.g. "sachin" → "Sachin Kumar")
+      // call_logs.user_name stores email prefix (user?.email?.split("@")[0])
+      const prefixToName: Record<string, string> = {};
+      for (const emp of employees) {
+        const prefix = emp.email?.split("@")[0]?.toLowerCase();
+        if (prefix && emp.name) prefixToName[prefix] = emp.name;
+      }
+
+      // Canonical names from employees table (deduplicated)
+      const seen = new Set<string>();
+      const canonicalNames: string[] = [];
+      for (const emp of employees) {
+        const n = emp.name?.trim();
+        if (n && !seen.has(n.toLowerCase())) {
+          seen.add(n.toLowerCase());
+          canonicalNames.push(n);
+        }
+      }
+
+      // Also include any names that appear in leads/calls but not in employees table
+      const extraNames = new Set<string>();
+      leads.forEach(l => {
+        const n = l.assigned_to?.trim();
+        if (n && !seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); extraNames.add(n); }
+      });
+      calls.forEach(c => {
+        const resolved = c.user_name ? (prefixToName[c.user_name.toLowerCase()] ?? c.user_name) : null;
+        if (resolved && !seen.has(resolved.toLowerCase())) { seen.add(resolved.toLowerCase()); extraNames.add(resolved); }
+      });
+      const allNames = [...canonicalNames, ...Array.from(extraNames)];
+
+      return allNames.map(name => {
+        const nameLower = name.toLowerCase();
+        // Match leads by assigned_to (full name, case-insensitive)
+        const empLeads = leads.filter(l => l.assigned_to?.trim().toLowerCase() === nameLower);
+        // Match calls by resolving email prefix → canonical name
+        const empCalls = calls.filter(c => {
+          if (!c.user_name) return false;
+          const resolved = prefixToName[c.user_name.toLowerCase()] ?? c.user_name;
+          return resolved.toLowerCase() === nameLower;
+        });
+        return {
+          name,
+          leadsAssigned:     empLeads.length,
+          suspect:           empLeads.filter(l => l.pipeline_stage === "Suspect").length,
+          prospect:          empLeads.filter(l => l.pipeline_stage === "Prospect").length,
+          approach:          empLeads.filter(l => l.pipeline_stage === "Approach").length,
+          negotiate:         empLeads.filter(l => l.pipeline_stage === "Negotiate").length,
+          orderDone:         empLeads.filter(l => l.pipeline_stage === "Order Done").length,
+          orderLost:         empLeads.filter(l => l.pipeline_stage === "Order Lost").length,
+          totalCallsMonth:   empCalls.length,
+          talkCallsMonth:    empCalls.filter(c => c.call_status === "Connected").length,
+          notTalkCallsMonth: empCalls.filter(c => c.call_status !== "Connected").length,
+        };
+      }).sort((a, b) => b.leadsAssigned - a.leadsAssigned);
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+};
 
 export const useCrmReports = (filters: CrmReportFilters) => {
   return useQuery({

@@ -79,19 +79,41 @@ const Tasks = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      // Use RPC so we get names even when employees.user_id isn't populated
-      const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
-
-      if (!profiles) return;
-
       const emailMap: Record<string, string> = {};
       const nameMap: Record<string, string> = {};
       const roleMap: Record<string, string> = {};
 
-      for (const p of profiles as { user_id: string; email: string; name: string; employee_role: string }[]) {
+      // Primary: broader RPC returns ALL auth users (not just allowed_emails)
+      const { data: allProfiles } = await supabase.rpc("get_all_user_profiles" as any);
+      for (const p of (allProfiles ?? []) as { user_id: string; email: string; name: string; employee_role: string }[]) {
+        if (!p.user_id) continue;
         emailMap[p.user_id] = p.email || "";
-        nameMap[p.user_id] = p.name;
+        nameMap[p.user_id] = p.name || p.email?.split("@")[0] || p.user_id;
         roleMap[p.user_id] = p.employee_role || "User";
+      }
+
+      // Fallback 1: original RPC (covers cases where get_all_user_profiles isn't deployed yet)
+      if (Object.keys(nameMap).length === 0) {
+        const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
+        for (const p of (profiles ?? []) as { user_id: string; email: string; name: string; employee_role: string }[]) {
+          if (!p.user_id) continue;
+          emailMap[p.user_id] = p.email || "";
+          nameMap[p.user_id] = p.name || p.email?.split("@")[0] || p.user_id;
+          roleMap[p.user_id] = p.employee_role || "User";
+        }
+      }
+
+      // Fallback 2: employees table where user_id is set
+      const { data: emps } = await supabase
+        .from("employees")
+        .select("user_id, name, email, employee_role")
+        .not("user_id", "is", null)
+        .eq("is_active", true);
+      for (const emp of (emps ?? []) as { user_id: string | null; name: string; email: string | null; employee_role: string | null }[]) {
+        if (!emp.user_id || nameMap[emp.user_id]) continue;
+        nameMap[emp.user_id] = emp.name;
+        roleMap[emp.user_id] = emp.employee_role || "User";
+        if (emp.email) emailMap[emp.user_id] = emp.email;
       }
 
       setUserEmails(emailMap);
