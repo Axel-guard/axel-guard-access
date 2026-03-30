@@ -362,7 +362,18 @@ serve(async (req) => {
     const smtpUser = Deno.env.get("SMTP_USER")!;
     const smtpPass = Deno.env.get("SMTP_PASS")!;
 
-    const isCustomerTicket = task.task_type === "Customer" && task.customer_email_enabled && task.customer_email;
+    // Always look up latest customer email from leads table (user may have updated it since ticket creation)
+    let latestCustomerEmail = task.customer_email || null;
+    if (task.customer_code) {
+      const { data: leadRow } = await supabase
+        .from("leads")
+        .select("email")
+        .eq("customer_code", task.customer_code)
+        .maybeSingle();
+      if (leadRow?.email) latestCustomerEmail = leadRow.email;
+    }
+
+    const isCustomerTicket = task.task_type === "Customer" && task.customer_email_enabled && latestCustomerEmail;
     const adminEmails = await getAdminEmails();
     const allUserEmails = await getAllUserEmails();
 
@@ -381,10 +392,10 @@ serve(async (req) => {
       if (isCustomerTicket) {
         // Single unified email TO customer, CC internal team
         const email = getTicketCustomerEmail(task, "created");
-        const cc = buildCcList(task.customer_email);
+        const cc = buildCcList(latestCustomerEmail!);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
+          from: smtpUser, to: [latestCustomerEmail!], cc: cc.length ? cc : undefined,
           subject: email.subject, body: email.body,
         });
       } else {
@@ -404,10 +415,10 @@ serve(async (req) => {
       if (isCustomerTicket && statusChange !== "Pending Master Approval" && !internalOnly) {
         // Single unified email TO customer, CC internal team
         const email = getTicketCustomerEmail(task, "updated", remarks);
-        const cc = buildCcList(task.customer_email);
+        const cc = buildCcList(latestCustomerEmail!);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
+          from: smtpUser, to: [latestCustomerEmail!], cc: cc.length ? cc : undefined,
           subject: email.subject, body: email.body,
         });
       } else {
@@ -454,10 +465,10 @@ serve(async (req) => {
 
         // Single closure email TO customer, CC entire team
         const closureEmail = getTicketCustomerEmail(task, "closed", undefined, timeline);
-        const cc = buildCcList(task.customer_email);
+        const cc = buildCcList(latestCustomerEmail!);
         await sendSmtpEmail({
           host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass,
-          from: smtpUser, to: [task.customer_email], cc: cc.length ? cc : undefined,
+          from: smtpUser, to: [latestCustomerEmail!], cc: cc.length ? cc : undefined,
           subject: closureEmail.subject, body: closureEmail.body,
         });
       } else {

@@ -1139,15 +1139,17 @@ const getEmailTemplate = (
          .select("product_name, quantity, unit_price, amount, description")
          .eq("quotation_id", quotationId);
 
-       // Use customer_email from quotation record first, fallback to leads
-       customerEmail = quotation.customer_email || null;
-       if (!customerEmail && quotation.customer_code) {
+       // Always check leads table first (latest email), fall back to stored quotation email
+       if (quotation.customer_code) {
          const { data: lead } = await supabase
            .from("leads")
            .select("email")
            .eq("customer_code", quotation.customer_code)
            .single();
          customerEmail = lead?.email || null;
+       }
+       if (!customerEmail) {
+         customerEmail = quotation.customer_email || null;
        }
 
       if (!customerEmail) {
@@ -1191,15 +1193,17 @@ const getEmailTemplate = (
         );
       }
 
-       // Use customer_email from sale record first, fallback to leads
-       customerEmail = sale.customer_email || null;
-       if (!customerEmail && sale.customer_code) {
+       // Always check leads table first (latest email), fall back to stored sale email
+       if (sale.customer_code) {
          const { data: lead } = await supabase
            .from("leads")
            .select("email")
            .eq("customer_code", sale.customer_code)
            .single();
          customerEmail = lead?.email || null;
+       }
+       if (!customerEmail) {
+         customerEmail = sale.customer_email || null;
        }
 
       if (!customerEmail) {
