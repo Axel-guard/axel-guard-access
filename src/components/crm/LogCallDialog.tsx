@@ -275,53 +275,61 @@ export const LogCallDialog = ({
             )}
           </div>
 
-          {/* Move Stage section */}
-          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <ArrowRight className="h-3.5 w-3.5" />
-              Move to Stage
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {PIPELINE_STAGES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setMoveToStage(s)}
-                  className={cn(
-                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                    moveToStage === s
-                      ? stageColor(s) + " ring-2 ring-offset-1 ring-current border-current"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {s}
-                  {s === currentStage && <span className="ml-1 opacity-60">(current)</span>}
-                </button>
-              ))}
+          {/* Move Stage section — only when lead context available */}
+          {leadId && (
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <ArrowRight className="h-3.5 w-3.5" />
+                Move to Stage
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PIPELINE_STAGES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setMoveToStage(s)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                      moveToStage === s
+                        ? stageColor(s) + " ring-2 ring-offset-1 ring-current border-current"
+                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {s}
+                    {s === currentStage && <span className="ml-1 opacity-60">(current)</span>}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-2 pt-1 border-t border-border">
             <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>
               Cancel
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              disabled={isPending}
-              className="border-primary/30 text-primary hover:bg-primary/5"
-            >
-              {createCallLog.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              Save Call Log
-            </Button>
-            <Button
-              onClick={handleSaveAndMoveStage}
-              disabled={isPending}
-            >
-              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              Save & Move Stage
-            </Button>
+            {leadId ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleSave}
+                  disabled={isPending}
+                  className="border-primary/30 text-primary hover:bg-primary/5"
+                >
+                  {createCallLog.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                  Save Call Log
+                </Button>
+                <Button onClick={handleSaveAndMoveStage} disabled={isPending}>
+                  {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                  Save & Move Stage
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleSave} disabled={isPending}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                Save Call Log
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

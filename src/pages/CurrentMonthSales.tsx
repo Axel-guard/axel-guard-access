@@ -21,12 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Calendar, FileText, Truck } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Calendar, FileText, Truck, Phone } from "lucide-react";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
 import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewSaleDialog } from "@/components/forms/NewSaleDialog";
+import { LogCallDialog } from "@/components/crm/LogCallDialog";
 
 // Fetch current month sales only
 const useCurrentMonthSales = () => {
@@ -59,6 +60,7 @@ const CurrentMonthSalesPage = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
   const [docSale, setDocSale] = useState<any | null>(null);
+  const [logCallSale, setLogCallSale] = useState<any | null>(null);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
 
   // Get current month name for display
@@ -263,6 +265,10 @@ const CurrentMonthSalesPage = () => {
                                 <FileText className="mr-2 h-4 w-4" />
                                 Documents
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setLogCallSale(sale); }}>
+                                <Phone className="mr-2 h-4 w-4 text-emerald-600" />
+                                Log Call
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -290,6 +296,13 @@ const CurrentMonthSalesPage = () => {
       />
 
       <NewSaleDialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen} />
+
+      <LogCallDialog
+        open={!!logCallSale}
+        onOpenChange={(open) => !open && setLogCallSale(null)}
+        customerCode={logCallSale?.customer_code}
+        leadName={logCallSale?.customer_name}
+      />
 
       {/* Documents Dialog */}
       <Dialog open={!!docSale} onOpenChange={(open) => !open && setDocSale(null)}>

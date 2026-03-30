@@ -48,6 +48,7 @@ import {
   Pencil,
   Mail,
   RefreshCw,
+  Phone,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -63,6 +64,7 @@ import { QuotationStatusBadge } from "./QuotationStatusBadge";
 import { QuotationEmailButton } from "./QuotationEmailButton";
 import { ApproveQuotationButton } from "./ApproveQuotationButton";
 import { QuotationPreviewDialog } from "./QuotationPreviewDialog";
+import { LogCallDialog } from "@/components/crm/LogCallDialog";
 
 interface QuotationsListProps {
   onConvertToSale?: (quotationId: string) => void;
@@ -81,6 +83,7 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
   const [quotationToDelete, setQuotationToDelete] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [previewQuotationId, setPreviewQuotationId] = useState<string | null>(null);
+  const [logCallQuotation, setLogCallQuotation] = useState<Quotation | null>(null);
 
   const { data: selectedQuotation } = useQuotationWithItems(selectedQuotationId);
 
@@ -305,6 +308,10 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
                                 View Sale (#{quotation.converted_order_id})
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem onClick={() => setLogCallQuotation(quotation)}>
+                              <Phone className="mr-2 h-4 w-4 text-emerald-600" />
+                              Log Call
+                            </DropdownMenuItem>
                             {(isMasterAdmin || isAdmin) && quotation.status !== "Converted" && (
                               <DropdownMenuItem
                                 onClick={() => handleDeleteClick(quotation.id)}
@@ -340,6 +347,13 @@ export const QuotationsList = ({ onConvertToSale, onEditQuotation }: QuotationsL
       <QuotationPreviewDialog
         quotationId={previewQuotationId}
         onClose={() => setPreviewQuotationId(null)}
+      />
+
+      <LogCallDialog
+        open={!!logCallQuotation}
+        onOpenChange={(open) => !open && setLogCallQuotation(null)}
+        customerCode={logCallQuotation?.customer_code}
+        leadName={logCallQuotation?.customer_name}
       />
 
       {/* Delete Confirmation */}

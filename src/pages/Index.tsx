@@ -398,7 +398,7 @@ const Index = () => {
               /* ── ALL view: comprehensive stats ── */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {(rows as EmployeeAllStatsRow[]).map((emp) => {
-                  const pct = emp.totalCallsMonth > 0 ? Math.round((emp.talkCallsMonth / emp.totalCallsMonth) * 100) : 0;
+                  const pct = emp.totalCallsToday > 0 ? Math.round((emp.talkCallsToday / emp.totalCallsToday) * 100) : 0;
                   const isMe = emp.name === myName;
                   return (
                     <div key={emp.name} className={cn(
@@ -440,24 +440,24 @@ const Index = () => {
                         </div>
                       </div>
 
-                      {/* Current month calls */}
+                      {/* Today's calls + open tickets */}
                       <div className="border-t border-border/60 pt-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Calls This Month</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1.5">Today's Calls</p>
                         <div className="grid grid-cols-3 gap-1.5 text-center">
                           <div className="rounded-lg bg-blue-50 border border-blue-100 py-1.5">
                             <p className="text-[10px] text-blue-600 font-medium">Total</p>
-                            <p className="text-base font-bold text-blue-700 tabular-nums">{emp.totalCallsMonth}</p>
+                            <p className="text-base font-bold text-blue-700 tabular-nums">{emp.totalCallsToday}</p>
                           </div>
                           <div className="rounded-lg bg-emerald-50 border border-emerald-100 py-1.5">
                             <p className="text-[10px] text-emerald-600 font-medium">Talk</p>
-                            <p className="text-base font-bold text-emerald-700 tabular-nums">{emp.talkCallsMonth}</p>
+                            <p className="text-base font-bold text-emerald-700 tabular-nums">{emp.talkCallsToday}</p>
                           </div>
                           <div className="rounded-lg bg-red-50 border border-red-100 py-1.5">
                             <p className="text-[10px] text-red-600 font-medium">Not Talk</p>
-                            <p className="text-base font-bold text-red-700 tabular-nums">{emp.notTalkCallsMonth}</p>
+                            <p className="text-base font-bold text-red-700 tabular-nums">{emp.notTalkCallsToday}</p>
                           </div>
                         </div>
-                        {emp.totalCallsMonth > 0 && (
+                        {emp.totalCallsToday > 0 && (
                           <div className="mt-2">
                             <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                               <span>Connect rate</span>
@@ -468,6 +468,11 @@ const Index = () => {
                             </div>
                           </div>
                         )}
+                        {/* Open Tickets (WIP) */}
+                        <div className="mt-2 rounded-lg bg-purple-50 border border-purple-100 px-3 py-1.5 flex items-center justify-between">
+                          <span className="text-[10px] text-purple-700 font-semibold uppercase tracking-wide">Open Tickets (WIP)</span>
+                          <span className="text-sm font-bold text-purple-700 tabular-nums">{emp.openTickets}</span>
+                        </div>
                       </div>
                     </div>
                   );

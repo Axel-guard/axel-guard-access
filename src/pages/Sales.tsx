@@ -13,13 +13,14 @@ import { format } from "date-fns";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2, FileText, Truck } from "lucide-react";
+import { MoreVertical, Eye, Search, ArrowUpDown, Wallet, Mail, Loader2, Pencil, Trash2, FileText, Truck, Phone } from "lucide-react";
 import { SalesUploadDialog } from "@/components/sales/SalesUploadDialog";
 import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog";
 import { BalanceDetailsDialog } from "@/components/sales/BalanceDetailsDialog";
 import { DeleteSaleDialog } from "@/components/forms/DeleteSaleDialog";
 import { SaleDocumentManager } from "@/components/sales/SaleDocumentManager";
 import { SendDetailsDropdown } from "@/components/sales/SendDetailsDropdown";
+import { LogCallDialog } from "@/components/crm/LogCallDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmail } from "@/hooks/useEmail";
@@ -52,6 +53,7 @@ const SalesPage = () => {
   const [deleteSale, setDeleteSale] = useState<any | null>(null);
   const [docSale, setDocSale] = useState<any | null>(null);
   const [sendingEmailOrderId, setSendingEmailOrderId] = useState<string | null>(null);
+  const [logCallSale, setLogCallSale] = useState<any | null>(null);
   const { sendSaleEmail } = useEmail();
 
   const handleSendEmail = async (orderId: string, e: React.MouseEvent) => {
@@ -232,6 +234,15 @@ const SalesPage = () => {
                               <Pencil className="mr-2 h-4 w-4" /> Edit Sale
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setLogCallSale(sale); }}>
+                            <Phone className="mr-2 h-4 w-4 text-emerald-600" /> Log Call
+                          </DropdownMenuItem>
+                          {/* Admin & Master Admin: Edit */}
+                          {(isMasterAdmin || isAdmin) && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditSale(sale); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit Sale
+                            </DropdownMenuItem>
+                          )}
                           {/* Master Admin only: Delete */}
                           {isMasterAdmin && (
                             <DropdownMenuItem
@@ -286,6 +297,13 @@ const SalesPage = () => {
           onOpenChange={(open) => !open && setDeleteSale(null)}
         />
       )}
+
+      <LogCallDialog
+        open={!!logCallSale}
+        onOpenChange={(open) => !open && setLogCallSale(null)}
+        customerCode={logCallSale?.customer_code}
+        leadName={logCallSale?.customer_name}
+      />
 
       {/* Documents Dialog */}
       <Dialog open={!!docSale} onOpenChange={(open) => !open && setDocSale(null)}>

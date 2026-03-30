@@ -69,37 +69,45 @@ export interface EmployeeAllStatsRow {
   negotiate: number;
   orderDone: number;
   orderLost: number;
-  totalCallsMonth: number;
-  talkCallsMonth: number;
-  notTalkCallsMonth: number;
+  totalCallsToday: number;
+  talkCallsToday: number;
+  notTalkCallsToday: number;
+  openTickets: number;
 }
 
 export const useEmployeeAllStats = () => {
   return useQuery({
     queryKey: ["employee-all-stats"],
     queryFn: async (): Promise<EmployeeAllStatsRow[]> => {
-      const monthStart = startOfMonth(new Date()).toISOString();
-      const monthEnd   = endOfMonth(new Date()).toISOString();
+      const todayStart = startOfDay(new Date()).toISOString();
+      const todayEnd   = endOfDay(new Date()).toISOString();
 
-      const [empsRes, leadsRes, callsRes] = await Promise.all([
-        supabase.from("employees").select("name, email").eq("is_active", true),
+      const [empsRes, leadsRes, callsRes, tasksRes] = await Promise.all([
+        supabase.from("employees").select("name, email, user_id").eq("is_active", true),
         supabase.from("leads").select("assigned_to, pipeline_stage"),
         supabase.from("call_logs")
           .select("user_name, call_status")
-          .gte("created_at", monthStart)
-          .lte("created_at", monthEnd),
+          .gte("created_at", todayStart)
+          .lte("created_at", todayEnd),
+        supabase.from("tasks")
+          .select("assigned_to")
+          .eq("status", "WIP"),
       ]);
 
       const employees = empsRes.data ?? [];
       const leads     = leadsRes.data ?? [];
       const calls     = (callsRes.error ? [] : callsRes.data) ?? [];
+      const tasks     = (tasksRes.error ? [] : tasksRes.data) ?? [];
 
       // Build email-prefix → canonical name map  (e.g. "sachin" → "Sachin Kumar")
       // call_logs.user_name stores email prefix (user?.email?.split("@")[0])
       const prefixToName: Record<string, string> = {};
+      // Build user_id → canonical name map for tasks matching
+      const userIdToName: Record<string, string> = {};
       for (const emp of employees) {
         const prefix = emp.email?.split("@")[0]?.toLowerCase();
         if (prefix && emp.name) prefixToName[prefix] = emp.name;
+        if (emp.user_id && emp.name) userIdToName[emp.user_id] = emp.name;
       }
 
       // Canonical names from employees table (deduplicated)
@@ -129,11 +137,17 @@ export const useEmployeeAllStats = () => {
         const nameLower = name.toLowerCase();
         // Match leads by assigned_to (full name, case-insensitive)
         const empLeads = leads.filter(l => l.assigned_to?.trim().toLowerCase() === nameLower);
-        // Match calls by resolving email prefix → canonical name
+        // Match calls by resolving email prefix → canonical name (today's calls only)
         const empCalls = calls.filter(c => {
           if (!c.user_name) return false;
           const resolved = prefixToName[c.user_name.toLowerCase()] ?? c.user_name;
           return resolved.toLowerCase() === nameLower;
+        });
+        // Match WIP tickets by assigned_to UUID → canonical name
+        const empTickets = tasks.filter(t => {
+          if (!t.assigned_to) return false;
+          const resolved = userIdToName[t.assigned_to];
+          return resolved?.toLowerCase() === nameLower;
         });
         return {
           name,
@@ -144,9 +158,10 @@ export const useEmployeeAllStats = () => {
           negotiate:         empLeads.filter(l => l.pipeline_stage === "Negotiate").length,
           orderDone:         empLeads.filter(l => l.pipeline_stage === "Order Done").length,
           orderLost:         empLeads.filter(l => l.pipeline_stage === "Order Lost").length,
-          totalCallsMonth:   empCalls.length,
-          talkCallsMonth:    empCalls.filter(c => c.call_status === "Connected").length,
-          notTalkCallsMonth: empCalls.filter(c => c.call_status !== "Connected").length,
+          totalCallsToday:   empCalls.length,
+          talkCallsToday:    empCalls.filter(c => c.call_status === "Connected").length,
+          notTalkCallsToday: empCalls.filter(c => c.call_status !== "Connected").length,
+          openTickets:       empTickets.length,
         };
       }).sort((a, b) => b.leadsAssigned - a.leadsAssigned);
     },

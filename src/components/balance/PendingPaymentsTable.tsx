@@ -4,16 +4,21 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Search, Filter, MoreVertical, Phone, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PendingPaymentsUploadDialog } from "./PendingPaymentsUploadDialog";
 import { BalancePaymentDialog } from "@/components/forms/BalancePaymentDialog";
+import { LogCallDialog } from "@/components/crm/LogCallDialog";
 
 type StatusFilter = "all" | "pending" | "partial";
 
@@ -36,6 +41,7 @@ const useUnpaidSales = () => {
 export const PendingPaymentsTable = ({ openOrderId }: { openOrderId?: string | null }) => {
   const { data: sales, isLoading } = useUnpaidSales();
   const [selectedSale, setSelectedSale] = useState<typeof sales extends (infer T)[] ? T : never | null>(null);
+  const [logCallSale, setLogCallSale] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -154,6 +160,7 @@ export const PendingPaymentsTable = ({ openOrderId }: { openOrderId?: string | n
               <TableHead className="font-semibold text-right">RECEIVED</TableHead>
               <TableHead className="font-semibold text-right">BALANCE</TableHead>
               <TableHead className="font-semibold text-center">STATUS</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,6 +183,23 @@ export const PendingPaymentsTable = ({ openOrderId }: { openOrderId?: string | n
                   <TableCell className="text-right text-success">₹{Number(sale.amount_received || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-destructive font-semibold">₹{balance.toLocaleString()}</TableCell>
                   <TableCell className="text-center">{getStatusBadge(sale)}</TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedSale(sale)}>
+                          <Wallet className="mr-2 h-4 w-4" /> View Balance
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setLogCallSale(sale)}>
+                          <Phone className="mr-2 h-4 w-4 text-emerald-600" /> Log Call
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -197,6 +221,13 @@ export const PendingPaymentsTable = ({ openOrderId }: { openOrderId?: string | n
           sale={selectedSale}
         />
       )}
+
+      <LogCallDialog
+        open={!!logCallSale}
+        onOpenChange={(open) => !open && setLogCallSale(null)}
+        customerCode={logCallSale?.customer_code}
+        leadName={logCallSale?.customer_name}
+      />
     </div>
   );
 };
