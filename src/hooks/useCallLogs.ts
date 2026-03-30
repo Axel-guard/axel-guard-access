@@ -20,6 +20,7 @@ export interface CallLog {
 export interface CreateCallLogData {
   lead_id?: string | null;
   customer_code?: string | null;
+  user_id?: string | null;
   user_name?: string | null;
   call_status: string;
   call_type?: string;

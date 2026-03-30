@@ -58,26 +58,75 @@ export const AddTaskDialog = ({ open, onOpenChange }: AddTaskDialogProps) => {
   useEffect(() => {
     if (!open) return;
     const fetchUsers = async () => {
-      // Use RPC so we resolve names via auth.users → employees email match,
-      // even when employees.user_id is not explicitly set
-      const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
-
-      if (!profiles) return;
-
       const seen = new Set<string>();
       const userList: AllowedUser[] = [];
 
-      for (const p of profiles as { user_id: string; email: string; name: string; employee_role: string }[]) {
-        if (seen.has(p.user_id)) continue;
-        seen.add(p.user_id);
-        userList.push({
-          userId: p.user_id,
-          email: p.email || "",
-          name: p.name,
-          role: p.employee_role || "User",
-        });
+      const addProfiles = (profiles: { user_id: string; email: string; name: string; employee_role: string }[]) => {
+        for (const p of profiles) {
+          if (!p.user_id || seen.has(p.user_id)) continue;
+          seen.add(p.user_id);
+          userList.push({
+            userId: p.user_id,
+            email: p.email || "",
+            name: p.name || p.email?.split("@")[0] || "Unknown",
+            role: p.employee_role || "User",
+          });
+        }
+      };
+
+      // Layer 1: try get_all_user_profiles (all auth users, not just allowed_emails)
+      const { data: allProfiles } = await supabase.rpc("get_all_user_profiles" as any);
+      if (allProfiles && (allProfiles as any[]).length > 0) {
+        addProfiles(allProfiles as any[]);
       }
 
+      // Layer 2: fall back to get_user_profiles (allowed_emails only)
+      if (userList.length === 0) {
+        const { data: profiles } = await supabase.rpc("get_user_profiles" as any);
+        if (profiles && (profiles as any[]).length > 0) {
+          addProfiles(profiles as any[]);
+        }
+      }
+
+      // Layer 3: fall back to employees table directly (works even if RPCs aren't deployed)
+      if (userList.length === 0) {
+        const { data: emps } = await supabase
+          .from("employees")
+          .select("user_id, name, email, employee_role")
+          .not("user_id", "is", null)
+          .eq("is_active", true)
+          .order("name");
+        for (const emp of (emps ?? []) as { user_id: string | null; name: string; email: string | null; employee_role: string | null }[]) {
+          if (!emp.user_id || seen.has(emp.user_id)) continue;
+          seen.add(emp.user_id);
+          userList.push({
+            userId: emp.user_id,
+            email: emp.email || "",
+            name: emp.name,
+            role: emp.employee_role || "User",
+          });
+        }
+      } else {
+        // Even if RPC succeeded, supplement with employees whose user_id wasn't in RPC results
+        const { data: emps } = await supabase
+          .from("employees")
+          .select("user_id, name, email, employee_role")
+          .not("user_id", "is", null)
+          .eq("is_active", true);
+        for (const emp of (emps ?? []) as { user_id: string | null; name: string; email: string | null; employee_role: string | null }[]) {
+          if (!emp.user_id || seen.has(emp.user_id)) continue;
+          seen.add(emp.user_id);
+          userList.push({
+            userId: emp.user_id,
+            email: emp.email || "",
+            name: emp.name,
+            role: emp.employee_role || "User",
+          });
+        }
+      }
+
+      // Sort by name
+      userList.sort((a, b) => a.name.localeCompare(b.name));
       setUsers(userList);
     };
     fetchUsers();

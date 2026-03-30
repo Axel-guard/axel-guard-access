@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useCreateCallLog } from "@/hooks/useCallLogs";
 import { useUpdateLead } from "@/hooks/useLeads";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Phone, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,21 @@ export const LogCallDialog = ({
   const { user } = useAuth();
   const createCallLog = useCreateCallLog();
   const updateLead = useUpdateLead();
+  const [canonicalName, setCanonicalName] = useState<string>("");
+
+  // Resolve logged-in user's canonical full name from employees table
+  useEffect(() => {
+    if (!user?.email) return;
+    supabase
+      .from("employees")
+      .select("name")
+      .ilike("email", user.email)
+      .eq("is_active", true)
+      .maybeSingle()
+      .then(({ data }) => {
+        setCanonicalName(data?.name || user.email!.split("@")[0]);
+      });
+  }, [user?.email]);
 
   const [callStatus, setCallStatus] = useState("Connected");
   const [callType, setCallType] = useState("Outgoing");
@@ -94,7 +110,8 @@ export const LogCallDialog = ({
   const buildPayload = () => ({
     lead_id: leadId || null,
     customer_code: customerCode || null,
-    user_name: user?.email?.split("@")[0] || "Unknown",
+    user_id: user?.id || null,
+    user_name: canonicalName || user?.email?.split("@")[0] || "Unknown",
     call_status: callStatus,
     call_type: callType,
     disposition: isConnected ? disposition || null : null,
